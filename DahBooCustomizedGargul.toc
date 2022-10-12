@@ -1,10 +1,10 @@
 ## Interface: 30400
-## Title: Gargul
-## Author: Zhorax - Firemaw
+## Title: Dah Boo Customized Gargul
+## Author: Bhahl - Auberdine
 ## Notes: Loot addon that supports softres sr, thatsmybis tmb, auto looting, loot priorities, plus one tracking and much more
-## Version: 4.9.0
+## Version: 4.0.0
 ## DefaultState: enabled
-## SavedVariables: GargulDB
+## SavedVariables: DahBooCustomizedGargulDB
 
 # Libraries
 libraries.xml
@@ -28,6 +28,7 @@ Classes/Settings.lua
 Classes/SoftRes.lua
 Classes/PlusOnes.lua
 Classes/TMB.lua
+Classes/TMBRaidGroups.lua
 Classes/Exporter.lua
 Classes/RollerUI.lua
 Classes/RollOff.lua
@@ -65,6 +66,7 @@ Interface/Settings/Rolling.lua
 Interface/Settings/RollTracking.lua
 Interface/Settings/SoftRes.lua
 Interface/Settings/BoostedRolls.lua
+Interface/Settings/RaidGroups.lua
 Interface/Settings/General.lua
 Interface/Settings/ShortcutKeys.lua
 Interface/Settings/LootHighlighting.lua
@@ -76,6 +78,8 @@ Interface/SoftRes/Importer.lua
 Interface/SoftRes/Overview.lua
 Interface/TMB/Importer.lua
 Interface/TMB/Overview.lua
+Interface/TMBRaidGroups/Importer.lua
+Interface/TMBRaidGroups/Overview.lua
 Interface/PlusOnes/OverView.lua
 Interface/TradeWindow/TimeLeft.lua
 Interface/PlayerSelector.lua

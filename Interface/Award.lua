@@ -98,7 +98,7 @@ function Award:draw(itemLink)
 
     ItemBox:DisableButton(true);
     ItemBox:SetHeight(20);
-    ItemBox:SetWidth(170);
+    ItemBox:SetWidth(150);
     ItemBox:SetCallback("OnTextChanged", function () self:ItemBoxChanged() end); -- Update item info when input value changes
     ItemBox:SetCallback("OnEnterPressed", function () self:ItemBoxChanged() end); -- Update item info when item is dragged on top (makes no sense to use OnEnterPressed I know)
     GL.Interface:setItem(self, "Item", ItemBox);
@@ -136,8 +136,8 @@ function Award:draw(itemLink)
     ]]
 
     local AwardButton = AceGUI:Create("Button");
-    AwardButton:SetText("Award");
-    AwardButton:SetWidth(70);
+    AwardButton:SetText("Attribuer");
+    AwardButton:SetWidth(90);
     AwardButton:SetHeight(20);
     AwardButton:SetDisabled(true);
     AwardButton:SetCallback("OnClick", function()
@@ -147,7 +147,8 @@ function Award:draw(itemLink)
         local winner = false;
 
         local award = function ()
-            local isOS, addPlusOne = false;
+            local isOS = false;
+            local addPlusOne = false;
             local cost = nil;
 
             local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
@@ -208,7 +209,7 @@ function Award:draw(itemLink)
 
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Award %s to |cff%s%s|r?",
+            question = string.format("Attribuer %s à |cff%s%s|r ?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(winner)),
                 winner
@@ -223,8 +224,8 @@ function Award:draw(itemLink)
         DISENCHANT BUTTON
     ]]
     local DisenchantButton = AceGUI:Create("Button");
-    DisenchantButton:SetText("Disenchant");
-    DisenchantButton:SetWidth(100);
+    DisenchantButton:SetText("Dez");
+    DisenchantButton:SetWidth(80);
     DisenchantButton:SetHeight(20);
     DisenchantButton:SetDisabled(false);
     DisenchantButton:SetCallback("OnClick", function()
@@ -291,7 +292,7 @@ function Award:draw(itemLink)
     Window:AddChild(ThirdRow);
 
     local CloseOnAward = AceGUI:Create("CheckBox");
-    CloseOnAward:SetLabel("Close on award");
+    CloseOnAward:SetLabel("Fermer à l'attribution");
     CloseOnAward:SetValue(Settings:get("UI.Award.closeOnAward", true));
     CloseOnAward:SetCallback("OnValueChanged", function (widget)
         Settings:set("UI.Award.closeOnAward", widget:GetValue());

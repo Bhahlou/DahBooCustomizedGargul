@@ -7,7 +7,7 @@ GL.Data = GL.Data or {};
 GL.Data.DefaultSettings = {
     changeLog = true,
     debugModeEnabled = false,
-    highlightsEnabled = true,
+    highlightsDisabled = false,
     highlightMyItemsOnly = false,
     highlightHardReservedItems = true,
     highlightSoftReservedItems = true,
@@ -36,7 +36,7 @@ GL.Data.DefaultSettings = {
         alwaysUseDefaultNote = false,
         announceMasterLooter = false,
         autoOpenMasterLooterDialog = true,
-        defaultRollOffNote = "/roll 100 for MS or 99 for OS",
+        defaultRollOffNote = "/roll 100 pour +1, /roll 80 pour +2, /roll 70 pour +3 ",
         doCountdown = true,
         announceRollEnd = true,
         announceRollStart = true,
@@ -77,8 +77,9 @@ GL.Data.DefaultSettings = {
     RollTracking = {
         trackAll = false,
         Brackets = {
-            {"MS", 1, 100, 2},
-            {"OS", 1, 99, 3},
+            {"+1", 1, 100, 1},
+            {"+2", 1, 80, 2},
+            {"+3", 1, 70, 5},
         },
     },
     SoftRes = {
@@ -145,5 +146,8 @@ GL.Data.DefaultSettings = {
         Award = {
             closeOnAward = true,
         },
+    },
+    TMBRaidGroups = {
+        useAsSortCriteria = false;
     }
 };

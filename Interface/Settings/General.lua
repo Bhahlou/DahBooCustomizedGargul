@@ -5,7 +5,8 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class GeneralSettings
 GL.Interface.Settings.General = {
-    description = "Gargul adds quality of life features for raiders, master looters and raid leaders. It can be used with SoftRes (softres.it) and TMB (thatsmybis.com) to create a hassle free raiding experience. |c00f7922eMost of Gargul's features can be tested even when not in a group, so go check them out!|r",
+    description = "Dah Boo Customized Gargul est une version remaniée de l'addon utilitaire Gargul, qui améliore la qualité de vie des raideurs, du responsable du butin et du raid leader. Il est désigné pour fonctionner avec TMB (thatsmybis.com) pour créer une expérience de raid sans problèmes.\n\nVérifiez les diverses sections sur la gauche de cette fenêtre ou visitez notre Wiki/Discord pour démarrer !",
+    wikiUrl = "https://github.com/papa-smurf/Gargul/wiki",
 };
 local General = GL.Interface.Settings.General; ---@type GeneralSettings
 
@@ -14,7 +15,7 @@ function General:draw(Parent)
     GL:debug("GeneralSettings:draw");
 
     local MoreInfoLabel = GL.AceGUI:Create("Label");
-    MoreInfoLabel:SetText("Join our Discord for support and getting involved!\n");
+    MoreInfoLabel:SetText("Pour un support personnel ou pour vous investir, vérifiez aussi notre discord:\n");
     MoreInfoLabel:SetFontObject(_G["GameFontNormal"]);
     MoreInfoLabel:SetFullWidth(true);
     Parent:AddChild(MoreInfoLabel);
@@ -23,7 +24,7 @@ function General:draw(Parent)
     DiscordURL:DisableButton(true);
     DiscordURL:SetHeight(20);
     DiscordURL:SetFullWidth(true);
-    DiscordURL:SetText("https://discord.gg/D3mDhYPVzf");
+    DiscordURL:SetText("https://discord.gg/3BYJzqeSJ9");
     Parent:AddChild(DiscordURL);
 
     local HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
@@ -42,7 +43,7 @@ function General:draw(Parent)
     Parent:AddChild(OpenSoftRes);
 
     local OpenTMB = GL.AceGUI:Create("Button");
-    OpenTMB:SetText("TMB or DFT");
+    OpenTMB:SetText("TMB ou DFT");
     OpenTMB:SetCallback("OnClick", function()
         GL.Settings:close();
         GL.Commands:call("tmb");
@@ -66,32 +67,32 @@ function General:draw(Parent)
 
     local Checkboxes = {
         {
-            label = "Welcome message",
+            label = "Message de bienvenue",
             setting = "welcomeMessage",
         },
         {
-            label = "Minimap Icon",
+            label = "Icône minicarte",
             setting = "showMinimapButton",
             callback = function()
                 GL.MinimapButton:drawOrHide();
             end,
         },
         {
-            label = "No sounds",
+            label = "Pas de sons",
             setting = "noSounds",
         },
         {
-            label = "No messages",
+            label = "Pas de messages",
             setting = "noMessages",
         },
         {
-            label = "Show changelog",
-            description = "Enable or disable the changelog which displays important update details after updating Gargul",
+            label = "Afficher journal de modifications",
+            description = "Active ou désactive le journal de modifications qui affiche le détail des changements après la mise à jour de Dah Boo Customized Gargul",
             setting = "changeLog",
         },
         {
-            label = "Experimental: debug mode",
-            description = "Enable debug mode, showing debug info in your chatbox. This is only meant for developers actively working on the Gargul add-on",
+            label = "Experimental : mode debug",
+            description = "Activer ceci activera le mode debug, qui affiche les infos de debug dans votre fenêtre de chat. Ceci est prévu uniquement pour les développeurs travaillant activement sur l'addon Dah Boo Customized Gargul",
             setting = "debugModeEnabled",
         },
     };

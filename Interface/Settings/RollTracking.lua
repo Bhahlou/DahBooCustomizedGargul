@@ -5,7 +5,7 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class RollTrackingSettings
 GL.Interface.Settings.RollTracking = {
-    description = "Gargul can keep track of incoming rolls. By default, Gargul will only track MS and OS rolls (|c00a79eff/rnd|r or |c00a79eff/rnd 99|r). The fields below allow you to customize this to your liking up to a maximum of 6 roll ranges. The 'Identifier' is the text shown on the buttons (maximum 3 characters), the 'Priority' field determines how rolls will be sorted in the roll tracking window (priority 1 is the top priority). |cffC41E3AMake sure to click the 'Save roll ranges' button when you're done editing the ranges!|r"
+    description = "Après avoir annoncé un objet et un roll aux joueurs, Dah Boo Customized Gargul gardera le suivi des rolls entrants. Par défaut, Dah Boo Customized Gargul ne garde que les rolls +1, +2, +3. Les champs ci-dessous vous permettent de customiser cela selon vos préférences, jusqu'à 6 'plages' de roll. L'identifieur est le texte affiché sur le bouton (maximum 3 caractères) et la 'Priorité' détermine comment les rolls seront triés dans la table de suivi (la priorité 1 est la plus haute). 2 ou davantage de plages de rolls peuvent partager la même priorité, ce ne sont pas des valeurs uniques. |cffC41E3AAttention à cliquer sur le bouton 'Sauvegarder plages de roll' lorsque vous avez terminé !|r"
 };
 local RollTracking = GL.Interface.Settings.RollTracking; ---@type RollTrackingSettings
 
@@ -16,8 +16,8 @@ function RollTracking:draw(Parent)
     local EditBoxes = {};
     local Checkboxes = {
         {
-            label = "Track all rolls",
-            description = "By default Gargul only tracks rolls that follow the rules defined below. If you want to track all rolls then enable this option. The range in which a player rolled will be displayed in the roll tracker window",
+            label = "Suivre tous les rolls",
+            description = "Par défaut, Dah Boo Customized Gargul ne suit que les rolls qui suivent les règles définies ci-dessous. Si vous voulez suivre tous les rolls, alors activez cette option. La plage dans la quelle le joueur a roll sera affichée dans la fenêtre de suivi des rolls",
             setting = "RollTracking.trackAll",
         },
     };
@@ -32,7 +32,7 @@ function RollTracking:draw(Parent)
 
     local StatusMessageLabel = nil;
     local SaveRollRanges = GL.AceGUI:Create("Button");
-    SaveRollRanges:SetText("Save roll ranges");
+    SaveRollRanges:SetText("Sauvegarder plages de roll");
     SaveRollRanges:SetCallback("OnClick", function()
         local TempNewRollSettings = GL.Settings:get("RollTracking.Brackets");
 
@@ -149,7 +149,7 @@ function RollTracking:draw(Parent)
         Max:SetWidth(100);
         Max:SetText(max);
         Parent:AddChild(Max);
-
+        
         local SortingPriority = GL.AceGUI:Create("EditBox");
         SortingPriority:DisableButton(true);
         SortingPriority:SetHeight(20);
@@ -167,22 +167,22 @@ function RollTracking:draw(Parent)
 
         if (i == 1) then
             Identifier:SetLabel(string.format(
-                "|cff%sIdentifier|r",
+                "|cff%sIdentifiant|r",
                 GL:classHexColor("rogue")
             ));
 
             Min:SetLabel(string.format(
-                "|cff%sMinimum roll|r",
+                "|cff%sRoll minimum|r",
                 GL:classHexColor("rogue")
             ));
 
             Max:SetLabel(string.format(
-                "|cff%sMaximum roll|r",
+                "|cff%sRoll maximum|r",
                 GL:classHexColor("rogue")
             ));
 
             SortingPriority:SetLabel(string.format(
-                "|cff%sPriority (sorting)|r",
+                "|cff%sPriorité (tri)|r",
                 GL:classHexColor("rogue")
             ));
         end

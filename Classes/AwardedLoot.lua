@@ -123,19 +123,19 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, cost)
     if (type(winner) ~= "string"
         or GL:empty(winner)
     ) then
-        return GL:debug("Invalid winner provided for AwardedLoot:addWinner");
+        return GL:debug("Gagnant invalide fourni pour AwardedLoot::addWinner");
     end
 
     if (type(itemLink) ~= "string"
         or GL:empty(itemLink)
     ) then
-        return GL:debug("Invalid itemLink provided for AwardedLoot:addWinner");
+        return GL:debug("Lien d'item invalide fourni pour AwardedLoot::addWinner");
     end
 
     local itemId = GL:getItemIdFromLink(itemLink);
 
     if (not itemId) then
-        return GL:debug("Invalid itemLink provided for AwardedLoot:addWinner");
+        return GL:debug("Lien d'item invalide fourni pour AwardedLoot::addWinner");
     end
 
     -- You can set the date for when this item was awarded, handy if you forgot an item for example
@@ -189,7 +189,7 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, cost)
     tinsert(GL.DB.AwardHistory, AwardEntry);
 
     -- Check whether the user disabled award announcement in the settings
-    if (not GL.Settings:get("AwardingLoot.awardMessagesEnabled")) then
+    if (GL.Settings:get("AwardingLoot.awardMessagesDisabled")) then
         announce = false;
     end
 

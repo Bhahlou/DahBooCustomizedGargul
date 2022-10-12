@@ -11,7 +11,7 @@ local MinimapButton = GL.MinimapButton; ---@type MinimapButton
 function MinimapButton:_init()
     local GLDataBroker = LibDataBroker:NewDataObject("Gargul", {
         type = "data source",
-        text = "Gargul",
+        text = "Dah Boo Customized Gargul",
         icon = "Interface\\AddOns\\Gargul\\Assets\\Buttons\\minimap",
         OnClick = function(_, button)
             if (button == "LeftButton") then
@@ -20,8 +20,8 @@ function MinimapButton:_init()
                 end
 
                 if (not GL.Interface.Settings.Overview.isVisible) then
-                    return GL.Commands:call("settings");
-                end
+                return GL.Commands:call("settings");
+            end
 
                 return GL.Interface.Settings.Overview:close();
             end
@@ -35,12 +35,12 @@ function MinimapButton:_init()
             end
         end,
         OnTooltipShow = function(tooltip)
-            tooltip:AddLine(string.format("|cff%sGargul v%s|r", GL.Data.Constants.addonHexColor, GL.version));
-            tooltip:AddLine("|cffffffffClick:|r Open Gargul");
-            tooltip:AddLine("|cffffffffRight-click:|r Import data");
-            tooltip:AddLine("|cffffffffShift+click:|r SoftRes");
-            tooltip:AddLine("|cffffffffShift+Right-click:|r Export data");
-            tooltip:AddLine("|cffffffffSlash Command:|r /gl or /gargul");
+            tooltip:AddLine(string.format("|cff%sDah Boo Customized Gargul v%s|r", GL.Data.Constants.addonHexColor, GL.version));
+            tooltip:AddLine("|cffffffffClic:|r Ouvre Dah Boo Customized Gargul");
+            tooltip:AddLine("|cffffffffClic-droit:|r Import données");
+            tooltip:AddLine("|cffffffffShift+clic:|r SoftRes");
+            tooltip:AddLine("|cffffffffShift+clic-droit:|r Export données");
+            tooltip:AddLine("|cffffffffCommandes slash:|r /dbcgl or /dbgargul");
         end,
     });
 

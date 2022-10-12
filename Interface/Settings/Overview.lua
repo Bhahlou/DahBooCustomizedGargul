@@ -12,28 +12,29 @@ GL.Interface.Settings.Overview = {
     previousSection = nil,
     defaultSection = "General",
     Sections = {
-        {"|c00a79effWELCOME|r", "General"},
+        {"|c00a79effBienvenue|r", "General"},
         {"SoftRes", "SoftRes"},
-        {"TMB and DFT", "TMB"},
-        {"Announce Loot", "DroppedLoot"},
-        {"Shortcut Keys", "ShortcutKeys"},
-        {"Exporting Loot", "ExportingLoot"},
-        {"Loot trade timers", "LootTradeTimers"},
-        {"Autoloot with PackMule", "PackMule"},
-        {"    Item Rules", "PackMuleRules"},
-        {"    Ignored Items", "PackMuleIgnores"},
+        {"TMB et DFT", "TMB"},
+        {"Loot obtenus", "DroppedLoot"},
+        {"Raccourcis", "ShortcutKeys"},
+        {"Export des loots", "ExportingLoot"},
+        {"Timer d'échange de loots", "LootTradeTimers"},
+        {"Autoloot PackMule", "PackMule"},
+        {"    Règles des items", "PackMuleRules"},
+        {"    Items ignorés", "PackMuleIgnores"},
         {"", ""},
-        {"|c00a79effADVANCED|r", ""},
-        {"Master Looting", "MasterLooting"},
-        {"    Roll Tracking", "RollTracking"},
-        {"    Awarding Loot", "AwardingLoot"},
-        {"Trade Announcements", "TradeAnnouncements"},
-        {"Rolling", "Rolling"},
-        {"Loot Highlighting", "LootHighlighting"},
-        {"Boosted Rolls", "BoostedRolls"},
+        {"|c00a79effAvancé|r", ""},
+        {"Master Loot", "MasterLooting"},
+        {"    Suivi des rolls", "RollTracking"},
+        {"    Attribution des loots", "AwardingLoot"},
+        {"Annonces d'échange", "TradeAnnouncements"},
+        {"Roll", "Rolling"},
+        {"Surbrillance des loots", "LootHighlighting"},
+        {"Rolls boostés", "BoostedRolls"},
+        {"    Groupes de raid", "RaidGroups"},
         {"", ""},
         {"", ""},
-        {"Slash Commands", "SlashCommands"},
+        {"Commandes slash", "SlashCommands"},
     },
     SectionIndexes = false,
 };
@@ -76,7 +77,7 @@ function Overview:draw(section)
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
-    Window:SetTitle("Gargul v" .. GL.version .. " - Settings");
+    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version .. " - Paramètres");
     Window:SetLayout("Flow");
     Window:SetWidth(800);
     Window:SetHeight(600);
@@ -214,7 +215,7 @@ function Overview:drawSectionsTable(Parent, section)
     GL:debug("Overview:drawSectionsTable");
 
     local sectionIndex = self.SectionIndexes[section];
-
+    
     -- The given section wasn't found
     if (not GL:higherThanZero(sectionIndex)) then
         return;
@@ -263,7 +264,7 @@ end
 function Overview:showSection(section)
     section = string.trim(section or "");
     local sectionIndex = self.SectionIndexes[section];
-
+    
     if (not GL:higherThanZero(sectionIndex)) then
         return false;
     end
@@ -280,7 +281,7 @@ function Overview:showSection(section)
     end
 
     local SectionClass = GL.Interface.Settings[sectionClassIdentifier] or {};
-
+    
     -- Make sure the provided section has the required "draw" method
     if (type(SectionClass.draw) ~= "function") then
         return false;
@@ -318,7 +319,7 @@ function Overview:showSection(section)
     -- Add a link to our wiki when available
     if (not GL:empty(SectionClass.wikiUrl)) then
         local MoreInfoLabel = GL.AceGUI:Create("Label");
-        MoreInfoLabel:SetText("\nVisit our Wiki for more info:\n");
+        MoreInfoLabel:SetText("\nVisitez notre wiki pour plus d'infos:\n");
         MoreInfoLabel:SetFontObject(_G["GameFontNormal"]);
         MoreInfoLabel:SetFullWidth(true);
         ScrollFrame:AddChild(MoreInfoLabel);
