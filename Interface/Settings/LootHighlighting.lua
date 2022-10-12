@@ -16,33 +16,33 @@ function LootHighlighting:draw(Parent)
 
     local Checkboxes = {
         {
-            label = "Highlight items",
-            description = "Enable or disable all highlighting, regardless of the settings below",
-            setting = "highlightsEnabled",
+            label = "Disable highlighting",
+            description = "Checking this will make sure that no item will ever be highlighted, regardless of the other settings below",
+            setting = "highlightsDisabled",
         },
         {
             label = "Highlight only my own items",
-            description = "Items will only receive a glow if they are reserved by you or on your TMB list(s)",
+            description = "Checking this will make sure that, while not master looting, items will only receive a glow if they are reserved by you or on your TMB list(s)",
             setting = "highlightMyItemsOnly",
         },
         {
             label = "SoftRes: Highlight soft-reserved items",
-            description = "Soft-reserved are highlighted\n(yellow glow)",
+            description = "Checking this will make sure that items that are soft-reserved are highlighted\n(yellow glow)",
             setting = "highlightSoftReservedItems",
         },
         {
             label = "SoftRes: Highlight hard-reserved items",
-            description = "Hard-reserved are highlighted\n(red glow)",
+            description = "Checking this will make sure that items that are hard-reserved are highlighted\n(red glow)",
             setting = "highlightHardReservedItems",
         },
         {
-            label = "TMB/DFT: Highlight wishlisted items",
-            description = "Wishlisted items are highlighted\n(white glow)",
+            label = "TMB: Highlight wishlisted items",
+            description = "Checking this will make sure that items that are on someone's wishlist are highlighted\n(white glow)",
             setting = "highlightWishlistedItems",
         },
         {
-            label = "TMB/DFT: Highlight LC items",
-            description = "Items that have a character (LC) priority are highlighted\n(orange glow)",
+            label = "TMB: Highlight LC items",
+            description = "Checking this will make sure that items that have a character (LC) priority are highlighted\n(orange glow)",
             setting = "highlightPriolistedItems",
         },
     };

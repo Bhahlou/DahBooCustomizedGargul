@@ -60,7 +60,7 @@ function MasterLooterUI:draw(itemLink)
 
     -- Create a container/parent frame
     Window = AceGUI:Create("Frame", "GARGUL_MASTERLOOTERUI_WINDOW");
-    Window:SetTitle("Gargul v" .. GL.version);
+    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(430);
     Window:SetHeight(350);
@@ -151,8 +151,8 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local StartButton = AceGUI:Create("Button");
-                StartButton:SetText("Start");
-                StartButton:SetWidth(80);
+                StartButton:SetText("Commencer");
+                StartButton:SetWidth(75);
                 StartButton:SetHeight(20);
                 StartButton:SetDisabled(true);
                 StartButton:SetCallback("OnClick", function()
@@ -178,8 +178,8 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local StopButton = AceGUI:Create("Button");
-                StopButton:SetText("Stop");
-                StopButton:SetWidth(80);
+                StopButton:SetText("Arrêter");
+                StopButton:SetWidth(75);
                 StopButton:SetHeight(20);
                 StopButton:SetDisabled(true);
                 StopButton:SetCallback("OnClick", function()
@@ -213,7 +213,7 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local ItemNoteLabel = AceGUI:Create("Label");
-                ItemNoteLabel:SetText("NOTE");
+                ItemNoteLabel:SetText("Note");
                 ItemNoteLabel:SetHeight(20);
                 ItemNoteLabel:SetWidth(35);
                 SecondRow:AddChild(ItemNoteLabel);
@@ -254,7 +254,7 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local TimerLabel = AceGUI:Create("Label");
-                TimerLabel:SetText("TIMER (s)");
+                TimerLabel:SetText("Temps (s)");
                 TimerLabel:SetHeight(20);
                 TimerLabel:SetWidth(55);
                 ThirdRow:AddChild(TimerLabel);
@@ -285,8 +285,8 @@ function MasterLooterUI:draw(itemLink)
                     RESET BUTTON
                 ]]
                 local ClearButton = AceGUI:Create("Button");
-                ClearButton:SetText("Clear");
-                ClearButton:SetWidth(66);
+                ClearButton:SetText("RAZ");
+                ClearButton:SetWidth(55);
                 ClearButton:SetHeight(20);
                 ClearButton:SetDisabled(false);
                 ClearButton:SetCallback("OnClick", function()
@@ -301,8 +301,8 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local AwardButton = AceGUI:Create("Button");
-                AwardButton:SetText("Award");
-                AwardButton:SetWidth(70);
+                AwardButton:SetText("Attribuer");
+                AwardButton:SetWidth(80);
                 AwardButton:SetHeight(20);
                 AwardButton:SetDisabled(true);
                 AwardButton:SetCallback("OnClick", function()
@@ -312,12 +312,13 @@ function MasterLooterUI:draw(itemLink)
                     if (not selected
                         or not type(selected) == "table"
                     ) then
-                        return GL:warning("You need to select a player first");
+                        return GL:warning("Vous devez d'abord sélectionner un joueur");
                     end
 
-                    local osRoll = selected.cols[4].value == "OS";
+                    local msRoll = selected.cols[4].value == "+1";
+                    local osRoll = selected.cols[4].value == "+2";
                     local boostedRoll = selected.cols[4].value == GL.Settings:get("BoostedRolls.identifier", "BR");
-                    return GL.RollOff:award(selected.cols[1].value, GL.Interface:getItem(self, "EditBox.Item"):GetText(), osRoll, boostedRoll);
+                    return GL.RollOff:award(selected.cols[1].value, GL.Interface:getItem(self, "EditBox.Item"):GetText(), msRoll, osRoll, boostedRoll);
                 end);
                 ThirdRow:AddChild(AwardButton);
                 GL.Interface:setItem(self, "Award", AwardButton);
@@ -332,7 +333,7 @@ function MasterLooterUI:draw(itemLink)
                     DISENCHANT BUTTON
                 ]]
                 local DisenchantButton = AceGUI:Create("Button");
-                DisenchantButton:SetText("Disenchant");
+                DisenchantButton:SetText("Désenchanter");
                 DisenchantButton:SetWidth(100);
                 DisenchantButton:SetHeight(20);
                 DisenchantButton:SetDisabled(true);
@@ -386,7 +387,7 @@ function MasterLooterUI:draw(itemLink)
         FifthRow:AddChild(PlayersTableFrame);
 
         local CloseOnStart = AceGUI:Create("CheckBox");
-        CloseOnStart:SetLabel("Close on start");
+        CloseOnStart:SetLabel("Fermer au démarrage");
         CloseOnStart:SetValue(GL.Settings:get("UI.RollOff.closeOnStart", true));
         CloseOnStart:SetCallback("OnValueChanged", function (widget)
             GL.Settings:set("UI.RollOff.closeOnStart", GL:toboolean(widget:GetValue()));
@@ -395,7 +396,7 @@ function MasterLooterUI:draw(itemLink)
         FifthRow:AddChild(CloseOnStart);
 
         local CloseOnAward = AceGUI:Create("CheckBox");
-        CloseOnAward:SetLabel("Close on award");
+        CloseOnAward:SetLabel("Fermer à l'attribution");
         CloseOnAward:SetValue(GL.Settings:get("UI.RollOff.closeOnAward", true));
         CloseOnAward:SetCallback("OnValueChanged", function (widget)
             GL.Settings:set("UI.RollOff.closeOnAward", GL:toboolean(widget:GetValue()));
@@ -518,8 +519,8 @@ function MasterLooterUI:drawPlayersTable(parent)
     local columns = {
         --[[ Player name ]]
         {
-            name = "Player",
-            width = 120,
+            name = "Joueur",
+            width = 100,
             align = "LEFT",
             color = {
                 r = 0.5,
@@ -559,7 +560,7 @@ function MasterLooterUI:drawPlayersTable(parent)
         --[[ ROLL TYPE: MS/OS etc ]]
         {
             name = "Type",
-            width = 63,
+            width = 30,
             align = "LEFT",
             color = {
                 r = 0.5,
@@ -568,6 +569,21 @@ function MasterLooterUI:drawPlayersTable(parent)
                 a = 1.0
             },
             colorargs = nil,
+        },
+        --[[ PRIORITY (NOT VISIBLE, FOR SORTING ONLY! ]]
+        {
+            name = "Prio",
+            width = 30,
+            align = "LEFT",
+            color = {
+                r = 0.5,
+                g = 0.5,
+                b = 1.0,
+                a = 1.0
+            },
+            colorargs = nil,
+            sort = GL.Data.Constants.ScrollingTable.ascending,
+            sortnext = 2,
         },
         --[[ Reserved / TMB etc ]]
         {
@@ -582,21 +598,7 @@ function MasterLooterUI:drawPlayersTable(parent)
             },
             colorargs = nil,
         },
-        --[[ PRIORITY (NOT VISIBLE, FOR SORTING ONLY! ]]
-        {
-            name = "",
-            width = 1,
-            align = "LEFT",
-            color = {
-                r = 0,
-                g = 0,
-                b = 0,
-                a = 0
-            },
-            colorargs = nil,
-            sort = GL.Data.Constants.ScrollingTable.ascending,
-            sortnext = 2,
-        },
+        
     };
 
     local Table = ScrollingTable:CreateST(columns, 8, 15, nil, parent);
@@ -633,7 +635,7 @@ function MasterLooterUI:drawPlayersTable(parent)
 
             GameTooltip:ClearLines();
             GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT");
-            GameTooltip:AddLine(string.format("Items won by %s:", roller));
+            GameTooltip:AddLine(string.format("Loots attribués à %s dans les 8 dernières heures", roller));
             GameTooltip:AddLine(" ");
 
             for _, itemLink in pairs(ItemsWonByRollerInTheLast8Hours) do

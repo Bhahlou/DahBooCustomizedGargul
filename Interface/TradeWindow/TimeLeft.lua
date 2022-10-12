@@ -92,7 +92,7 @@ function TimeLeft:draw()
 
     local Title = Window:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall");
     Title:SetPoint("TOPLEFT", 3, -3);
-    Title:SetText(string.format("%s to roll out loot!", GL.Settings:get("ShortcutKeys.rollOff")));
+    Title:SetText(string.format("%s pour roll le loot !", GL.Settings:get("ShortcutKeys.rollOff")));
     Title:SetTextColor(1, 1, 1, 1);
     GL.Interface:setItem(self, "Header", Title);
 
@@ -173,7 +173,7 @@ function TimeLeft:refreshBars()
     Window:SetHeight(0);
 
     local Header = GL.Interface:getItem(self, "Frame.Header")
-    Header:SetText(string.format("%s to roll out loot!", GL.Settings:get("ShortcutKeys.rollOff")));
+    Header:SetText(string.format("%s pour roll le loot !", GL.Settings:get("ShortcutKeys.rollOff")));
 
     local ItemsWithTradeTimeRemaining = {};
     local tradeTimeRemainingByLink = {};

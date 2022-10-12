@@ -121,4 +121,13 @@ PopupDialog.CLEAR_TMB_CONFIRMATION = {
     end,
 }
 
+PopupDialog.CLEAR_TMBRAIDGROUPS_CONFIRMATION = {
+    question = "Etes-vous sûr de vouloir effacer les données de groupe de raid ?",
+    OnYes = function()
+        GL.Interface.TMBRaidGroups.Overview:close();
+        GL.TMBRaidGroups:clear();
+        GL.TMBRaidGroups:draw();
+    end,
+}
+
 GL:debug("Interface/PopupDialog.lua");

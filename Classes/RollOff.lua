@@ -20,7 +20,7 @@ GL.RollOff = GL.RollOff or {
     rollListenerCancelTimerId = nil,
 };
 local RollOff = GL.RollOff; ---@type RollOff
-
+local DB = GL.DB; ---@type DB
 local CommActions = GL.Data.Constants.Comm.Actions;
 local Events = GL.Events; ---@type Events
 
@@ -119,7 +119,7 @@ function RollOff:announceStart(itemLink, time, note)
     end
 
     local announceMessage = string.format(
-        "You have %s seconds to roll on %s",
+        "Vous avez %s secondes pour roll sur %s",
         time,
         itemLink
     );
@@ -131,7 +131,7 @@ function RollOff:announceStart(itemLink, time, note)
         and not GL:empty(note)
     ) then
         announceMessage = string.format(
-            "You have %s seconds to roll on %s - %s",
+            "Vous avez %s secondes pour roll sur %s - %s",
             time,
             itemLink,
             note
@@ -215,7 +215,7 @@ function RollOff:announceStart(itemLink, time, note)
             end
 
             local EligiblePlayerNames = table.concat(GL:tableColumn(EligiblePlayers, "character"), ", ");
-            eligiblePlayersMessage = string.format("The following players have the highest %s prio: %s", source, EligiblePlayerNames);
+            eligiblePlayersMessage = string.format("Les joueurs suivants ont la plus haute prio %s : %s", source, EligiblePlayerNames);
         end
     end
 
@@ -444,7 +444,7 @@ function RollOff:stop(CommMessage)
 end
 
 -- Award the item to one of the rollers
-function RollOff:award(roller, itemLink, osRoll, boostedRoll)
+function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
     GL:debug("RollOff:award");
 
     -- If the roller has a roll number suffixed to his name
@@ -456,7 +456,8 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll)
 
     itemLink = GL:tableGet(self.CurrentRollOff, "itemLink", itemLink);
 
-    local isOS, addPlusOne = false;
+    local isOS = false;
+    local addPlusOne = false;
     local cost = nil;
 
     if (boostedRoll) then
@@ -505,6 +506,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll)
                     GL.MasterLooterUI:close();
                 end
             end,
+            checkPlusOne = msRoll,
             checkOS = osRoll,
             isBR = boostedRoll,
             boostedRollCost = cost,
@@ -559,6 +561,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll)
 
                 GL.Interface.PlayerSelector:close();
             end,
+            checkPlusOne = msRoll,
             checkOS = osRoll,
             isBR = boostedRoll,
             boostedRollCost = cost,
@@ -673,6 +676,24 @@ function RollOff:processRoll(message)
         for _, Player in pairs(GL.User:groupMembers()) do
             local playerName = GL:stripRealm(Player.name);
             if (rollerName == playerName) then
+
+                --- Check whether the raid groups should be used as priority sorting useAsSortCriteria
+                if (GL.Settings:get("TMBRaidGroups.useAsSortCriteria")) then
+                    local normalizedPlayerName = string.lower(rollerName);
+                    -- Find player raid group
+                    local playerRaidGroup = DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName);
+                    GL:debug("TMBRaidGroup : "..playerRaidGroup);
+                    if (playerRaidGroup) then
+                        local rollPriority = GL.Settings:get("RaidGroupSorting."..RollType[1]..playerRaidGroup..".SortingPriority","")
+                        GL:debug(string.format("Roll priority for '%s' : in raid group '%s' is '%s'",RollType[1],playerRaidGroup,rollPriority));
+                        -- If found, replace the priority with found setting
+                        if (rollPriority) then
+                            RollType[4] = tonumber(rollPriority);
+                        end
+                    end
+                end
+
+                
                 Roll = {
                     player = Player.name,
                     class = Player.class,
@@ -720,7 +741,7 @@ function RollOff:refreshRollsTable()
 
         -- This is used to free up priority slots for soft-reserved/wishlisted etc. items
         -- Think of it as a z-index in CSS: nasty but necessary
-        rollPriority = rollPriority + 10000;
+        -- rollPriority = rollPriority + 10000;
 
         -- Check if the player reserved the current item id
         local rollNote = "";
@@ -777,14 +798,14 @@ function RollOff:refreshRollsTable()
 
                 -- Prio list entries are more important than wishlist ones (and therefore get sorted on top)
                 if (TopEntry.type == GL.Data.Constants.tmbTypePrio) then
-                    rollPriority = 2;
+                    rollPriority = rollPriority - -0.9;
                     rollNote = "Priolist";
                 else
-                    rollPriority = 3;
+                    rollPriority = rollPriority - 0.5;
                     rollNote = "Wishlist";
                 end
-
-                rollPriority = rollPriority + TopEntry.prio; -- Make sure rolls of identical list positions "clump" together
+                print(rollPriority);
+                --rollPriority = rollPriority + TopEntry.prio; -- Make sure rolls of identical list positions "clump" together
                 rollNote = string.format("%s [%s]", rollNote, TopEntry.prio);
             end
         end
@@ -793,7 +814,8 @@ function RollOff:refreshRollsTable()
         -- If this isn't the player's first roll for the current item
         -- then we add a number behind the players name like so: PlayerName [#]
         if (numberOfTimesRolledByPlayer > 1) then
-            rollerName = string.format("%s [%s]", playerName, numberOfTimesRolledByPlayer);
+            return;
+            --rollerName = string.format("%s [%s]", playerName, numberOfTimesRolledByPlayer);
         end
 
         local class = Roll.class;
@@ -822,11 +844,12 @@ function RollOff:refreshRollsTable()
                     color = GL:classRGBAColor(class),
                 },
                 {
-                    value = rollNote,
+                    value = rollPriority,
                     color = GL:classRGBAColor(class),
                 },
                 {
-                    value = rollPriority,
+                    value = rollNote,
+                    color = GL:classRGBAColor(class),
                 },
             },
         };

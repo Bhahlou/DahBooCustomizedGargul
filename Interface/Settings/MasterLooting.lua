@@ -67,23 +67,23 @@ function MasterLooting:draw(Parent)
 
     local Checkboxes = {
         {
-            label = "Master Looter Popup",
-            description = "Enable the master looter window that automatically pops up when you are given the role of master looter. It provides easy access to clearing and importing data",
+            label = "Afficher le pop-up de master loot",
+            description = "Active la fenêtre du responsable de butin qui apparaît automatiquement lorsque le rôle de responsable du butin vous est attribué. Elle vous fournit un accès  facile pour effacer et importer les données depuis Thatsmybis",
             setting = "MasterLooting.autoOpenMasterLooterDialog",
         },
         {
-            label = "Announce Master Looter",
-            description = "Post a message in chat when you are given the role of master looter",
+            label = "Annoncer le responsable du butin",
+            description = "Poste automatiquement un message dans le chat lorsque le rôle de responsable du butin vous est attribué",
             setting = "MasterLooting.announceMasterLooter",
         },
         {
-            label = "Announce start of roll",
-            description = "Post an announcement in /rw when a roll starts",
+            label = "Annoncer le début des rolls",
+            description = "Poste une annonce en /ar quand un roll commence",
             setting = "MasterLooting.announceRollStart",
         },
         {
-            label = "Countdown on rolls",
-            description = "A countdown will be shown in chat when a roll is coming to an end (e.g: you have 5 seconds to roll)",
+            label = "Compte à rebours sur les rolls",
+            description = "Un compte à rebours sera affiché dans le chat quand un roll arrive à sa fin (par ex : vous avez 5s pour roll)",
             setting = "MasterLooting.doCountdown",
         },
     };
@@ -97,7 +97,7 @@ function MasterLooting:draw(Parent)
     Parent:AddChild(HorizontalSpacer);
 
     local NumberOfSecondsToCountdown = GL.AceGUI:Create("Slider");
-    NumberOfSecondsToCountdown:SetLabel("At how many seconds left do you want to start the countdown?");
+    NumberOfSecondsToCountdown:SetLabel("A combien de secondes restantes voulez-vous que le compte à rebours commence ?");
     NumberOfSecondsToCountdown.label:SetTextColor(1, .95686, .40784);
     NumberOfSecondsToCountdown:SetFullWidth(true);
     NumberOfSecondsToCountdown:SetValue(GL.Settings:get("MasterLooting.numberOfSecondsToCountdown", 5));
@@ -119,8 +119,8 @@ function MasterLooting:draw(Parent)
 
     Overview:drawCheckboxes({
         {
-            label = "Announce end of roll",
-            description = "When enabled you post an announcement in /rw when a roll has ended",
+            label = "Annoncer la fin des rolls",
+            description = "Quand activé, vous posterez une annonce en /ar lorsque le roll est terminé",
             setting = "MasterLooting.announceRollEnd",
         },
     }, Parent);
@@ -135,9 +135,9 @@ function MasterLooting:draw(Parent)
     DefaultRollOffNote:DisableButton(true);
     DefaultRollOffNote:SetHeight(20);
     DefaultRollOffNote:SetFullWidth(true);
-    DefaultRollOffNote:SetText(GL.Settings:get("MasterLooting.defaultRollOffNote", "/roll 100 for MS or /roll 99 for OS"));
+    DefaultRollOffNote:SetText(GL.Settings:get("MasterLooting.defaultRollOffNote", "/roll 100 pour +1, /roll 90 pour +2, /roll 80 pour +3"));
     DefaultRollOffNote:SetLabel(string.format(
-            "|cff%sSet a default note that's shown when rolling off items, pipes ( | ) are not allowed!|r",
+            "|cff%sDéfinissez une note par défaut qui est affichée lors du roll d'un item. Le caractère ( | ) n'est pas autorisé!|r",
             GL:classHexColor("rogue")
     ));
     DefaultRollOffNote:SetCallback("OnTextChanged", function (self)
@@ -147,7 +147,7 @@ function MasterLooting:draw(Parent)
             or GL:strContains(value, "|")
         ) then
             GL:warning("Invalid note provided");
-            GL.Settings:set("MasterLooting.defaultRollOffNote", "/roll 100 for MS or /roll 99 for OS")
+            GL.Settings:set("MasterLooting.defaultRollOffNote", "/roll 100 pour +1, /roll 90 pour +2, /roll 80 pour +3")
         end
 
         GL.Settings:set("MasterLooting.defaultRollOffNote", value);
@@ -156,8 +156,8 @@ function MasterLooting:draw(Parent)
 
     Checkboxes = {
         {
-            label = "Always show default note instead of item priority",
-            description = "Gargul uses item priorities (if available) when rolling off items. Enabling this means you can use your custom default note instead",
+            label = "Toujours afficher la note par défaut à la place de la priorité de l'item",
+            description = "Dah Boo Customized Gargul utilise les priorités d'item (si disponible) lors du roll d'items. Activer ceci signifie que vous pouvez utiliser votre note personnalisée par défaut à la place",
             setting = "MasterLooting.alwaysUseDefaultNote",
             callback = function ()
                 GL.MasterLooterUI:updateItemNote();

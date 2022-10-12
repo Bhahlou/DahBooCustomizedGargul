@@ -122,6 +122,9 @@ GL.Commands = GL.Commands or {
         -- Open the TMB window
         thatsmybis = function() GL.TMB:draw(); end,
 
+        -- Open the TMB raid group import window
+        tmbRaidGroupImport = function() GL.TMBRaidGroups:draw();end,
+
         -- Open the TMB window with DFT skin
         dft = function() GL.TMB:draw(true); end,
 
@@ -181,8 +184,8 @@ function Commands:_dispatch(str)
         command = "settings";
     end
 
-    -- Make sure commands are case insensitive (Busmonstret = dumdum)
-    command = string.lower(command);
+     -- Make sure commands are case insensitive (Busmonstret = dumdum)
+     command = string.lower(command);
 
     -- Fetch the actual command name in case a shorthand is provided
     command = GL:tableGet(self.ShorthandDictionary, command, command);

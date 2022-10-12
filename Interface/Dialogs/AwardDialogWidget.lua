@@ -159,7 +159,7 @@ local function constructor()
     Frame:SetBackdrop(FrameBackdrop);
     Frame:SetBackdropColor(0, 0, 0, 1);
     Frame:SetMinResize(320, 10);
-    Frame:SetWidth(320);
+    Frame:SetWidth(340);
     Frame:SetToplevel(true);
     Frame:SetScript("OnHide", OnClose);
     Frame:SetScript("OnMouseDown", OnMouseDown);
@@ -226,7 +226,7 @@ local function constructor()
     local PlusOneLabel = AceGUI:Create("InteractiveLabel");
     PlusOneLabel:SetFontObject(_G["GameFontNormal"]);
     PlusOneLabel:SetWidth(100);
-    PlusOneLabel:SetText("Add a +1");
+    PlusOneLabel:SetText("+1");
 
     PlusOneLabel:SetCallback("OnClick", function()
         PlusOneCheckBox:ToggleChecked();
@@ -247,7 +247,7 @@ local function constructor()
     local OffSpecLabel = AceGUI:Create("InteractiveLabel");
     OffSpecLabel:SetFontObject(_G["GameFontNormal"]);
     OffSpecLabel:SetWidth(30);
-    OffSpecLabel:SetText("OS");
+    OffSpecLabel:SetText("+2");
 
     OffSpecLabel:SetCallback("OnClick", function()
         OffSpecCheckBox:ToggleChecked();
@@ -300,7 +300,7 @@ local function constructor()
 
     -- Yes
     local YesButton = AceGUI:Create("Button");
-    YesButton:SetText("Yes");
+    YesButton:SetText("Oui");
     YesButton:SetHeight(20);
     YesButton:SetWidth(120);
     YesButton:SetCallback("OnClick", function()
@@ -318,7 +318,7 @@ local function constructor()
 
     -- No
     local NoButton = AceGUI:Create("Button");
-    NoButton:SetText("No");
+    NoButton:SetText("Non");
     NoButton:SetHeight(20);
     NoButton:SetWidth(120);
     NoButton:SetCallback("OnClick", function()

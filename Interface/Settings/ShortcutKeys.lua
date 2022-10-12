@@ -5,7 +5,7 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class ShortcutKeysSettings
 GL.Interface.Settings.ShortcutKeys = {
-    description = "By default Gargul offers 3 shortcut keys that you can use when clicking items in your bag, an enemy's loot window or the trade timers",
+    description = "Par défaut, Dah Boo Customized Gargul offre 3 raccourcis que vous pouvez utiliser en cliquant sur les objets dans votre sac ou la  fenêtre de butin d'un ennemi : alt+clic pour démarrer le roll sur un objet, alt+shift+clic pour attribuer un objet ou shift+clic pour désenchanter un objet (fonctionne uniquement dans la fenêtre de butin). Vous pouvez éditer ou complètement désactiver ces raccourcis ici, faites attention à ne pas sélectionner le même raccourci 2 fois pour éviter les comportements idiots !",
 };
 local ShortcutKeys = GL.Interface.Settings.ShortcutKeys; ---@type ShortcutKeysSettings
 
@@ -16,20 +16,20 @@ function ShortcutKeys:draw(Parent)
     local HorizontalSpacer;
     local AceGUI = GL.AceGUI;
     local DropDownItems = {
-        DISABLED = "Disable",
-        SHIFT_CLICK = "Shift + Click",
-        ALT_CLICK = "Alt + Click",
-        ALT_SHIFT_CLICK = "Alt + Shift + Click",
-        ALT_RIGHTCLICK = "Alt + Right Click",
-        ALT_SHIFT_RIGHTCLICK = "Alt + Shift + Right Click",
-        CTRL_CLICK = "Control + Click",
-        CTRL_SHIFT_CLICK = "Control + Shift + Click",
-        CTRL_RIGHTCLICK = "Control + Right Click",
-        CTRL_SHIFT_RIGHTCLICK = "Control + Shift + Right Click",
-        CTRL_ALT_CLICK = "Control + Alt + Click",
-        CTRL_ALT_SHIFT_CLICK = "Control + Alt + Shift + Click",
-        CTRL_ALT_RIGHTCLICK = "Control + Alt + Right Click",
-        CTRL_ALT_SHIFT_RIGHTCLICK = "Control + Alt + Shift + Right Click",
+        DISABLED = "Désactiver",
+        SHIFT_CLICK = "Shift + Clic",
+        ALT_CLICK = "Alt + Clic",
+        ALT_SHIFT_CLICK = "Alt + Shift + Clic",
+        ALT_RIGHTCLICK = "Alt + Right Clic",
+        ALT_SHIFT_RIGHTCLICK = "Alt + Shift + Clic droit",
+        CTRL_CLICK = "Ctrl + Clic",
+        CTRL_SHIFT_CLICK = "Ctrl + Shift + Clic",
+        CTRL_RIGHTCLICK = "Ctrl + Clic droit",
+        CTRL_SHIFT_RIGHTCLICK = "Ctrl + Shift + Clic droit",
+        CTRL_ALT_CLICK = "Ctrl + Alt + Clic",
+        CTRL_ALT_SHIFT_CLICK = "Ctrl + Alt + Shift + Clic",
+        CTRL_ALT_RIGHTCLICK = "Ctrl + Alt + Clic droit",
+        CTRL_ALT_SHIFT_RIGHTCLICK = "Ctrl + Alt + Shift + Clic droit",
     };
     local ItemOrder = {
         "DISABLED",
@@ -50,13 +50,13 @@ function ShortcutKeys:draw(Parent)
 
     local Checkboxes = {
         {
-            label = "Shortcut Keys reminder",
-            description = "Show a reminder when looting an enemy that shows your current shortcut key values",
+            label = "Afficher rappel raccourcis",
+            description = "Affiche un rappel en lootant un ennemi pour afficher vos raccourcis actuels pour roll, attribuer ou désenchanter un objet",
             setting = "ShortcutKeys.showLegend",
         },
         {
-            label = "Only when in a group",
-            description = "Hotkeys should only work when I'm in a group",
+            label = "Seulement en groupe",
+            description = "Les raccourcis devraient fonctionner seulement lorsque je suis en groupe",
             setting = "ShortcutKeys.onlyInGroup",
         },
     }
@@ -70,7 +70,7 @@ function ShortcutKeys:draw(Parent)
     Parent:AddChild(HorizontalSpacer);
 
     local RollOffLabel = AceGUI:Create("Label");
-    RollOffLabel:SetText("Set the hotkey for opening the master loot window where you can start a roll (default alt+click)");
+    RollOffLabel:SetText("Définit le raccourcir pour ouvrir la fenêtre du maître du butin, où vous pouvez démarrer un roll (par défaut alt+clic)");
     RollOffLabel:SetColor(1, .95686, .40784);
     RollOffLabel:SetHeight(20);
     RollOffLabel:SetFullWidth(true);
@@ -93,7 +93,7 @@ function ShortcutKeys:draw(Parent)
     Parent:AddChild(HorizontalSpacer);
 
     local AwardLabel = AceGUI:Create("Label");
-    AwardLabel:SetText("Set the hotkey for opening the item award window (default alt+shift+click)");
+    AwardLabel:SetText("Définit le raccourci pour ouvrir la fenêtre d'attribution d'objet (par défaut alt+shift+clic)");
     AwardLabel:SetColor(1, .95686, .40784);
     AwardLabel:SetHeight(20);
     AwardLabel:SetFullWidth(true);
@@ -116,7 +116,7 @@ function ShortcutKeys:draw(Parent)
     Parent:AddChild(HorizontalSpacer);
 
     local DisenchantLabel = AceGUI:Create("Label");
-    DisenchantLabel:SetText("Set the hotkey for disenchanting an item from an enemy's loot window (default ctrl+shift+click)");
+    DisenchantLabel:SetText("Définit le raccourci pour désenchanter un objet depuis la fenêtre du butin d'un ennemi (par défaut ctrl+shift+clic)");
     DisenchantLabel:SetColor(1, .95686, .40784);
     DisenchantLabel:SetHeight(20);
     DisenchantLabel:SetFullWidth(true);

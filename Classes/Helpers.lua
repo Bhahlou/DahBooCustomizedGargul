@@ -27,7 +27,7 @@ end
 ---@vararg string
 ---@return void
 function GL:message(...)
-    print("|TInterface/TARGETINGFRAME/UI-RaidTargetingIcon_3:12|t|cff8aecff Gargul : |r" .. string.join(" ", ...));
+    print("|TInterface/TARGETINGFRAME/UI-RaidTargetingIcon_3:12|t|cff8aecff Dah Boo Customized Gargul : |r" .. string.join(" ", ...));
 end
 
 --- Print a colored message
