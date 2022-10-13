@@ -2,24 +2,13 @@
 ##
 
 ## Qaund devriez vous utiliser Dah Boo Customized Gargul ?
-- Si vous utilisez softRes, TMB, DFT ou une combinaison de cela :
-- https://softres.it : voyez qui a réservé quoi, qui a oublié de réserver, annoncez les détails dans le chat, etc
-- https://thatsmybis.com:  voyez les infos de wishlists/prios, les notes d'objets, et exportez les loots vers TMB etc
-- Dah Boo Customized Gargul traque les rolls des joueurs pour vous et accélère drastiquement la vitessement d'attribution !
-- Il ramasse les  loots automatiquement et peut les envoyer à n'importe qui dans le raid
-- Il vous montre exactement combien de temps vous avez avant de devoir commencer à gérer les loots
+Dah Boo Customized Gargul est une version remaniée de l'addon Gargul (https://github.com/papa-smurf/Gargul/) développée par Zhorax, qui lui ajoute quelques fonctionnalités utiles :
+- L'addon est maintenant traduit en français.
+- Il est maintenant possibler d'importer les groupes de raid définis dans thatmybis, et des les utiliser comme un critère de tri dans la priorité des attributions de loots
+- Lors du roll d'un objet, seul le premier roll est maintenant pris en compte
 
 ## Principales Commandes Slash
-- `/dbcgl` - montre l'interface
-- Vous utilisez softres ? `/dbcgl sr`
-- Vous utilisez tmb ? `/dbcgl tmb`
-- Vous voulez looter automatiquement n'importe quoi et accélérer vos raids et votre farm ? `/gl pm`
-- Vous voulez savoir tout ce que ça peut faire d'autre ? `/dbcgl help`
+Les commandes slahs sont identiques à celles de Gargul, à l'exception de /gl ou /gargul à remplacer par /dbcgl ou /dbcgargul
 
 ## Est-ce que tout le monde dans le raid a besoin de Dah Boo Customized Gargul ?
-Non ! Pour 99% des fonctionnalités, uniquement le responsable du butin a besoin de Gargul.
-
-## Raccourcis (par défault) 
-- ALT_CLIC un objet pour le roll
-- ALT_SHIFT_CLIC un objet pour l'attribuer à quelqu'un
-- CTRL_SHIFT_CLIC un objet pour l'assigner au désenchantement
+Non ! Seul le ML a besoin de la version customizée de Gargul. Tous les autres joueurs peuvent utiliser la version standard de Gargul, ou même rien du tout !
