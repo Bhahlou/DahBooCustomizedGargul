@@ -123,7 +123,7 @@ GL.Commands = GL.Commands or {
         thatsmybis = function() GL.TMB:draw(); end,
 
         -- Open the TMB raid group import window
-        tmbRaidGroupImport = function() GL.TMBRaidGroups:draw();end,
+        tmbraidgroupimport = function() GL.TMBRaidGroups:draw();end,
 
         -- Open the TMB window with DFT skin
         dft = function() GL.TMB:draw(true); end,
@@ -208,6 +208,9 @@ function Commands:_dispatch(str)
 
     GL:debug("Dispatching " .. str);
 
+    print(command);
+    print(self.Dictionary[command]);
+    print(type(self.Dictionary[command]));
     if (command and self.Dictionary[command] and type(self.Dictionary[command]) == "function") then
         return self.Dictionary[command](unpack(arguments));
     end

@@ -131,12 +131,14 @@ function RaidGroups:refreshPrioritySettings(Parent)
             -- No Raid group imported
             currentText = "Aucun groupe de raid n'a été importé";
             currentStatusMessage:SetText(currentText);
+            return;
         end
         
         if ( rollBracketCounter== 0) then
             -- No roll bracket set up yet
             currentText = currentText .. "\n Aucune plage de roll n'a été paramétrée"
             currentStatusMessage:SetText(currentText);
+            return;
         end ;
 
         local raidGroups = {};
