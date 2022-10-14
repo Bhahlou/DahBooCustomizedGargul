@@ -8,6 +8,7 @@ GL.Commands = GL.Commands or {
         boostedrolls = "Open the Boosted Rolls UI that allows you to easily manage roll boosts.",
         buffs = "You can instantly check player buffs like Ony, ZG, but also protection consumables like shadow protection: /gl buffs 22888, 22818, 22817, 22820, 24425, 15366, 20079",
         clearplusones = "Clear all plus one values",
+        clearplustwos = "Clear all plus two values",
         cleardisenchanter = "Clear the disenchanter entry so you can pick a new one the next time around",
         setdisenchanter = "Sets the disenchanter entry directly without having to select one: /gl sd [mydisenchanter]",
         dft = "Open the DFT importer. Data exported from your DFT sheet can be imported here",
@@ -18,6 +19,7 @@ GL.Commands = GL.Commands or {
         lootpriority = "Open the loot priority editor where you can edit / clear loot priorities. These are the same priorities as imported by the TMB importer, clearing them here clears them for TMB as well",
         packmule = "Open PackMule which allows you to automatically funnel dropped gear to specific players, very helpful with green items for example",
         plusones = "Open the PlusOnes window that allows you to check and manipulate all plus one values",
+        plustwos = "Open the PlusTwos window that allows you to check and manipulate all plus two values",
         raidcsv = "Output everyone currently in the group in a CSV format",
         rolloff = "Open the RollOff UI where you can announce an item for players to roll on: /gl award [itemLink?]",
         settings = "Open the settings menu",
@@ -57,10 +59,15 @@ GL.Commands = GL.Commands or {
         ins = "inspect",
         bu = "buffs",
         ["+1"] = "plusones",
+        ["+2"] = "plustwos",
         plusone = "plusones",
+        plustwo = "plustwos",
         po = "plusones",
+        pt = 'plustwos',
         cpo = "clearplusones",
+        cpt = "clearplustwos",
         clearplusone = "clearplusones",
+        clearplustwo = "clearplustwos",
     },
 
     Dictionary = {
@@ -110,6 +117,9 @@ GL.Commands = GL.Commands or {
         -- Open the plus ones window
         plusones = function() GL.Interface.PlusOnes.Overview:draw(); end,
 
+        -- Open the plus two window
+        plustwos = function() GL.Interface.PlusTwos.Overview:draw(); end,
+
         -- Clear the disenchanter
         cleardisenchanter = function () GL.PackMule:clearDisenchanter(); end,
 
@@ -119,6 +129,9 @@ GL.Commands = GL.Commands or {
         -- Clear all plus ones
         clearplusones = function() GL.PlusOnes:clear(); end,
 
+        -- Clear all plus twos 
+        clearplustwos = function() GL.PlusTwos:clear(); end,
+            
         -- Open the TMB window
         thatsmybis = function() GL.TMB:draw(); end,
 

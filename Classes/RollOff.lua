@@ -476,6 +476,10 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
+
+                    if (isOS) then
+                        GL.PlusTwos:add(roller);
+                    end
                 end
 
                 local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
@@ -529,6 +533,10 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
+
+                    if (isOS) then
+                        GL.PlusTwos:add(roller);
+                    end
                 end
 
                 local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
@@ -820,9 +828,14 @@ function RollOff:refreshRollsTable()
 
         local class = Roll.class;
         local plusOnes = GL.PlusOnes:get(playerName);
+        local plusTwos = GL.PlusTwos:get(playerName);
 
         if (GL:higherThanZero(plusOnes)) then
             plusOnes = "+" .. plusOnes;
+        end
+
+        if (GL:higherThanZero(plusTwos)) then
+            plusTwos = "+" .. plusTwos;
         end
 
         local Row = {
@@ -837,6 +850,10 @@ function RollOff:refreshRollsTable()
                 },
                 {
                     value = plusOnes,
+                    color = GL:classRGBAColor(class),
+                },
+                {
+                    value = plusTwos,
                     color = GL:classRGBAColor(class),
                 },
                 {
