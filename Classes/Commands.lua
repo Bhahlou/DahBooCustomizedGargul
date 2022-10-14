@@ -208,9 +208,6 @@ function Commands:_dispatch(str)
 
     GL:debug("Dispatching " .. str);
 
-    print(command);
-    print(self.Dictionary[command]);
-    print(type(self.Dictionary[command]));
     if (command and self.Dictionary[command] and type(self.Dictionary[command]) == "function") then
         return self.Dictionary[command](unpack(arguments));
     end
