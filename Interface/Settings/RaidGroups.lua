@@ -48,7 +48,7 @@ function RaidGroups:draw(Parent)
         Checkbox:SetCallback("OnValueChanged", function()
             GL.Settings:set(Entry.setting, Checkbox:GetValue());
             
-            self:refreshPrioritySettings();
+            self:refreshPrioritySettings(Parent);
 
             if (type(Entry.callback) == "function") then
                 Entry.callback(Checkbox);
@@ -72,9 +72,9 @@ function RaidGroups:draw(Parent)
         local RaidGroupSortingSetting = {};
         
         for i = 1, GL:count(EditBoxes) do
-            local identifier = strtrim(EditBoxes[i].Identifier:GetText());
-            local raidGroup = strtrim(EditBoxes[i].RaidGroup:GetText());
-            local sortingPriority = tonumber(strtrim(EditBoxes[i].SortingPriority:GetText()));
+            local identifier = strtrim(EditBoxes[i].Identifier:GetText(),nil);
+            local raidGroup = strtrim(EditBoxes[i].RaidGroup:GetText(),nil);
+            local sortingPriority = tonumber(strtrim(EditBoxes[i].SortingPriority:GetText(),nil));
 
             -- Check all required fields are provided
             if (not identifier or not raidGroup or not sortingPriority) then
@@ -131,12 +131,14 @@ function RaidGroups:refreshPrioritySettings(Parent)
             -- No Raid group imported
             currentText = "Aucun groupe de raid n'a été importé";
             currentStatusMessage:SetText(currentText);
+            return;
         end
         
         if ( rollBracketCounter== 0) then
             -- No roll bracket set up yet
             currentText = currentText .. "\n Aucune plage de roll n'a été paramétrée"
             currentStatusMessage:SetText(currentText);
+            return;
         end ;
 
         local raidGroups = {};

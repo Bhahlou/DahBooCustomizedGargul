@@ -12,6 +12,14 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "v4.9.1",
+            date = "14 Octobre 2022",
+            Changes = {
+                "- Récupération des fonctionnalités de la v4.9.0 standard de Gargul",
+                "- Correction d'une erreur LUA au changement de valeur de la coche |c00a79effUtilier les groupes de raid comme critère de priorité dans les rolls|r ",
+            },
+        },
+        {
             version = "4.9.0",
             date = "October 10th, 2022",
             Changes = {
@@ -187,7 +195,7 @@ function Changelog:draw()
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
-    Window:SetTitle("Gargul v" .. GL.version);
+    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(400);
     Window:SetHeight(500);
@@ -211,7 +219,7 @@ function Changelog:draw()
     ScrollFrameHolder:AddChild(ScrollFrame);
 
     local WhatIsGargul = GL.AceGUI:Create("Label");
-    WhatIsGargul:SetText("Gargul makes handing out loot super easy, click the button below to get started!");
+    WhatIsGargul:SetText("Dah Boo Customized Gargul rend la gestion des loots super facile, cliquez sur le bouton ci-dessous pour commencer !");
     WhatIsGargul:SetFontObject(_G["GameFontNormal"]);
     WhatIsGargul:SetFullWidth(true);
     ScrollFrame:AddChild(WhatIsGargul);
@@ -223,7 +231,7 @@ function Changelog:draw()
     ScrollFrame:AddChild(HorizontalSpacer);
 
     local OpenGargul = GL.AceGUI:Create("Button");
-    OpenGargul:SetText("Open Gargul");
+    OpenGargul:SetText("Ouvrir Dah Boo Customized Gargul");
     OpenGargul:SetCallback("OnClick", function()
         self:close();
         return GL.Commands:call("settings");
@@ -238,7 +246,7 @@ function Changelog:draw()
     ScrollFrame:AddChild(HorizontalSpacer);
 
     local DiscordLabel = GL.AceGUI:Create("Label");
-    DiscordLabel:SetText("|c00a79effGet support and involved on our Discord|r");
+    DiscordLabel:SetText("|c00a79effObtenez de l'aide et impliquez vous sur notre Discord|r");
     DiscordLabel:SetFontObject(_G["GameFontNormal"]);
     DiscordLabel:SetFullWidth(true);
     ScrollFrame:AddChild(DiscordLabel);
@@ -247,7 +255,7 @@ function Changelog:draw()
     DiscordBox:DisableButton(true);
     DiscordBox:SetHeight(20);
     DiscordBox:SetFullWidth(true);
-    DiscordBox:SetText("https://discord.gg/D3mDhYPVzf");
+    DiscordBox:SetText("https://discord.gg/3BYJzqeSJ9");
     ScrollFrame:AddChild(DiscordBox);
 
     for _, LogEntry in pairs(self.History) do

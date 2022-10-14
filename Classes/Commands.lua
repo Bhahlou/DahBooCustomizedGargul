@@ -123,7 +123,7 @@ GL.Commands = GL.Commands or {
         thatsmybis = function() GL.TMB:draw(); end,
 
         -- Open the TMB raid group import window
-        tmbRaidGroupImport = function() GL.TMBRaidGroups:draw();end,
+        tmbraidgroupimport = function() GL.TMBRaidGroups:draw();end,
 
         -- Open the TMB window with DFT skin
         dft = function() GL.TMB:draw(true); end,

@@ -26,12 +26,12 @@ GL.Interface.Settings.Overview = {
         {"|c00a79effAvancé|r", ""},
         {"Master Loot", "MasterLooting"},
         {"    Suivi des rolls", "RollTracking"},
+        {"    Groupes de raid", "RaidGroups"},
         {"    Attribution des loots", "AwardingLoot"},
         {"Annonces d'échange", "TradeAnnouncements"},
         {"Roll", "Rolling"},
         {"Surbrillance des loots", "LootHighlighting"},
         {"Rolls boostés", "BoostedRolls"},
-        {"    Groupes de raid", "RaidGroups"},
         {"", ""},
         {"", ""},
         {"Commandes slash", "SlashCommands"},
@@ -299,7 +299,7 @@ function Overview:showSection(section)
     self.activeSection = sectionClassIdentifier;
 
     -- Set the Title of the section (shown top-right)
-    GL.Interface:getItem(self, "Label.Title"):SetText(" " .. strtrim(SectionEntry[1]));
+    GL.Interface:getItem(self, "Label.Title"):SetText(" " .. strtrim(SectionEntry[1],nil));
 
     -- Prepare a new ScrollFrame for the section we're about to draw
     local ScrollFrame = GL.AceGUI:Create("ScrollFrame");
