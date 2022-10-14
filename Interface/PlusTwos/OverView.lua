@@ -63,7 +63,7 @@ function Overview:draw()
 
     self:addPlayerPlusTwoEntries(ScrollFrame);
 
-    GL.Events:register("PlusTwosOverViewChangeListener", "GL.PLUSONES_CHANGED", function () self:update(); end);
+    GL.Events:register("PlusTwosOverViewChangeListener", "GL.PLUSTWOS_CHANGED", function () self:update(); end);
     GL.Events:register("PlusTwosOverViewRosterUpdatedListener","GROUP_ROSTER_UPDATE", function () GL.PlusTwos:triggerChangeEvent(); end);
 end
 
