@@ -364,7 +364,7 @@ function RollOff:start(CommMessage)
                     SecondsAnnounced[secondsLeft] = true;
 
                     GL:sendChatMessage(
-                        string.format("%s seconds to roll", secondsLeft),
+                        string.format("%s secondes restantes pour roll", secondsLeft),
                         "GROUP"
                     );
                 end
@@ -416,7 +416,7 @@ function RollOff:stop(CommMessage)
         -- Announce that the roll has ended
         if (GL.Settings:get("MasterLooting.announceRollEnd", true)) then
             GL:sendChatMessage(
-                string.format("Stop your rolls!"),
+                string.format("Arrêtez vos rolls !"),
                 "RAID_WARNING"
             );
         end
@@ -467,7 +467,7 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
     if (GL:nameIsUnique(roller)) then
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Award %s to |cff%s%s|r?",
+            question = string.format("Attribuer %s à |cff%s%s|r?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(roller)),
                 roller
@@ -476,6 +476,10 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
+
+                    if (isOS) then
+                        GL.PlusTwos:add(roller);
+                    end
                 end
 
                 local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
@@ -498,7 +502,9 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost);
+                if (isOS or addPlusOne) then
+                    GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost);    
+                end
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -520,7 +526,7 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
     GL.Interface.PlayerSelector:draw(description, roller, function (player)
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Award %s to |cff%s%s|r?",
+            question = string.format("Attribuer %s à |cff%s%s|r?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(player)),
                 player
@@ -529,6 +535,10 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
+
+                    if (isOS) then
+                        GL.PlusTwos:add(roller);
+                    end
                 end
 
                 local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
@@ -551,7 +561,9 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost);
+                if (isOS or addPlusOne) then
+                    GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost);    
+                end
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -681,15 +693,17 @@ function RollOff:processRoll(message)
                 if (GL.Settings:get("TMBRaidGroups.useAsSortCriteria")) then
                     local normalizedPlayerName = string.lower(rollerName);
                     -- Find player raid group
-                    local playerRaidGroup = DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName);
+                    local playerRaidGroup = DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName,"");
                     GL:debug("TMBRaidGroup : "..playerRaidGroup);
-                    if (playerRaidGroup) then
+                    if (not playerRaidGroup == "") then
                         local rollPriority = GL.Settings:get("RaidGroupSorting."..RollType[1]..playerRaidGroup..".SortingPriority","")
                         GL:debug(string.format("Roll priority for '%s' : in raid group '%s' is '%s'",RollType[1],playerRaidGroup,rollPriority));
                         -- If found, replace the priority with found setting
                         if (rollPriority) then
                             RollType[4] = tonumber(rollPriority);
                         end
+                    else
+                        GL:error(string.format("%s ne fait pas partie d'un groupe de raid",rollerName));
                     end
                 end
 
@@ -820,9 +834,14 @@ function RollOff:refreshRollsTable()
 
         local class = Roll.class;
         local plusOnes = GL.PlusOnes:get(playerName);
+        local plusTwos = GL.PlusTwos:get(playerName);
 
         if (GL:higherThanZero(plusOnes)) then
             plusOnes = "+" .. plusOnes;
+        end
+
+        if (GL:higherThanZero(plusTwos)) then
+            plusTwos = "+" .. plusTwos;
         end
 
         local Row = {
@@ -837,6 +856,10 @@ function RollOff:refreshRollsTable()
                 },
                 {
                     value = plusOnes,
+                    color = GL:classRGBAColor(class),
+                },
+                {
+                    value = plusTwos,
                     color = GL:classRGBAColor(class),
                 },
                 {

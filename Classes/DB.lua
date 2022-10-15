@@ -9,6 +9,7 @@ GL.DB = {
     LootPriority = {},
     MinimapButton = {},
     PlusOnes = {},
+    PlusTwos = {},
     Settings = {},
     LoadDetails = {},
     SoftRes = {},
@@ -36,6 +37,7 @@ function DB:_init()
     DahBooCustomizedGargulDB.LootPriority = DahBooCustomizedGargulDB.LootPriority or {};
     DahBooCustomizedGargulDB.MinimapButton = DahBooCustomizedGargulDB.MinimapButton or {};
     DahBooCustomizedGargulDB.PlusOnes = DahBooCustomizedGargulDB.PlusOnes or {};
+    DahBooCustomizedGargulDB.PlusTwos = DahBooCustomizedGargulDB.PlusTwos or {};
     DahBooCustomizedGargulDB.Settings = DahBooCustomizedGargulDB.Settings or {};
     DahBooCustomizedGargulDB.LoadDetails = DahBooCustomizedGargulDB.LoadDetails or {};
     DahBooCustomizedGargulDB.SoftRes = DahBooCustomizedGargulDB.SoftRes or {};
@@ -48,6 +50,7 @@ function DB:_init()
     self.LootPriority = DahBooCustomizedGargulDB.LootPriority;
     self.MinimapButton = DahBooCustomizedGargulDB.MinimapButton;
     self.PlusOnes = DahBooCustomizedGargulDB.PlusOnes;
+    self.PlusTwos = DahBooCustomizedGargulDB.PlusTwos;
     self.Settings = DahBooCustomizedGargulDB.Settings;
     self.LoadDetails = DahBooCustomizedGargulDB.LoadDetails;
     self.SoftRes = DahBooCustomizedGargulDB.SoftRes;
@@ -71,6 +74,7 @@ function DB:store()
     DahBooCustomizedGargulDB.LootPriority = GL.DB.LootPriority;
     DahBooCustomizedGargulDB.MinimapButton = GL.DB.MinimapButton;
     DahBooCustomizedGargulDB.PlusOnes = GL.DB.PlusOnes;
+    DahBooCustomizedGargulDB.PlusTwos = GL.DB.PlusTwos;
     DahBooCustomizedGargulDB.Settings = GL.Settings.Active;
     DahBooCustomizedGargulDB.LoadDetails = GL.DB.LoadDetails;
     DahBooCustomizedGargulDB.SoftRes = GL.DB.SoftRes;
@@ -97,6 +101,7 @@ function DB:reset()
     self.LootPriority = {};
     self.MinimapButton = {};
     self.PlusOnes = {};
+    self.PlusTwos = {};
     self.Settings = {};
     self.LoadDetails = {};
     self.SoftRes = {};

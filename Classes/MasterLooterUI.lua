@@ -33,7 +33,7 @@ function MasterLooterUI:draw(itemLink)
         and not GL.User.isMasterLooter
         and not GL.User.hasAssist
     ) then
-        return GL:warning("You need to be the master looter or have an assist / lead role!");
+        return GL:warning("Vous devez être ML ou avoir une promote ou être le chef de groupe !");
     end
 
     -- Close the reopen masterlooter button if it exists
@@ -62,7 +62,7 @@ function MasterLooterUI:draw(itemLink)
     Window = AceGUI:Create("Frame", "GARGUL_MASTERLOOTERUI_WINDOW");
     Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
     Window:SetLayout("Flow");
-    Window:SetWidth(430);
+    Window:SetWidth(500);
     Window:SetHeight(350);
     Window:EnableResize(false);
     Window.frame:SetFrameStrata("HIGH");
@@ -111,7 +111,7 @@ function MasterLooterUI:draw(itemLink)
 
                 ItemBox:DisableButton(true);
                 ItemBox:SetHeight(20);
-                ItemBox:SetWidth(170);
+                ItemBox:SetWidth(220);
                 ItemBox:SetCallback("OnTextChanged", function () MasterLooterUI:ItemBoxChanged() end); -- Update item info when input value changes
                 ItemBox:SetCallback("OnEnterPressed", function () MasterLooterUI:ItemBoxChanged() end); -- Update item info when item is dragged on top (makes no sense to use OnEnterPressed I know)
 
@@ -152,7 +152,7 @@ function MasterLooterUI:draw(itemLink)
 
                 local StartButton = AceGUI:Create("Button");
                 StartButton:SetText("Commencer");
-                StartButton:SetWidth(75);
+                StartButton:SetWidth(95);
                 StartButton:SetHeight(20);
                 StartButton:SetDisabled(true);
                 StartButton:SetCallback("OnClick", function()
@@ -225,7 +225,7 @@ function MasterLooterUI:draw(itemLink)
                 local ItemNote = AceGUI:Create("EditBox");
                 ItemNote:DisableButton(true);
                 ItemNote:SetHeight(20);
-                ItemNote:SetWidth(340);
+                ItemNote:SetWidth(410);
                 SecondRow:AddChild(ItemNote);
                 GL.Interface:setItem(self, "ItemNote", ItemNote);
 
@@ -547,7 +547,19 @@ function MasterLooterUI:drawPlayersTable(parent)
         --[[ +1 ]]
         {
             name = "+1",
-            width = 35,
+            width = 25,
+            align = "LEFT",
+            color = {
+                r = 0.5,
+                g = 0.5,
+                b = 1.0,
+                a = 1.0
+            },
+            colorargs = nil,
+        },
+        {
+            name = "+2",
+            width = 25,
             align = "LEFT",
             color = {
                 r = 0.5,
@@ -588,7 +600,7 @@ function MasterLooterUI:drawPlayersTable(parent)
         --[[ Reserved / TMB etc ]]
         {
             name = "Note",
-            width = 88,
+            width = 158,
             align = "LEFT",
             color = {
                 r = 0.5,
