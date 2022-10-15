@@ -12,11 +12,19 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "v4.9.2",
+            date = "15 Octobre 2022",
+            Changes = {
+                "Les +2 sont maintenant stockés en base de données comme les +1. Tapez |c00a79eff/dbcgl +2|r pour afficher les valeurs du groupe.",
+                "Une colonne +2 a été ajoutée dans l'interface du ML pour lui faciliter l'attribution des loots.",
+            }
+        },
+        {
             version = "v4.9.1",
             date = "14 Octobre 2022",
             Changes = {
-                "- Récupération des fonctionnalités de la v4.9.0 standard de Gargul",
-                "- Correction d'une erreur LUA au changement de valeur de la coche |c00a79effUtilier les groupes de raid comme critère de priorité dans les rolls|r ",
+                "Récupération des fonctionnalités de la v4.9.0 standard de Gargul",
+                "Correction d'une erreur LUA au changement de valeur de la coche |c00a79effUtiliser les groupes de raid comme critère de priorité dans les rolls|r ",
             },
         },
         {

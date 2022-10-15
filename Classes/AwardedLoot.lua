@@ -209,7 +209,7 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, cost)
                 cost
             );
         else
-            awardMessage = string.format("%s was awarded to %s. Congrats!",
+            awardMessage = string.format("%s a été attribué à %s. Félicitations !",
                 itemLink,
                 winner
             );
@@ -312,7 +312,12 @@ function AwardedLoot:byWinner(winner, after)
             and not GL:empty(AwardEntry.timestamp)
             and not GL:empty(AwardEntry.itemLink)
         ) then
-            tinsert(Entries, AwardEntry.itemLink);
+            if AwardEntry.OS then
+                tinsert(Entries, AwardEntry.itemLink.. " (+2)");    
+            else
+                tinsert(Entries, AwardEntry.itemLink.. " (+1)");    
+            end
+            
         end
     end
 
