@@ -17,6 +17,7 @@ GL.Interface.Changelog = {
             Changes = {
                 "Les +2 sont maintenant stockés en base de données comme les +1. Tapez |c00a79eff/dbcgl +2|r pour afficher les valeurs du groupe.",
                 "Une colonne +2 a été ajoutée dans l'interface du ML pour lui faciliter l'attribution des loots.",
+                "Le tooltip des loots obtenus les 8 dernières heures affiche maintenant si c'était en +1 ou +2."
             }
         },
         {
