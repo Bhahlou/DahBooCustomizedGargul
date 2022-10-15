@@ -12,7 +12,7 @@ GL.Interface.Changelog = {
 
     History = {
         {
-            version = "v4.9.2",
+            version = "4.9.2",
             date = "15 Octobre 2022",
             Changes = {
                 "Les +2 sont maintenant stockés en base de données comme les +1. Tapez |c00a79eff/dbcgl +2|r pour afficher les valeurs du groupe.",
@@ -20,7 +20,7 @@ GL.Interface.Changelog = {
             }
         },
         {
-            version = "v4.9.1",
+            version = "4.9.1",
             date = "14 Octobre 2022",
             Changes = {
                 "Récupération des fonctionnalités de la v4.9.0 standard de Gargul",
