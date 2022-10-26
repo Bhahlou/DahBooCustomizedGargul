@@ -310,6 +310,10 @@ GL.Data.Constants = {
             broadcastBoostedRollsData = 12,
             requestBoostedRollsData = 13,
             broadcastBoostedRollsMutation = 14,
+            broadcastPlusOnes = 15,
+            broadcastTMBRaidGroupsData = 16,
+            requestTMBRaidGroupsData = 17,
+            broadcastPlusTwos = 18,
         },
     },
 

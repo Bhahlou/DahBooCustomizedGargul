@@ -26,8 +26,8 @@ function Rolling:draw(Parent)
             setting = "Rolling.closeAfterRoll",
         },
         {
-            label = "Don't show on unusable items",
-            description = "Don't show the window if you can't use the item (lvl / class restriction etc.)",
+            label = "Ne pas afficher sur les objets inutilisables",
+            description = "Ne pas afficher la fenêtre si vous ne pouvez pas utiliser l'objet (lvl / restriction de classe, etc.)",
             setting = "Rolling.dontShowOnUnusableItems",
         },
     };

@@ -291,6 +291,17 @@ function Comm:dispatch(CommMessage)
     elseif (action == CommActions.broadcastBoostedRollsMutation) then
         return GL.BoostedRolls:receiveUpdate(CommMessage);
 
+    elseif (action == CommActions.requestTMBRaidGroupsData) then
+        return GL.TMBRaidGroups:replyToDataRequest(CommMessage);
+    
+    elseif (action == CommActions.broadcastTMBRaidGroupsData) then
+        return GL.TMBRaidGroups:receiveBroadcast(CommMessage);
+        
+    elseif (action == CommActions.broadcastPlusOnes) then
+        return GL.PlusOnes:receiveBroadcast(CommMessage);
+
+    elseif (action == CommActions.broadcastPlusTwos) then
+        return GL.PlusTwos:receiveBroadcast(CommMessage);
     end
 
     GL:warning(string.format("Unknown comm action '%s'", action));

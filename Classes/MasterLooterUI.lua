@@ -315,9 +315,9 @@ function MasterLooterUI:draw(itemLink)
                         return GL:warning("Vous devez d'abord sélectionner un joueur");
                     end
 
-                    local msRoll = selected.cols[4].value == "+1";
-                    local osRoll = selected.cols[4].value == "+2";
-                    local boostedRoll = selected.cols[4].value == GL.Settings:get("BoostedRolls.identifier", "BR");
+                    local msRoll = selected.cols[5].value == "+1";
+                    local osRoll = selected.cols[5].value == "+2";
+                    local boostedRoll = selected.cols[5].value == GL.Settings:get("BoostedRolls.identifier", "BR");
                     return GL.RollOff:award(selected.cols[1].value, GL.Interface:getItem(self, "EditBox.Item"):GetText(), msRoll, osRoll, boostedRoll);
                 end);
                 ThirdRow:AddChild(AwardButton);

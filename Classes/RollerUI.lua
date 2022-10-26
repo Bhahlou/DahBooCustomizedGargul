@@ -218,7 +218,7 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
     TimerBar:SetLabel("  " .. itemLink .. " " .. string.sub(note, 0, noteStringLengthAllowed));
 
     if (not userCanUseItem) then
-        TimerBar:SetLabel("  |c00FFFFFFYou can't use this item!|r");
+        TimerBar:SetLabel("  |c00FFFFFFVous ne pouvez pas utiliser cet objet !|r");
     end
 
     TimerBar:SetIcon(itemIcon);

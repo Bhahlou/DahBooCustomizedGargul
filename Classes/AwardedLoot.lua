@@ -84,7 +84,7 @@ function AwardedLoot:appendAwardedLootToTooltip(Tooltip)
     end
 
     -- Add the header
-    Tooltip:AddLine(string.format("\n|c00efb8cd%s|r", "Awarded To"));
+    Tooltip:AddLine(string.format("\n|c00efb8cd%s|r", "Attribué à :"));
 
     -- Add the actual award info
     Tooltip:AddLine(string.format("|c008aecff    %s|r", awardedTo));
@@ -109,13 +109,15 @@ end
 ---@param announce boolean|nil
 ---@param date string|nil
 ---@param isOS boolean|nil
+---@param cost number
 ---@param addPlusOne boolean|nil
 ---@return void
-function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, cost)
+function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, cost, addPlusOne)
     GL:debug("AwardedLoot:addWinner");
 
     -- Determine whether the item should be flagged as off-spec
     isOS = GL:toboolean(isOS);
+    addPlusOne= GL:toboolean(addPlusOne);
 
     local dateProvided = date and type(date) == "string";
     local timestamp = GetServerTime();
@@ -183,10 +185,11 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, cost)
         softresID = GL.DB:get("SoftRes.MetaData.id"),
         received = false,
         OS = isOS,
+        MS = addPlusOne,
     };
 
     -- Insert the award in the more permanent AwardHistory table (for export / audit purposes)
-    tinsert(GL.DB.AwardHistory, AwardEntry);
+    tinsert(GL.DB.AwardHistory, AwardEntry);    
 
     -- Check whether the user disabled award announcement in the settings
     if (GL.Settings:get("AwardingLoot.awardMessagesDisabled")) then
@@ -313,9 +316,11 @@ function AwardedLoot:byWinner(winner, after)
             and not GL:empty(AwardEntry.itemLink)
         ) then
             if AwardEntry.OS then
-                tinsert(Entries, AwardEntry.itemLink.. " (+2)");    
+                tinsert(Entries, AwardEntry.itemLink.. " (+2)");
+            elseif AwardEntry.MS then
+                tinsert(Entries, AwardEntry.itemLink.. " (+1)")
             else
-                tinsert(Entries, AwardEntry.itemLink.. " (+1)");    
+                tinsert(Entries, AwardEntry.itemLink.. " (+3)");    
             end
             
         end
@@ -522,6 +527,7 @@ function AwardedLoot:processAwardedLoot(CommMessage)
         softresID = AwardEntry.softresID,
         received = AwardEntry.received,
         OS = AwardEntry.OS,
+        MS = AwardEntry.MS,
     });
 end
 

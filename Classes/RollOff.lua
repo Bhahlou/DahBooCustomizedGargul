@@ -45,7 +45,6 @@ function RollOff:announceStart(itemLink, time, note)
 
     -- Clear the rolls table whenever a new item is rolled off
     if (not GL:empty(self.CurrentRollOff.itemLink)
-        and self.CurrentRollOff.itemLink ~= itemLink
     ) then
         self:reset();
         GL.MasterLooterUI:reset(true);
@@ -364,7 +363,7 @@ function RollOff:start(CommMessage)
                     SecondsAnnounced[secondsLeft] = true;
 
                     GL:sendChatMessage(
-                        string.format("%s secondes restantes pour roll", secondsLeft),
+                        string.format("%s seconde(s) restante(s) pour roll", secondsLeft),
                         "GROUP"
                     );
                 end
@@ -467,7 +466,7 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
     if (GL:nameIsUnique(roller)) then
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Attribuer %s à |cff%s%s|r?",
+            question = string.format("Attribuer %s à |cff%s%s|r ?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(roller)),
                 roller
@@ -502,9 +501,7 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                if (isOS or addPlusOne) then
-                    GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost);    
-                end
+                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost,addPlusOne);
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -561,9 +558,7 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                if (isOS or addPlusOne) then
-                    GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost);    
-                end
+                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost,addPlusOne);
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
