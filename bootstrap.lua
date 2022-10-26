@@ -108,6 +108,7 @@ function GL:_init()
     self.TradeWindow:_init();
     self.Interface.MasterLooterDialog:_init();
     self.Interface.TradeWindow.TimeLeft:_init();
+    self.TMBRaidGroups:_init();
 
     -- Hook the bagslot events
     self:hookBagSlotEvents();
