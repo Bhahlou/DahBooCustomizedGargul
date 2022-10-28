@@ -690,15 +690,15 @@ function RollOff:processRoll(message)
                     -- Find player raid group
                     local playerRaidGroup = DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName,"");
                     GL:debug("TMBRaidGroup : "..playerRaidGroup);
-                    if (not playerRaidGroup == "") then
+                    if (playerRaidGroup == "") then
+                        GL:error(string.format("%s ne fait pas partie d'un groupe de raid",rollerName));
+                    else
                         local rollPriority = GL.Settings:get("RaidGroupSorting."..RollType[1]..playerRaidGroup..".SortingPriority","")
                         GL:debug(string.format("Roll priority for '%s' : in raid group '%s' is '%s'",RollType[1],playerRaidGroup,rollPriority));
                         -- If found, replace the priority with found setting
                         if (rollPriority) then
                             RollType[4] = tonumber(rollPriority);
                         end
-                    else
-                        GL:error(string.format("%s ne fait pas partie d'un groupe de raid",rollerName));
                     end
                 end
 

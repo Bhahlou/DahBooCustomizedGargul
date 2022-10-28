@@ -272,6 +272,7 @@ GL.Data.Constants = {
         "Player-4478-02127978",
         "Player-4478-02E36E30",
         "Player-5278-0153632E",
+        "Player-4441-02D751AD",
     },
 
     TMBTierHexColors = {
