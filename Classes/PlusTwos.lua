@@ -6,6 +6,8 @@ GL.PlusTwos = {};
 
 local DB = GL.DB; ---@type DB
 local PlusTwos = GL.PlusTwos; ---@type PlusTwos
+local Constants = GL.Data.Constants; ---@type Data
+local CommActions = Constants.Comm.Actions;
 
 --- Add a plus two for the given player name and return the current plusTwo value
 ---
@@ -22,7 +24,7 @@ function PlusTwos:add(playerName)
         DB.PlusTwos[playerName] = DB.PlusTwos[playerName] + 1;
     end
 
-    self:triggerChangeEvent();
+    self:broadcast();
 
     return DB.PlusTwos[playerName];
 end
@@ -43,7 +45,7 @@ function PlusTwos:deduct(playerName)
         DB.PlusTwos[playerName] = math.max(DB.PlusTwos[playerName] - 1, 0);
     end
 
-    self:triggerChangeEvent();
+    self:broadcast();
 
     return DB.PlusTwos[playerName];
 end
@@ -62,7 +64,7 @@ function PlusTwos:setToZero(playerName)
     end
 
     DB.PlusTwos[playerName] = 0;
-    self:triggerChangeEvent();
+    self:broadcast();
 
     return 0;
 end
@@ -75,7 +77,7 @@ function PlusTwos:clear()
 
     DB.PlusTwos = {};
 
-    self:triggerChangeEvent();
+    self:broadcast();
 end
 
 --- Get a player's PlusTwos value
@@ -106,6 +108,8 @@ function PlusTwos:set(playerName, value)
     playerName = GL:normalizedName(playerName);
 
     DB.PlusTwos[playerName] = GL:round(value);
+
+    self:broadcast()
 end
 
 --- Assign PlusTwo values en masse
@@ -121,16 +125,101 @@ function PlusTwos:massSet(plusTwosByPlayerName)
         DB.PlusTwos[playerName] = GL:round(value);
     end
 
-    self:triggerChangeEvent();
+    self:broadcast();
 end
 
---- Trigger the PLUSTWOS_CHANGED event
----
----@return void
-function PlusTwos:triggerChangeEvent()
-    GL:debug("PlusTwos:triggerChangeEvent");
+--- Broadcast PlusTwo values
+function PlusTwos:broadcast()
+    GL:debug("PlusOnes:broadcast");
 
     GL.Events:fire("GL.PLUSTWOS_CHANGED");
+
+    if (self.broadcastInProgress) then
+        GL:error("Broadcast still in progress");
+        return false;
+    end
+
+    if (not GL.User.isInGroup) then
+        GL:warning("Personne à qui diffuser, vous n'êtes pas en groupe !");
+        return false;
+    end
+
+    if (not GL.User.hasAssist
+        and not GL.User.isMasterLooter
+    ) then
+        GL:warning("Droits insuffisants pour diffuser, vous devez être ML, avoir une promote ou le lead !");
+        return false;
+    end
+
+    self.broadcastInProgress = true;
+
+    local Broadcast = function ()
+        GL:message("Diffusion des données de +2...");
+
+        print(CommActions.broacastPlusTwos);
+
+        GL.CommMessage.new(
+            CommActions.broadcastPlusTwos,
+            GL.DB.PlusTwos,
+            "GROUP"
+        ):send(function ()
+            GL:success("Diffusion +2 terminée");
+            self.broadcastInProgress = false;
+        end);
+    end
+
+    -- We're about to send a lot of data which will put strain on CTL
+    -- Make sure we're out of combat before doing so!
+    if (UnitAffectingCombat("player")) then
+        GL:message("Vous êtes actuellement en combat, la diffusion des +2 est repoussée");
+
+        GL.Events:register("PlusTwosOutOfCombatListener", "PLAYER_REGEN_ENABLED", function ()
+            GL.Events:unregister("PlusTwosOutOfCombatListener");
+            Broadcast();
+        end);
+    else
+        Broadcast();
+    end
+
+    return true;
 end
 
+
+--- Process an incoming PlusTwos broadcast
+---
+---@param CommMessage CommMessage
+function PlusTwos:receiveBroadcast(CommMessage)
+    GL:debug("PlusTwos:receiveBroadcast");
+
+    -- No need to update our tables if we broadcasted them ourselves
+    if (CommMessage.Sender.id == GL.User.id) then
+        GL:debug("PlusTwos:receiveBroadcast received by self, skip");
+        return true;
+    end
+
+    local Data = CommMessage.content;
+    if (not GL:empty(Data)) then
+        GL:warning("Tentative de traitement de données de +2 en provenance de " .. CommMessage.Sender.name);
+
+        if (type(Data) ~= "table" or GL:empty(Data)
+        ) then
+            GL:error("Données de +2 invalides reçues de " .. CommMessage.Sender.name);
+            return;
+        end
+
+        -- Validate dataset
+        for player, value in pairs(Data) do
+            value= tonumber(value);
+
+            if (GL:empty(player)) then
+                GL:error("Données de +2 invalides reçues de " .. CommMessage.Sender.name);
+                return;
+            end
+
+        end
+
+        GL:success("Données de +2 synchronisées");
+        GL.DB.PlusTwos = Data;
+    end
+end
 GL:debug("PlusTwos.lua");

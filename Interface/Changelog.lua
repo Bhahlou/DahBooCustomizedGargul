@@ -12,6 +12,14 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "4.9.3",
+            date = "26 Octobre 2022",
+            Changes = {
+                "Les données de +1 et +2 sont maintenant partagées avec le groupe ",
+                "Les groupes de raid peuvent maintenant être partagés automatiquement avec le groupe",
+            },
+        },
+        {
             version = "4.9.2",
             date = "15 Octobre 2022",
             Changes = {

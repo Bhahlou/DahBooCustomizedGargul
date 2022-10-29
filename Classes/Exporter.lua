@@ -196,6 +196,7 @@ function Exporter:getLootEntries()
             and not GL:empty(AwardEntry.timestamp)
             and not GL:empty(AwardEntry.itemLink)
             and not GL:empty(AwardEntry.awardedTo)
+            and (not GL:empty(AwardEntry.OS) or not GL:empty(AwardEntry.MS))
         ) then
             local awardedTo = AwardEntry.awardedTo;
 

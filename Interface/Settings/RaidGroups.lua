@@ -14,12 +14,17 @@ local EditBoxes = {};
 function RaidGroups:draw(Parent)
     GL:debug("RaidGroupsSettings:draw");
     
-    local useAsSortCriteriaCheckbox = {
+    local Checkboxes = {
         {
             label = "Utiliser les groupes de raid comme critère de priorité dans les rolls",
             description = "En cochant ceci, vous pouvez utilier les groupes de raid comme un critère supplémentaire de tri dans la priorité des rolls",
             setting = "TMBRaidGroups.useAsSortCriteria",
         },
+        {
+            label = "Partager les groupes de raid",
+            description = "Partage automatiquement les groupes de raid lorsque quelqu'un rejoint votre groupe ou lorsque vous les importez",
+            setting = "TMBRaidGroups.broadcastRaidGroups"
+        }
     };
     
 
@@ -38,7 +43,7 @@ function RaidGroups:draw(Parent)
     
     local AceGUI = GL.AceGUI;
     
-    for _, Entry in pairs(useAsSortCriteriaCheckbox) do
+    for _, Entry in pairs(Checkboxes) do
         local Checkbox = AceGUI:Create("CheckBox");
         Checkbox:SetValue(GL.Settings:get(Entry.setting));
         Checkbox:SetLabel(Entry.label);

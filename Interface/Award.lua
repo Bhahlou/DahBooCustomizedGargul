@@ -179,7 +179,7 @@ function Award:draw(itemLink)
             end
 
             -- Add the player we awarded the item to to the item's tooltip
-            GL.AwardedLoot:addWinner(winner, itemLink, nil, nil, isOS, cost);
+            GL.AwardedLoot:addWinner(winner, itemLink, nil, nil, isOS, cost, addPlusOne);
             GL.Interface.Award:reset();
 
             if (Settings:get("UI.Award.closeOnAward", true)) then
