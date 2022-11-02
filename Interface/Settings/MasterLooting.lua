@@ -86,6 +86,11 @@ function MasterLooting:draw(Parent)
             description = "Un compte à rebours sera affiché dans le chat quand un roll arrive à sa fin (par ex : vous avez 5s pour roll)",
             setting = "MasterLooting.doCountdown",
         },
+        {
+            label = "Compte à rebours une seule fois",
+            description = "Annonce le compte à rebours seulement une fois au nombre de secondes désirées avant la fin du roll",
+            setting = "MasterLooting.announceCountdownOnce",
+        },
     };
 
     Overview:drawCheckboxes(Checkboxes, Parent);

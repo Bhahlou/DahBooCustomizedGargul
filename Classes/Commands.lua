@@ -3,7 +3,7 @@ local _, GL = ...;
 ---@class Commands
 GL.Commands = GL.Commands or {
     CommandDescriptions = {
-        awardondate = "In case you need to award something retroactively you can use this command: /gl awardOnDate [winnerName] [itemLink] [yy-mm-dd]",
+        awardondate = "In case you need to award something retroactively you can use this command: /gl awardOnDate [winnerName] [yy-mm-dd] [itemLink]",
         award = "Open the award window. Optionally accepts an ItemLink as an argument: /gl award [itemLink?]",
         boostedrolls = "Open the Boosted Rolls UI that allows you to easily manage roll boosts.",
         buffs = "You can instantly check player buffs like Ony, ZG, but also protection consumables like shadow protection: /gl buffs 22888, 22818, 22817, 22820, 24425, 15366, 20079",
@@ -87,7 +87,7 @@ GL.Commands = GL.Commands or {
             end
 
             if (not winner or winner == "" or not itemLink) then
-                if (GL:getItemIdFromLink(winner)) then
+                if (GL:getItemIDFromLink(winner)) then
                     itemLink = winner;
                 end
 
@@ -197,8 +197,8 @@ function Commands:_dispatch(str)
         command = "settings";
     end
 
-     -- Make sure commands are case insensitive (Busmonstret = dumdum)
-     command = string.lower(command);
+    -- Make sure commands are case insensitive (Busmonstret = dumdum)
+    command = string.lower(command);
 
     -- Fetch the actual command name in case a shorthand is provided
     command = GL:tableGet(self.ShorthandDictionary, command, command);

@@ -275,7 +275,7 @@ function RaidGroups:normalizeRaidHelperInput(input)
 
         local PlayerNames = {};
         for _, playerName in pairs(Players) do
-            playerName = strtrim(playerName);
+            playerName = strtrim(playerName, nil);
 
             if (playerName ~= "-") then
                 tinsert(PlayerNames, playerName);

@@ -12,6 +12,7 @@ function AwardDialog:open(Dialog)
     Dialog.checkOS = GL:toboolean(Dialog.checkOS);
     Dialog.checkPlusOne = GL:toboolean(Dialog.checkPlusOne);
     Dialog.checkOS = GL:toboolean(Dialog.checkOS);
+    Dialog.checkPlusOne = GL:toboolean(Dialog.checkPlusOne);
     Dialog.boostedRollCost = GL.BoostedRolls:toPoints(Dialog.boostedRollCost);
 
     -- Create a container/parent frame
@@ -37,6 +38,10 @@ function AwardDialog:open(Dialog)
             OSCheckBox:SetValue(true);
         end
     end
+
+    --- Set focus on the hidden YesButtonEnterCatcher field in order to support confirming with enter press
+    local YesButtonEnterCatcher = GL.Interface:getItem(self, "EditBox.YesButtonEnterCatcher");
+    YesButtonEnterCatcher:SetFocus();
 
     --- Adjust the value of the boosted roll cost editbox
     local BoostedRollsCostEditBox = GL.Interface:getItem(self, "EditBox.Cost");

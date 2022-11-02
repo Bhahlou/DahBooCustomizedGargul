@@ -90,7 +90,7 @@ end
 ---@param playerName string
 ---@return void
 function BoostedRolls:markPlayerAsTrusted(playerName)
-    playerName = strtrim(playerName);
+    playerName = strtrim(playerName, nil);
 
     if (GL:empty(playerName)
         or self:playerIsTrusted(playerName)
@@ -110,7 +110,7 @@ end
 ---@param playerName string
 ---@return void
 function BoostedRolls:removePlayerFromTrusted(playerName)
-    playerName = strtrim(playerName);
+    playerName = strtrim(playerName, nil);
 
     -- No point removing the player if he's not trusted in the first place
     if (GL:empty(playerName)
@@ -958,6 +958,38 @@ function BoostedRolls:replyToDataRequest(CommMessage)
         "WHISPER",
         CommMessage.Sender.name
     ):send();
+end
+
+--- Add points to a give user's balance
+---
+---@param playerName string
+---@param points number
+function BoostedRolls:addPoints(playerName, points)
+    GL:debug("BoostedRolls:addPoints");
+
+    if (points <= 0) then
+        return;
+    end
+
+    local currentPoints = self:getPoints(playerName) or 0;
+
+    self:queueUpdate(playerName, currentPoints + points);
+end
+
+--- Subtract points from a give user's balance
+---
+---@param playerName string
+---@param points number
+function BoostedRolls:subtractPoints(playerName, points)
+    GL:debug("BoostedRolls:subtractPoints");
+
+    if (points <= 0) then
+        return;
+    end
+
+    local currentPoints = self:getPoints(playerName) or 0;
+
+    self:queueUpdate(playerName, currentPoints - points);
 end
 
 --- Queue an update until broadcast is finished

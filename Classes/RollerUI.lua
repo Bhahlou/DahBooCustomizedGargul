@@ -40,7 +40,6 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
     GL:debug("RollerUI:draw");
 
     local Window = CreateFrame("Frame", "GargulUI_RollerUI_Window", UIParent, Frame);
-    Window:Hide();
     Window:SetSize(350, 48);
     Window:SetPoint(GL.Interface:getPosition("Roller"));
 
@@ -60,6 +59,8 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
             self:hide();
         end
     end);
+    Window:SetScale(GL.Settings:get("Rolling.scale", 1));
+    Window.ownedByGargul = true; -- We used this in the tooltip check later
     self.Window = Window;
 
     local Texture = Window:CreateTexture(nil,"BACKGROUND");
@@ -67,22 +68,14 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
     Texture:SetAllPoints(Window)
     Window.texture = Texture;
 
-    local RollButtonWidthByAmount = {
-        [1] = 80,
-        [2] = 80,
-        [3] = 72,
-        [4] = 64,
-        [5] = 56,
-        [6] = 48,
-        [7] = 40,
-    };
     local RollButtons = {};
     local numberOfButtons = #SupportedRolls;
 
+    local rollerUIWidth = 0;
     for i = 1, numberOfButtons do
         local RollDetails = SupportedRolls[i] or {};
 
-        local identifier = string.sub(RollDetails[1] or "", 1, 3);
+        local identifier = RollDetails[1];
         local min = math.floor(tonumber(RollDetails[2]) or 0);
         local max = math.floor(tonumber(RollDetails[3]) or 0);
 
@@ -93,7 +86,9 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
 
         -- Roll button
         local Button = CreateFrame("Button", nil, Window, "GameMenuButtonTemplate");
-        Button:SetSize(RollButtonWidthByAmount[numberOfButtons], 20);
+        local buttonWidth = math.max(string.len(identifier) * 12, 70);
+        rollerUIWidth = rollerUIWidth + buttonWidth + 4;
+        Button:SetSize(buttonWidth, 20);
         Button:SetText(identifier);
         Button:SetNormalFontObject("GameFontNormal");
         Button:SetHighlightFontObject("GameFontNormal");
@@ -117,6 +112,22 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
 
             if (GL.Settings:get("Rolling.closeAfterRoll")) then
                 self:hide();
+            else
+                local RollAcceptedNotification = GL.AceGUI:Create("InlineGroup");
+                RollAcceptedNotification:SetLayout("Fill");
+                RollAcceptedNotification:SetWidth(150);
+                RollAcceptedNotification:SetHeight(50);
+                RollAcceptedNotification.frame:SetParent(Window);
+                RollAcceptedNotification.frame:SetPoint("BOTTOMLEFT", Window, "TOPLEFT", 0, 4);
+
+                local Text = GL.AceGUI:Create("Label");
+                Text:SetText("Roll accepté !");
+                RollAcceptedNotification:AddChild(Text);
+                Text:SetJustifyH("MIDDLE");
+
+                self.RollAcceptedTimer = GL.Ace:ScheduleTimer(function ()
+                    RollAcceptedNotification.frame:Hide();
+                end, 2);
             end
         end);
 
@@ -139,9 +150,10 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
         self:hide();
     end);
 
-    self:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseItem);
+    rollerUIWidth = math.max(rollerUIWidth + 54, 350);
+    Window:SetWidth(rollerUIWidth);
 
-    Window:Show();
+    self:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseItem, rollerUIWidth);
 end
 
 --- Draw the countdown bar
@@ -151,7 +163,7 @@ end
 ---@param itemIcon string
 ---@param note string
 ---@return void
-function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseItem)
+function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseItem, width)
     GL:debug("RollerUI:drawCountdownBar");
 
     -- This shouldn't be possible but you never know!
@@ -161,9 +173,10 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
 
     local TimerBar = LibStub("LibCandyBarGargul-3.0"):New(
         "Interface\\AddOns\\Gargul\\Assets\\Textures\\timer-bar",
-        350,
+        width,
         24
     );
+    self.TimerBar = TimerBar;
 
     TimerBar:SetParent(self.Window);
     TimerBar:SetPoint("BOTTOM", self.Window, "BOTTOM");
@@ -194,10 +207,6 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
         end
     end)
 
-    TimerBar:SetScript("OnLeave", function()
-        GameTooltip:Hide();
-    end);
-
     TimerBar:SetDuration(time);
 
     -- Reset color to green or disabled
@@ -225,12 +234,54 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
     TimerBar:Set("type", "ROLLER_UI_COUNTDOWN");
     TimerBar:Start();
 
-    -- Show a gametooltip for the item up for roll
-    -- when hovering over the progress bar
-    TimerBar:SetScript("OnEnter", function()
+    local refreshTooltip = function ()
+        GameTooltip:Hide();
+
+        if (not self.Window) then
+            return;
+        end
+
         GameTooltip:SetOwner(self.Window, "ANCHOR_TOP");
         GameTooltip:SetHyperlink(itemLink);
         GameTooltip:Show();
+    end;
+
+    local lastShiftStatus;
+    TimerBar:SetScript("OnEvent", function(self, event, ...)
+        if (event == "MODIFIER_STATE_CHANGED") then
+            return self[event] and self[event](self, ...);
+        end
+    end)
+    TimerBar:RegisterEvent("MODIFIER_STATE_CHANGED")
+    function TimerBar:MODIFIER_STATE_CHANGED(key, pressed)
+        if (key ~= "LSHIFT" and key ~= "RSHIFT") then
+            return;
+        end
+
+        local Owner = GameTooltip:GetOwner();
+        local gameTooltipIsShown = GameTooltip:IsShown();
+        if (pressed == 1 and (not gameTooltipIsShown or not Owner or not Owner.ownedByGargul)) then
+            return;
+        end
+
+        if (lastShiftStatus ~= pressed and gameTooltipIsShown) then
+            refreshTooltip();
+            lastShiftStatus = pressed;
+        end
+    end
+
+    -- Show a gametooltip for the item up for roll
+    -- when hovering over the progress bar
+    TimerBar:SetScript("OnEnter", function()
+        lastShiftStatus = IsShiftKeyDown();
+
+        GameTooltip:SetOwner(self.Window, "ANCHOR_TOP");
+        GameTooltip:SetHyperlink(itemLink);
+        GameTooltip:Show();
+    end);
+
+    TimerBar:SetScript("OnLeave", function()
+        GameTooltip:Hide();
     end);
 end
 
@@ -244,6 +295,19 @@ function RollerUI:hide()
 
     self.Window:Hide();
     self.Window = nil;
+
+    if (not self.TimerBar) then
+        return;
+    end
+
+    self.TimerBar:UnregisterEvent("MODIFIER_STATE_CHANGED");
+    self.TimerBar.MODIFIER_STATE_CHANGED = nil;
+    self.TimerBar.OnEvent = nil;
+    self.TimerBar.OnEnter = nil;
+    self.TimerBar.OnLeave = nil;
+    self.TimerBar.OnMouseDown = nil;
+    self.TimerBar:Hide();
+    self.TimerBar = nil;
 end
 
 GL:debug("RollerUI.lua");

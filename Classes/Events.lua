@@ -50,11 +50,11 @@ function Events:getClickCombination(mouseButtonPressed)
         tinsert(ShortcutKeySegments, "SHIFT");
     end
 
-    if (mouseButtonPressed == "LeftButton") then
+    if (not mouseButtonPressed
+        or mouseButtonPressed == "LeftButton"
+    ) then
         tinsert(ShortcutKeySegments, "CLICK");
-    end
-
-    if (mouseButtonPressed == "RightButton") then
+    elseif (mouseButtonPressed == "RightButton") then
         tinsert(ShortcutKeySegments, "RIGHTCLICK");
     end
 
@@ -68,12 +68,12 @@ end
 ---@param callback function
 ---@return boolean
 function Events:register(identifier, event, callback)
+    GL:debug("Events:register");
 
     -- The user is attempting a mass assignment, pass it on!
     if (type(identifier) == "table") then
         return self:massRegister(identifier, event);
     end
-    GL:debug("Events:register "..identifier);
 
     if (GL:empty(identifier)
         or GL:empty(event)
@@ -175,7 +175,7 @@ function Events:massRegister(EventDetails, callback)
         else
             return false;
         end
-        GL:debug("Events:register "..identifier);
+
         self:register(identifier, event, callback);
     end
 end

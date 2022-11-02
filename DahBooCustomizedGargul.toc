@@ -2,7 +2,7 @@
 ## Title: Dah Boo Customized Gargul
 ## Author: Bhahl - Auberdine
 ## Notes: Loot addon that supports softres sr, thatsmybis tmb, auto looting, loot priorities, plus one tracking and much more
-## Version: 4.9.3
+## Version: 4.12.1
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
 
@@ -25,6 +25,7 @@ Classes/Base64.lua
 Classes/UI.lua
 Classes/DB.lua
 Classes/Settings.lua
+Classes/Profiler.lua
 Classes/SoftRes.lua
 Classes/PlusOnes.lua
 Classes/PlusTwos.lua
@@ -54,6 +55,7 @@ Classes/RaidGroups.lua
 # Interface objects
 Interface/Interface.lua
 Interface/Award.lua
+Interface/AwardHistory.lua
 Interface/Importer.lua
 Interface/Settings/Overview.lua
 Interface/Settings/DroppedLoot.lua
@@ -93,6 +95,8 @@ Interface/MinimapButton.lua
 # Popup dialogs
 Interface/Dialogs/AwardDialog.lua
 Interface/Dialogs/AwardDialogWidget.lua
+Interface/Dialogs/ConfirmWithSingleInputDialog.lua
+Interface/Dialogs/ConfirmWithSingleInputDialogWidget.lua
 Interface/Dialogs/IncomingBoostedRollDataDialog.lua
 Interface/Dialogs/IncomingBoostedRollDataDialogWidget.lua
 Interface/Dialogs/PopupDialog.lua

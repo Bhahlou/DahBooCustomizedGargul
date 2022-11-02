@@ -6,7 +6,6 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 ---@class GeneralSettings
 GL.Interface.Settings.General = {
     description = "Dah Boo Customized Gargul est une version remaniée de l'addon utilitaire Gargul, qui améliore la qualité de vie des raideurs, du responsable du butin et du raid leader. Il est désigné pour fonctionner avec TMB (thatsmybis.com) pour créer une expérience de raid sans problèmes.\n\nVérifiez les diverses sections sur la gauche de cette fenêtre ou visitez notre Wiki/Discord pour démarrer !",
-    wikiUrl = "https://github.com/papa-smurf/Gargul/wiki",
 };
 local General = GL.Interface.Settings.General; ---@type GeneralSettings
 
@@ -28,6 +27,24 @@ function General:draw(Parent)
     Parent:AddChild(DiscordURL);
 
     local HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
+    HorizontalSpacer:SetLayout("FILL");
+    HorizontalSpacer:SetFullWidth(true);
+    HorizontalSpacer:SetHeight(10);
+    Parent:AddChild(HorizontalSpacer);
+
+    local CurrentHotkeysLabel = GL.AceGUI:Create("Label");
+    CurrentHotkeysLabel:SetText(string.format(
+        "Roll : |c00a79eff%s|r. Attribution : |c00a79eff%s|r. Dez : |c00a79eff%s|r",
+        GL.Settings:get("ShortcutKeys.rollOff"),
+        GL.Settings:get("ShortcutKeys.award"),
+        GL.Settings:get("ShortcutKeys.disenchant")
+    ));
+    CurrentHotkeysLabel:SetFontObject(_G["GameFontNormal"]);
+    CurrentHotkeysLabel:SetFullWidth(true);
+    CurrentHotkeysLabel:SetJustifyH("MIDDLE");
+    Parent:AddChild(CurrentHotkeysLabel);
+
+    HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");
     HorizontalSpacer:SetFullWidth(true);
     HorizontalSpacer:SetHeight(10);
@@ -62,7 +79,7 @@ function General:draw(Parent)
     HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");
     HorizontalSpacer:SetFullWidth(true);
-    HorizontalSpacer:SetHeight(20);
+    HorizontalSpacer:SetHeight(10);
     Parent:AddChild(HorizontalSpacer);
 
     local Checkboxes = {
@@ -94,6 +111,18 @@ function General:draw(Parent)
             label = "Experimental : mode debug",
             description = "Activer ceci activera le mode debug, qui affiche les infos de debug dans votre fenêtre de chat. Ceci est prévu uniquement pour les développeurs travaillant activement sur l'addon Dah Boo Customized Gargul",
             setting = "debugModeEnabled",
+        },
+        {
+            label = "Experimental: addon usage",
+            description = "Affiche l'utilisation de la mémoire par l'addon. Attention : peut causer des chutes de FPS !",
+            setting = "profilerEnabled",
+            callback = function ()
+                if (GL.Settings:get("profilerEnabled")) then
+                    GL.Profiler:draw();
+                else
+                    GL.Profiler:close();
+                end
+            end,
         },
     };
 

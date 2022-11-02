@@ -7,6 +7,7 @@ GL.name = appName;
 GL._initialized = false;
 GL.clientUIinterface = 0;
 GL.clientVersion = 0;
+GL.elvUILoaded = false;
 GL.firstBoot = false; -- Indicates whether the user is new to Gargul
 GL.isEra = false;
 GL.isRetail = false;
@@ -41,11 +42,20 @@ function GL:bootstrap(_, _, addonName)
     self:_init();
     self._initialized = true;
 
+    -- Draw the profiler if enabled
+    if (GL.Settings:get("profilerEnabled")) then
+        GL.Profiler:draw();
+    end
+
     -- Add the minimap icon
     self.MinimapButton:_init();
 
     -- Mark the add-on as fully loaded
     GL.loadedOn = GetServerTime();
+
+    GL.Ace:ScheduleTimer(function()
+        self.elvUILoaded = GetAddOnEnableState(nil,"ElvUI") == 2;
+    end, 1);
 end
 
 --- Callback to be fired when the addon is completely loaded
@@ -95,9 +105,11 @@ function GL:_init()
         hooksecurefunc(MasterLooterFrame, 'Hide', function(self) self:ClearAllPoints() end);
     end
 
+    -- Add forwards compatibility
+    self:polyFill();
+
     self.Comm:_init();
     self.User:_init();
-    self.LootPriority:_init();
     self.AwardedLoot:_init();
     self.SoftRes:_init();
     self.TMB:_init();
@@ -112,6 +124,9 @@ function GL:_init()
 
     -- Hook the bagslot events
     self:hookBagSlotEvents();
+
+    -- Hook item tooltip events
+    self:hookTooltipSetItemEvents();
 
     -- Make sure to initialize the user last
     self.User:refresh();
@@ -130,6 +145,30 @@ function GL:_init()
     GL.Interface.Changelog:reportChanges();
 end
 
+--- Adds forwards compatibility
+---
+---@return void
+function GL:polyFill()
+    if (_G.GetContainerItemInfo ~= nil or not C_Container.GetContainerItemInfo) then
+        return;
+    end
+
+    -- The GetContainerNumSlots has the same return type in both classic and DF
+    _G.GetContainerNumSlots = C_Container.GetContainerNumSlots;
+
+    -- DF returns a single table instead of single values, polyFill time!
+    _G.GetContainerItemInfo = function (bagID, slot)
+        local result = C_Container.GetContainerItemInfo(bagID, slot);
+
+        if (not result) then
+            return nil;
+        end
+
+        return result.iconFileID, result.stackCount, result.isLocked, result.quality, result.isReadable,
+            result.hasLoot, result.hyperlink, result.isFiltered, result.hasNoValue, result.itemID, result.isBound;
+    end
+end
+
 -- Register the dbcgl slash command
 GL.Ace:RegisterChatCommand("dbcgl", function (...)
     GL.Commands:_dispatch(...);
@@ -140,26 +179,14 @@ GL.Ace:RegisterChatCommand("dbcgargul", function (...)
     GL.Commands:_dispatch(...);
 end);
 
---- Announce conflicting addons if any
+--- Announce conflicting addons, if any
+---
 ---@return void
 function GL:announceConflictingAddons()
     local ConflictingAddons = {};
     for _, addon in pairs(GL.Data.Constants.GargulConflictsWith) do
         if (IsAddOnLoaded(addon)) then
             tinsert(ConflictingAddons, addon);
-        end
-    end
-
-    -- Check whether the player has ElvUI with the "Improve Loot" setting enabled.. We don't like that one bit, no no
-    if(IsAddOnLoaded("ElvUI")
-        and _G.ElvPrivateDB
-    ) then
-        local elvUILootSetting = GL:tableGet(_G.ElvPrivateDB, string.format("profiles.%s - %s.general.loot", GL.User.name, GL.User.realm));
-
-        if (elvUILootSetting ~= nil
-            and elvUILootSetting
-        ) then
-            GL:error("When using ElvUI you need to disable the loot improvement setting in order to be able to use Gargul to its full potential. Type /elvui, go to General > BlizzUI Improvements and disable 'Loot'");
         end
     end
 
@@ -174,10 +201,11 @@ function GL:announceConflictingAddons()
     ));
 end
 
--- Hook the bag slot events making it possible to alt(+shift) click
--- items in bags to either start rolling or auctioning them off
+--- Hook into the HandleModifiedItemClick event to allow for Gargul's many hotkeys
+---
+---@return void
 function GL:hookBagSlotEvents()
-    hooksecurefunc("ContainerFrameItemButton_OnModifiedClick", function(self, mouseButtonPressed)
+    hooksecurefunc("HandleModifiedItemClick", function(itemLink)
         -- The user doesnt want to use shortcut keys when solo
         if (not GL.User.isInGroup
             and GL.Settings:get("ShortcutKeys.onlyInGroup")
@@ -185,22 +213,94 @@ function GL:hookBagSlotEvents()
             return;
         end
 
-        local bag, slot = self:GetParent():GetID(), self:GetID();
-        local itemLink = select(7, GetContainerItemInfo(bag, slot));
-
         if (not itemLink or type(itemLink) ~= "string") then
             return;
         end
 
-        local keyPressIdentifier = GL.Events:getClickCombination(mouseButtonPressed);
+        local keyPressIdentifier = GL.Events:getClickCombination();
+        local keyPressRecognized = false;
 
         -- Open the roll window
         if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
             GL.MasterLooterUI:draw(itemLink);
+            keyPressRecognized = true;
 
         -- Open the award window
         elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
             GL.Interface.Award:draw(itemLink);
+            keyPressRecognized = true;
+        end
+
+        -- Close the stack split window immediately after opening
+        if (keyPressRecognized and IsShiftKeyDown()) then
+            GL.Ace:ScheduleTimer(function ()
+                if (_G.StackSplitFrame) then
+                    _G.StackSplitFrame:Hide();
+                end
+            end, .05);
+        end
+    end);
+end
+
+--- We hook all the tooltip data (tmb/softres etc) to a single event to make caching easier
+---
+---@return void
+function GL:hookTooltipSetItemEvents()
+    -- Bind the appendAwardedLootToTooltip method to the OnTooltipSetItem event
+    GL:onTooltipSetItem(function(Tooltip)
+        -- No valid item tooltip was provided
+        if (not Tooltip
+            or not Tooltip.GetItem
+        ) then
+            return false;
+        end
+
+        local _, itemLink = Tooltip:GetItem();
+
+        -- We couldn't find an itemLink (this can actually happen!)
+        if (GL:empty(itemLink)) then
+            return;
+        end
+
+        local Lines = {};
+        local clientTime = GetTime();
+
+        if (self.lastTooltipTime
+            and self.lastTooltipItemLink == itemLink
+            and self.lastTooltipTime >= clientTime - .4
+        ) then
+            -- Use cached data
+            Lines = self.LastTooltipLines;
+        else
+            for _, line in pairs(GL.AwardedLoot:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
+
+            for _, line in pairs(GL.SoftRes:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
+
+            for _, line in pairs(GL.TMB:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
+
+            for _, line in pairs(GL.LootPriority:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
+        end
+
+        self.lastTooltipItemLink = itemLink;
+        self.lastTooltipTime = clientTime;
+        self.LastTooltipLines = Lines;
+
+        local linesAdded = false;
+        for _, line in pairs(Lines or {}) do
+            Tooltip:AddLine(line);
+            linesAdded = true;
+        end
+
+        if (linesAdded) then
+            Tooltip:AddLine(" ");
         end
     end);
 end

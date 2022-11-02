@@ -155,7 +155,7 @@ function GL:empty(mixed)
     end
 
     if (varType == "string") then
-        return strtrim(mixed) == "";
+        return strtrim(mixed, nil) == "";
     end
 
     if (varType == "table") then
@@ -425,6 +425,10 @@ end
 ---@param ScrollingTable table
 ---@return void
 function GL:clearScrollTable(ScrollingTable)
+    if (type(ScrollingTable) ~= "table") then
+        return;
+    end
+
     ScrollingTable:SetData({}, true);
     ScrollingTable.frame:Hide();
     ScrollingTable:Hide();
@@ -545,7 +549,7 @@ end
 function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
     GL:debug("GL:onItemLoadDo");
 
-    GL.DB.Cache.ItemsById = GL.DB.Cache.ItemsById or {};
+    GL.DB.Cache.ItemsByID = GL.DB.Cache.ItemsByID or {};
     haltOnError = haltOnError or false;
 
     if (type(callback) ~= "function") then
@@ -579,9 +583,9 @@ function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
             idString = tostring(itemIdentifier);
 
             -- The item already exists in our runtime item cache, return it
-            if (GL.DB.Cache.ItemsById[idString] ~= nil) then
+            if (GL.DB.Cache.ItemsByID[idString] ~= nil) then
                 itemsLoaded = itemsLoaded + 1;
-                tinsert(ItemData, GL.DB.Cache.ItemsById[idString]);
+                tinsert(ItemData, GL.DB.Cache.ItemsByID[idString]);
 
                 return;
             end
@@ -627,7 +631,7 @@ function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
 
             idString = tostring(itemID);
 
-            GL.DB.Cache.ItemsById[idString] = {
+            GL.DB.Cache.ItemsByID[idString] = {
                 id = itemID,
                 bindType = bindType,
                 classID = classID,
@@ -640,7 +644,7 @@ function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
                 quality = itemQuality,
             };
 
-            tinsert(ItemData, GL.DB.Cache.ItemsById[idString]);
+            tinsert(ItemData, GL.DB.Cache.ItemsByID[idString]);
 
             if (not callbackCalled
                 and itemsLoaded >= numberOfItemsToLoad
@@ -812,7 +816,7 @@ function GL:canUserUseItem(itemLinkOrID, callback)
     if (concernsID) then
         itemID = math.floor(tonumber(itemLinkOrID));
     else
-        itemID = GL:getItemIdFromLink(itemLinkOrID);
+        itemID = GL:getItemIDFromLink(itemLinkOrID);
     end
 
     GL:onItemLoadDo(itemID, function (Results)
@@ -853,10 +857,16 @@ end
 ---@param itemID number
 ---@param skipSoulBound boolean
 ---@return table
-function GL:findBagIdAndSlotForItem(itemID, skipSoulBound)
+function GL:findBagIdAndSlotForItem(itemID, skipSoulBound, includeBankBags)
     skipSoulBound = GL:toboolean(skipSoulBound);
+    includeBankBags = GL:toboolean(includeBankBags);
 
-    for bag = 0, 10 do
+    local numberOfBagsToCheck = 4;
+    if (includeBankBags) then
+        numberOfBagsToCheck = 10;
+    end
+
+    for bag = 0, numberOfBagsToCheck do
         for slot = 1, GetContainerNumSlots(bag) do
             local _, _, locked, _, _, _, _, _, _, bagItemID = GetContainerItemInfo(bag, slot);
 
@@ -874,32 +884,100 @@ function GL:findBagIdAndSlotForItem(itemID, skipSoulBound)
     return {};
 end
 
+--- Dragonflight and future WoW releases no longer support OnTooltipSetItem
+---
+---@param Callback function
+---@return any
+function GL:onTooltipSetItem(Callback, includeItemRefTooltip)
+    GL:debug("GL:onTooltipSetItem");
+
+    if (includeItemRefTooltip == nil) then
+        includeItemRefTooltip = true;
+    end
+
+    includeItemRefTooltip = GL:toboolean(includeItemRefTooltip);
+
+    if (TooltipDataProcessor) then
+        TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function (Tooltip)
+            return Callback(Tooltip);
+        end);
+    else
+        GameTooltip:HookScript("OnTooltipSetItem", function(Tooltip)
+            return Callback(Tooltip);
+        end);
+
+        if (includeItemRefTooltip) then
+            ItemRefTooltip:HookScript("OnTooltipSetItem", function(Tooltip)
+                return Callback(Tooltip);
+            end);
+        end
+    end
+end
+
+--- In some very rare cases we need to manipulate the close button on AceGUI elements
+---
+---@param Widget table
+---@return void|table
+function GL:fetchCloseButtonFromAceGUIWidget(Widget)
+    GL:debug("GL:fetchCloseButtonFromAceGUIWidget");
+
+    if (not Widget or not Widget.frame) then
+        return;
+    end
+
+    -- Try to locate the Close button and hide it
+    for _, Child in pairs({Widget.frame:GetChildren()}) do
+        if (Child.GetText and Child:GetText() == "Close") then
+            return Child;
+        end
+    end
+end
+
+--- In some very rare cases we need to manipulate the border on AceGUI Inline Group elements
+---
+---@param Widget table
+---@return void|table
+function GL:fetchBorderFromAceGUIInlineGroup(Widget)
+    GL:debug("GL:fetchBorderFromAceGUIInlineGroup");
+
+    if (not Widget or not Widget.frame) then
+        return;
+    end
+
+    -- Try to locate the Close button and hide it
+    for _, Child in pairs({Widget.frame:GetChildren()}) do
+        if (Child.SetBackdropColor) then
+            return Child;
+        end
+    end
+end
+
 --- Some items have items linked to them. Example: t4 tokens have their quest reward counterpart linked to them.
 ---
----@param itemId number
+---@param itemID number
 ---@return table
-function GL:getLinkedItemsForId(itemId)
+function GL:getLinkedItemsForID(itemID)
     -- An invalid item id was provided
-    itemId = tonumber(itemId);
-    if (not GL:higherThanZero(itemId)) then
+    itemID = tonumber(itemID);
+    if (not GL:higherThanZero(itemID)) then
         return {};
     end
 
     -- Gather all the item IDs that are linked to our item
-    itemId = tostring(itemId);
-    local AllLinkedItemIds = {itemId};
-    for _, id in pairs(GL.Data.ItemLinks[itemId] or {}) do
-        tinsert(AllLinkedItemIds, id);
+    itemID = tostring(itemID);
+    local AllLinkedItemIDs = { itemID };
+    for _, id in pairs(GL.Data.ItemLinks[itemID] or {}) do
+        tinsert(AllLinkedItemIDs, id);
     end
 
-    return AllLinkedItemIds;
+    return AllLinkedItemIDs;
 end
 
 --- Return an item's ID from an item link, false if invalid itemlink is provided
 ---
 ---@param itemLink string
 ---@return number|boolean
-function GL:getItemIdFromLink(itemLink)
+function GL:getItemIDFromLink(itemLink)
     if (not itemLink
         or type(itemLink) ~= "string"
         or itemLink == ""
@@ -907,14 +985,14 @@ function GL:getItemIdFromLink(itemLink)
         return false;
     end
 
-    local _, itemId = strsplit(":", itemLink);
-    itemId = tonumber(itemId);
+    local _, itemID = strsplit(":", itemLink);
+    itemID = tonumber(itemID);
 
-    if (not itemId) then
+    if (not itemID) then
         return false;
     end
 
-    return itemId;
+    return itemID;
 end
 
 --- Strip the realm off of a string (usually a player name)
@@ -938,6 +1016,29 @@ function GL:stripRealm(str)
 
     local Parts = self:strSplit(str, separator);
     return Parts[1] or "";
+end
+
+--- Get the realm from a given player name
+---
+---@param playerName string
+---@return string
+function GL:getRealmFromName(playerName)
+    playerName = tostring(playerName);
+
+    if (self:empty(playerName)) then
+        return "";
+    end
+
+    -- WoW knows multiple realm separators ( - @ # * ) depending on version and locale
+    local separator = playerName:match("[" .. REALM_SEPARATORS .. "]");
+
+    -- No realm separator was found, return the original message
+    if (not separator) then
+        return playerName;
+    end
+
+    local Parts = self:strSplit(playerName, separator);
+    return Parts[2] or "";
 end
 
 --- Check whether the given player name occurs more than once in the player's group
@@ -1074,7 +1175,7 @@ function GL:copperToMoney(copper, Separators, includeEmpty, separatorBeforeUnit)
         end
     end
 
-    return strtrim(money);
+    return strtrim(money,nil);
 end
 
 --- Limit a given string to a maximum number of characters
@@ -1114,7 +1215,7 @@ function GL:strSplit(s, delimiter)
     end
 
     for match in (s .. delimiter):gmatch("(.-)%" .. delimiter) do
-        tinsert(Result, strtrim(match));
+        tinsert(Result, strtrim(match,nil));
     end
 
     return Result;
@@ -1451,6 +1552,7 @@ function GL:tableGet(Table, keyString, default)
 
     -- Changed if (#keys == 1) then to below, saved this just in case we get weird behavior
     if (numberOfKeys == 1) then
+        default = nil;
         return Table;
     end
 
