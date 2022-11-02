@@ -30,7 +30,7 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     local Window = AceGUI:Create("Frame");
     Window:SetTitle("Gargul v" .. GL.version);
     Window:SetLayout("FLOW");
-    Window:SetWidth(430);
+    Window:SetWidth(530);
     Window:SetHeight(282);
     Window:EnableResize(false);
     Window.statustext:GetParent():Hide(); -- Hide the statustext bar
@@ -103,17 +103,17 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     local PlayerNameLabelSuffix = AceGUI:Create("Label");
     PlayerNameLabelSuffix:SetText("ou sélectionnez une ligne ci-dessous");
     PlayerNameLabelSuffix:SetHeight(20);
-    PlayerNameLabelSuffix:SetWidth(104); -- Minimum is 104
+    PlayerNameLabelSuffix:SetWidth(204); -- Minimum is 104
     SecondRow:AddChild(PlayerNameLabelSuffix);
 
     local TableFrame = GL.AceGUI:Create("SimpleGroup");
     TableFrame:SetLayout("FILL");
     TableFrame:SetFullWidth(true);
-    TableFrame:SetHeight(184);
+    TableFrame:SetHeight(156);
     Window:AddChild(TableFrame);
 
     ConfirmButton = AceGUI:Create("Button");
-    ConfirmButton:SetText("Confirm");
+    ConfirmButton:SetText("Confirmer");
     ConfirmButton:SetWidth(140);
     ConfirmButton:SetHeight(20);
     ConfirmButton:SetCallback("OnClick", function()

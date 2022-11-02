@@ -185,18 +185,23 @@ function AwardHistory:draw(AnchorTo)
                     if (not GL:empty(ItemsWonByRollerInTheLastFiveHours)) then
                         GameTooltip:ClearLines();
                         GameTooltip:SetOwner(ItemRow.frame, "ANCHOR_RIGHT");
-                        GameTooltip:AddLine(string.format("Items won by %s:", Award.awardedTo));
+                        GameTooltip:AddLine(string.format("Items gagnés par %s:", Award.awardedTo));
                         GameTooltip:AddLine(" ");
 
                         for _, Entry in pairs(ItemsWonByRollerInTheLastFiveHours) do
-                            local receivedString = " (received)";
+                            local receivedString = " (reçu)";
                             if (not Entry.received) then
-                                receivedString = " (not received yet)";
+                                receivedString = " (pas encore reçu)";
+                            end
+
+                            local MSString = "";
+                            if (Entry.MS) then
+                                MSString = " (+1)"
                             end
 
                             local OSString = "";
                             if (Entry.OS) then
-                                OSString = " (OS)"
+                                OSString = " (+2)"
                             end
 
                             local BRString = "";
@@ -206,6 +211,7 @@ function AwardHistory:draw(AnchorTo)
 
                             local line = string.format("%s%s%s%s",
                                 Entry.itemLink,
+                                MSString,
                                 OSString,
                                 BRString,
                                 receivedString
@@ -291,7 +297,7 @@ function AwardHistory:draw(AnchorTo)
 
                         GL.Interface.Dialogs.PopupDialog:open({
                             question = string.format(
-                                "Are you sure you want to undo %s awarded to %s?%s",
+                                "Etes-vous sûr de vouloir annuler l'attribution de %s à %s ?%s",
                                 Award.itemLink,
                                 Award.awardedTo,
                                 BRString
@@ -319,10 +325,10 @@ function AwardHistory:draw(AnchorTo)
                 EditButton:SetScript("OnClick", function(_, button)
                     if (button == 'LeftButton') then
                         -- Show the player selector
-                        local question = string.format("Who should %s go to instead?", Award.itemLink);
+                        local question = string.format("A qui devrait aller %s à la place ?", Award.itemLink);
                         GL.Interface.PlayerSelector:draw(question, GL.User:groupMemberNames(), function (playerName)
                             GL.Interface.Dialogs.PopupDialog:open({
-                                question = string.format("Award %s to |cff%s%s|r?",
+                                question = string.format("Attribuer %s à |cff%s%s|r ?",
                                     Award.itemLink,
                                     GL:classHexColor(GL.Player:classByName(playerName)),
                                     playerName

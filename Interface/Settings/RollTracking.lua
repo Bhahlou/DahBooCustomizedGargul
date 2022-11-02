@@ -123,14 +123,14 @@ function RollTracking:draw(Parent, Window)
         local Min = GL.AceGUI:Create("EditBox");
         Min:DisableButton(true);
         Min:SetHeight(20);
-        Min:SetWidth(100);
+        Min:SetWidth(80);
         Min:SetText(min);
         Parent:AddChild(Min);
 
         local Max = GL.AceGUI:Create("EditBox");
         Max:DisableButton(true);
         Max:SetHeight(20);
-        Max:SetWidth(100);
+        Max:SetWidth(80);
         Max:SetText(max);
         Parent:AddChild(Max);
 
