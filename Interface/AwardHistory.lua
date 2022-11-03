@@ -194,14 +194,13 @@ function AwardHistory:draw(AnchorTo)
                                 receivedString = " (pas encore reçu)";
                             end
 
-                            local MSString = "";
-                            if (Entry.MS) then
-                                MSString = " (+1)"
-                            end
-
                             local OSString = "";
-                            if (Entry.OS) then
+                            if (Loot.OS) then
                                 OSString = " (+2)"
+                            elseif (Loot.MS) then
+                                OSString = " (+1)"
+                            else
+                                OSString = " (+3)"
                             end
 
                             local BRString = "";
@@ -211,7 +210,6 @@ function AwardHistory:draw(AnchorTo)
 
                             local line = string.format("%s%s%s%s",
                                 Entry.itemLink,
-                                MSString,
                                 OSString,
                                 BRString,
                                 receivedString

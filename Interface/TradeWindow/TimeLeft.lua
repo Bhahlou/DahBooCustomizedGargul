@@ -119,8 +119,8 @@ function TimeLeft:draw()
     Window.texture = Texture;
     GL.Interface:setItem(self, "Window", Window);
 
-    local howToRollText = string.format("%s to roll out loot!", GL.Settings:get("ShortcutKeys.rollOff"));
-    local howToAwardText = string.format("%s to award loot!", GL.Settings:get("ShortcutKeys.award"));
+    local howToRollText = string.format("%s pour roll les loots !", GL.Settings:get("ShortcutKeys.rollOff"));
+    local howToAwardText = string.format("%s pour attribuer les loots !", GL.Settings:get("ShortcutKeys.award"));
     local Title = Window:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall");
     Title:SetPoint("TOPLEFT", 3, -3);
     Title:SetText(howToRollText);
@@ -224,7 +224,7 @@ function TimeLeft:createHotkeyExplanationWindow()
 
     local Text = GL.AceGUI:Create("Label");
     Text:SetText(string.format(
-        "\nRoll: |c00a79eff%s|r\nAward: |c00a79eff%s|r\nDisenchant: |c00a79eff%s|r",
+        "\nRoll : |c00a79eff%s|r\nAttrib : |c00a79eff%s|r\nDez : |c00a79eff%s|r",
         GL.Settings:get("ShortcutKeys.rollOff"),
         GL.Settings:get("ShortcutKeys.award"),
         GL.Settings:get("ShortcutKeys.disenchant")
@@ -252,14 +252,14 @@ function TimeLeft:createBroadcastWindow()
     if (GL.User.isInRaid) then
         channel = "raid";
     end
-    Text:SetText("Broadcast to " .. channel);
+    Text:SetText("Diffusion à " .. channel);
     BroadCast:AddChild(Text);
     Text:SetJustifyH("MIDDLE");
 
     local BroadcastButton = CreateFrame("Button", "GargulUI_TradeTimers_Broadcast", BroadCast.frame, "GameMenuButtonTemplate");
     BroadcastButton:SetPoint("TOPLEFT", BroadCast.frame, "BOTTOMLEFT", 20, 72);
     BroadcastButton:SetSize(160, 20);
-    BroadcastButton:SetText("Broadcast");
+    BroadcastButton:SetText("Diffusion");
     BroadcastButton:SetNormalFontObject("GameFontNormal");
     BroadcastButton:SetHighlightFontObject("GameFontNormal");
     BroadcastButton:SetScript("OnClick", function ()
@@ -311,7 +311,7 @@ function TimeLeft:createBroadcastWindow()
     local CancelButton = CreateFrame("Button", "GargulUI_TradeTimers_Broadcast", BroadCast.frame, "GameMenuButtonTemplate");
     CancelButton:SetPoint("TOPLEFT", BroadcastButton, "BOTTOMLEFT", 0, -10);
     CancelButton:SetSize(160, 20);
-    CancelButton:SetText("Cancel");
+    CancelButton:SetText("Annuler");
     CancelButton:SetNormalFontObject("GameFontNormal");
     CancelButton:SetHighlightFontObject("GameFontNormal");
     CancelButton:SetScript("OnClick", function ()

@@ -76,14 +76,13 @@ function AwardedLoot:tooltipLines(itemLink)
                 receivedString = " (pas encore reçu)";
             end
 
-            local MSString = "";
-            if (Loot.MS) then
-                MSString = " (+1)"
-            end
-
             local OSString = "";
             if (Loot.OS) then
                 OSString = " (+2)"
+            elseif (Loot.MS) then
+                OSString = " (+1)"
+            else
+                OSString = " (+3)"
             end
 
             local BRString = "";
@@ -94,7 +93,6 @@ function AwardedLoot:tooltipLines(itemLink)
             local line = string.format("    |c00%s%s|r%s%s%s",
                 GL:classHexColor(GL.Player:classByName(winner, 0), "5f5f5f"),
                 GL:capitalize(winner),
-                MSString,
                 OSString,
                 BRString,
                 receivedString
