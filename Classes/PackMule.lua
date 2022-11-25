@@ -506,7 +506,7 @@ function PackMule:getTargetForItem(itemLinkOrId, callback)
             return callback(false);
         end
 
-        local ruleTarget = strtrim(RuleThatApplies.target, nil);
+        local ruleTarget = strtrim(RuleThatApplies.target);
         local Targets = {};
 
         local RuleTargets = GL:strSplit(ruleTarget, " ");
@@ -514,7 +514,7 @@ function PackMule:getTargetForItem(itemLinkOrId, callback)
 
         for _, ruleTarget in pairs(RuleTargets) do
             local targetContainsExclamationMark = strfind(ruleTarget, "!");
-            ruleTarget = strtrim(ruleTarget, nil);
+            ruleTarget = strtrim(ruleTarget);
             ruleTarget = ruleTarget:gsub("!", "");
 
             if (not GL.User.isMasterLooter) then
@@ -718,7 +718,8 @@ end
 function PackMule:disenchant(itemLink, byPassConfirmationDialog)
     GL:debug("PackMule:disenchant");
 
-    if (not GL.User.isMasterLooter
+    if (GL.User.isInGroup
+        and not GL.User.isMasterLooter
         and not GL.User.hasAssist
         and not GL.User.isLead
     ) then
@@ -917,7 +918,7 @@ function PackMule:assignLootToPlayer(itemID, playerName)
     local playerIndex = false;
     playerName = GL:normalizedName(playerName);
     for _, Player in pairs(GL.User:groupMembers()) do
-        local candidate = GL:normalizedName(GetMasterLootCandidate(itemIndex, Player.index));
+        local candidate = GL:normalizedName(GetMasterLootCandidate(itemIndex, Player.index) or "");
 
         if (candidate and candidate == playerName) then
             playerIndex = Player.index;

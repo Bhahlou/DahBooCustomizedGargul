@@ -165,7 +165,7 @@ function LootPriority:save(data)
             return GL:warning(string.format("Invalid data provided in line: '%s': missing item id or priority", line));
         end
 
-        local key = strtrim(segments[1], nil);
+        local key = strtrim(segments[1]);
 
         if (tonumber(key) ~= nil) then
             key = tonumber(key);
@@ -174,7 +174,7 @@ function LootPriority:save(data)
         LootPriorityData[key] = {};
 
         for segment = 2, segmentCount do
-            local priority = strtrim(segments[segment], nil);
+            local priority = strtrim(segments[segment]);
 
             tinsert(LootPriorityData[key], priority);
         end
@@ -210,7 +210,6 @@ function LootPriority:broadcast()
     local LootPriorityCSV = self:toCSV();
     -- Check if there's anything to share
     if (GL:empty(LootPriorityCSV)) then
-        GL:warning("Nothing to broadcast, set up loot priorities first!");
         return false;
     end
 
@@ -220,7 +219,7 @@ function LootPriority:broadcast()
     local Broadcast = function ()
         GL:message("Broadcasting loot priorities...");
 
-        local Label = GL.Interface:getItem(GL.LootPriority, "Label.BroadcastProgress");
+        local Label = GL.Interface:get(GL.LootPriority, "Label.BroadcastProgress");
 
         if (Label) then
             Label:SetText("Broadcasting...");
@@ -235,12 +234,12 @@ function LootPriority:broadcast()
             self.broadcastInProgress = false;
             GL.Events:fire("GL.LOOT_PRIORITY_BROADCAST_ENDED");
 
-            Label = GL.Interface:getItem(GL.LootPriority, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.LootPriority, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText("Broadcast finished!");
             end
         end, function (sent, total)
-            Label = GL.Interface:getItem(GL.LootPriority, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.LootPriority, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText(string.format("Sent %s of %s bytes", sent, total));
             end

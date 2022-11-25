@@ -386,6 +386,9 @@ function RollOff:start(CommMessage)
         -- Play raid warning sound
         GL:playSound(8959, "Master");
 
+        -- Let the application know that a rolloff has started
+        GL.Events:fire("GL.ROLLOFF_STARTED");
+
         -- Items should only contain 1 item but lets add a return just in case
         return;
     end);
@@ -459,6 +462,9 @@ function RollOff:stop(CommMessage)
         GL.MasterLooterUI:updateWidgets();
     end
 
+    -- Let the application know that a rolloff has ended
+    GL.Events:fire("GL.ROLLOFF_STOPPED");
+
     return true;
 end
 
@@ -497,7 +503,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                 roller
             ),
             OnYes = function ()
-                local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
+                local OSCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
 
@@ -506,7 +512,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     end
                 end
 
-                local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
+                local addPlusOneCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
                 if (addPlusOneCheckBox) then
                     addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
 
@@ -515,7 +521,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     end
                 end
 
-                local BoostedRollCostEditBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
+                local BoostedRollCostEditBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
                 if (BoostedRollCostEditBox) then
                     BRCost = GL.BoostedRolls:toPoints(BoostedRollCostEditBox:GetText());
 
@@ -554,7 +560,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                 player
             ),
             OnYes = function ()
-                local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
+                local OSCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
 
@@ -563,7 +569,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     end
                 end
 
-                local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
+                local addPlusOneCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
                 if (addPlusOneCheckBox) then
                     addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
 
@@ -572,7 +578,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     end
                 end
 
-                local boostedRollCostEditBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
+                local boostedRollCostEditBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
                 if (boostedRollCostEditBox) then
                     BRCost = GL.BoostedRolls:toPoints(boostedRollCostEditBox:GetText());
 
@@ -746,6 +752,9 @@ function RollOff:processRoll(message)
     end
 
     tinsert(RollOff.CurrentRollOff.Rolls, Roll);
+
+    GL.Events:fire("GL.ROLLOFF_ROLL_ACCEPTED");
+
     RollOff:refreshRollsTable();
 end
 
@@ -756,7 +765,7 @@ function RollOff:refreshRollsTable()
 
     local RollTableData = {};
     local Rolls = self.CurrentRollOff.Rolls;
-    local RollsTable = GL.Interface:getItem(GL.MasterLooterUI, "Table.Players");
+    local RollsTable = GL.Interface:get(GL.MasterLooterUI, "Table.Players");
     local NumberOfRollsPerPlayer = {};
 
     if (not RollsTable) then

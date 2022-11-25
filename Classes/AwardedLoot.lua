@@ -91,7 +91,7 @@ function AwardedLoot:tooltipLines(itemLink)
             end
 
             local line = string.format("    |c00%s%s|r%s%s%s",
-                GL:classHexColor(GL.Player:classByName(winner, 0), "5f5f5f"),
+                GL:classHexColor(GL.Player:classByName(winner, 0), GL.Data.Constants.disabledTextColor),
                 GL:capitalize(winner),
                 OSString,
                 BRString,
@@ -198,6 +198,7 @@ function AwardedLoot:editWinner(checksum, winner, announce)
 
     AwardEntry.received = false;
     AwardEntry.awardedTo = winner;
+    AwardEntry.awardedBy = GL.User.name;
 
     -- If we awarded to ourselves then we should already have the item
     if (string.lower(winner) == string.lower(GL.User.name)) then
@@ -363,6 +364,7 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
         itemLink = itemLink,
         itemID = itemID,
         awardedTo = winner,
+        awardedBy = GL.User.name,
         timestamp = timestamp,
         softresID = GL.DB:get("SoftRes.MetaData.id"),
         received = string.lower(winner) == string.lower(GL.User.name),
@@ -439,6 +441,7 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
 
         -- The loot window is still active and the auto assign setting is enabled
         if (GL.DroppedLoot.lootWindowIsOpened
+            and GL.User.isMasterLooter
             and GL.Settings:get("AwardingLoot.autoAssignAfterAwardingAnItem")
         ) then
             GL.PackMule:assignLootToPlayer(AwardEntry.itemID, winner);
@@ -692,6 +695,7 @@ function AwardedLoot:processAwardedLoot(CommMessage)
         itemLink = AwardEntry.itemLink,
         itemID = AwardEntry.itemID,
         awardedTo = AwardEntry.awardedTo,
+        awardedBy = CommMessage.Sender.name,
         timestamp = AwardEntry.timestamp,
         softresID = AwardEntry.softresID,
         received = AwardEntry.received,
@@ -753,6 +757,7 @@ function AwardedLoot:processEditedLoot(CommMessage)
         itemLink = AwardEntry.itemLink,
         itemID = AwardEntry.itemID,
         awardedTo = AwardEntry.awardedTo,
+        awardedBy = AwardEntry.awardedBy,
         timestamp = AwardEntry.timestamp,
         softresID = AwardEntry.softresID,
         received = AwardEntry.received,

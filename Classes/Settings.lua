@@ -53,6 +53,15 @@ function Settings:sanitizeSettings()
     GL:debug("Settings:sanitizeSettings");
 
     self:enforceTemporarySettings();
+
+    -- Remove old roll data so it doesn't clog our SavedVariables
+    local twoWeeksAgo = GetServerTime() - 1209600;
+    for key, Award in pairs(GL.DB.AwardHistory) do
+        if (Award.timestamp < twoWeeksAgo) then
+            GL.DB.AwardHistory[key] = nil;
+            Award = nil;
+        end
+    end
 end
 
 --- These settings are version-specific and will be removed over time!
@@ -158,23 +167,6 @@ function Settings:enforceTemporarySettings()
         GL.DB.AwardHistory = AwardHistory;
 
         GL:notice("C'est fini !");
-    end
-
-    ---@todo: remove >= 31-10-2022
-    --- We renamed PackMule.enabled to PackMule.enabledForMasterLoot in 4.8
-    if (type(GL.DB.Settings.PackMule.enabled) == "boolean") then
-        GL.DB.Settings.PackMule.enabledForMasterLoot = GL.DB.Settings.PackMule.enabled;
-        GL.DB.Settings.PackMule.enabled = nil;
-    end
-
-    ---@todo: remove >= 31-10-2022
-    --- In an attempt to streamline settings, we used "enabled" for everything
-    if (type(GL.DB.Settings.AwardingLoot.awardMessagesDisabled == "boolean")) then
-        GL.DB.Settings.AwardingLoot.awardMessagesEnabled = not GL.DB.Settings.AwardingLoot.awardMessagesDisabled;
-    end
-
-    if (type(GL.DB.Settings.highlightsDisabled == "boolean")) then
-        GL.DB.Settings.highlightsEnabled = not GL.DB.Settings.highlightsDisabled;
     end
 
     ---@todo: remove >= 07-11-2022
