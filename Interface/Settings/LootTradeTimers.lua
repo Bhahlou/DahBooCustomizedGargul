@@ -5,7 +5,7 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class LootTradeTimersSettings
 GL.Interface.Settings.LootTradeTimers = {
-    description = "When obtaining items that have an active trade window, aka items that are BoP but can still be traded with raid members, Gargul will show timer bars to let you know when an item's trade window is coming to an end.",
+    description = "When obtaining items that have time left to trade, aka items that are BoP but can still be traded with raid members, Gargul can show timer bars to let you know when an item's trade window is coming to an end.",
     testEnabled = false,
 };
 local LootTradeTimers = GL.Interface.Settings.LootTradeTimers; ---@type LootTradeTimersSettings
@@ -14,12 +14,34 @@ local LootTradeTimers = GL.Interface.Settings.LootTradeTimers; ---@type LootTrad
 function LootTradeTimers:draw(Parent)
     GL:debug("LootTradeTimers:draw");
 
+    local Scale = GL.AceGUI:Create("Slider");
+    Scale:SetLabel("Magnification scale of the loot trade timers window");
+    Scale.label:SetTextColor(1, .95686, .40784);
+    Scale:SetFullWidth(true);
+    Scale:SetValue(GL.Settings:get("LootTradeTimers.scale", 35));
+    Scale:SetSliderValues(.2, 1.8, .1);
+    Scale:SetCallback("OnValueChanged", function(Slider)
+        local value = tonumber(Slider:GetValue());
+
+        if (value) then
+            GL.Settings:set("LootTradeTimers.scale", value);
+
+            -- Change the loot trade timer window if it's active!
+            if (GL.Interface.TradeWindow.TimeLeft.Window
+                and type(GL.Interface.TradeWindow.TimeLeft.Window.SetScale == "function")
+            ) then
+                GL.Interface.TradeWindow.TimeLeft.Window:SetScale(value);
+            end
+        end
+    end);
+    Parent:AddChild(Scale);
+
     local NumberOfTimerBars = GL.AceGUI:Create("Slider");
     NumberOfTimerBars:SetLabel("Maximum number of active countdown bars");
     NumberOfTimerBars.label:SetTextColor(1, .95686, .40784);
     NumberOfTimerBars:SetFullWidth(true);
     NumberOfTimerBars:SetValue(GL.Settings:get("LootTradeTimers.maximumNumberOfBars", 5));
-    NumberOfTimerBars:SetSliderValues(1, 25, 1);
+    NumberOfTimerBars:SetSliderValues(1, 100, 1);
     NumberOfTimerBars:SetCallback("OnValueChanged", function(Slider)
         local value = tonumber(Slider:GetValue());
 
@@ -38,17 +60,23 @@ function LootTradeTimers:draw(Parent)
 
     local Checkboxes = {
         {
-            label = "Enable timer bars",
-            description = "Checking this will make sure Gargul shows timer bars for BoP items that can still be traded for a short time",
+            label = "Timer bars",
+            description = "Show timer bars for BoP items that can still be traded for a limited time",
             setting = "LootTradeTimers.enabled",
             callback = function ()
                 GL.Interface.TradeWindow.TimeLeft:refreshBars();
             end,
         },
         {
-            label = "Only show bars when I'm master looting",
-            description = "Checking this will make sure you only see countdown bars when you're actively master looting",
+            label = "Only show bars when I'm the master looter",
             setting = "LootTradeTimers.showOnlyWhenMasterLooting",
+            callback = function ()
+                GL.Interface.TradeWindow.TimeLeft:refreshBars();
+            end,
+        },
+        {
+            label = "Show hotkey reminder",
+            setting = "LootTradeTimers.showHotkeyReminder",
             callback = function ()
                 GL.Interface.TradeWindow.TimeLeft:refreshBars();
             end,

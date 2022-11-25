@@ -33,7 +33,7 @@ function MasterLooterUI:draw(itemLink)
         and not GL.User.isMasterLooter
         and not GL.User.hasAssist
     ) then
-        return GL:warning("Vous devez être ML ou avoir une promote ou être le chef de groupe !");
+        return GL:warning("Vous devez être ML ou avoir une promotion ou être le chef de groupe !");
     end
 
     -- Close the reopen masterlooter button if it exists
@@ -51,6 +51,7 @@ function MasterLooterUI:draw(itemLink)
         -- If the frame is hidden we need to show it again
         if (not Window:IsShown()) then
             Window:Show();
+            GL.Interface.AwardHistory:draw(Window);
         end
 
         return;
@@ -78,8 +79,8 @@ function MasterLooterUI:draw(itemLink)
         SETTINGS BUTTON
     ]]
     local SettingsButton = GL.UI:createSettingsButton(
-            Window.frame,
-            "MasterLooting"
+        Window.frame,
+        "MasterLooting"
     );
     self.SettingsButton = SettingsButton;
 
@@ -315,10 +316,19 @@ function MasterLooterUI:draw(itemLink)
                         return GL:warning("Vous devez d'abord sélectionner un joueur");
                     end
 
-                    local msRoll = selected.cols[5].value == "+1";
-                    local osRoll = selected.cols[5].value == "+2";
-                    local boostedRoll = selected.cols[5].value == GL.Settings:get("BoostedRolls.identifier", "BR");
-                    return GL.RollOff:award(selected.cols[1].value, GL.Interface:getItem(self, "EditBox.Item"):GetText(), msRoll, osRoll, boostedRoll);
+                    local RollType = (function()
+                        for _, RollType in pairs(GL.Settings:get("RollTracking.Brackets", {})) do
+                            if (RollType[1] == selected.cols[5].value) then
+                                return RollType;
+                            end
+                        end
+
+                        return {};
+                    end)();
+                    local osRoll = GL:toboolean(RollType[5]);
+                    local plusOneRoll = GL:toboolean(RollType[6]);
+                    local boostedRoll = selected.cols[4].value == GL.Settings:get("BoostedRolls.identifier", "BR");
+                    return GL.RollOff:award(selected.cols[1].value, GL.Interface:getItem(self, "EditBox.Item"):GetText(), osRoll, boostedRoll, plusOneRoll);
                 end);
                 ThirdRow:AddChild(AwardButton);
                 GL.Interface:setItem(self, "Award", AwardButton);
@@ -409,6 +419,8 @@ function MasterLooterUI:draw(itemLink)
     ) then
         MasterLooterUI:passItemLink(itemLink);
     end
+
+    GL.Interface.AwardHistory:draw(Window);
 end
 
 ---@return void
@@ -650,8 +662,34 @@ function MasterLooterUI:drawPlayersTable(parent)
             GameTooltip:AddLine(string.format("Loots attribués à %s dans les 8 dernières heures", roller));
             GameTooltip:AddLine(" ");
 
-            for _, itemLink in pairs(ItemsWonByRollerInTheLast8Hours) do
-                GameTooltip:AddLine(itemLink);
+            for _, Entry in pairs(ItemsWonByRollerInTheLast8Hours) do
+                local receivedString = " (reçu)";
+                if (not Entry.received) then
+                    receivedString = " (pas encore reçu)";
+                end
+
+                local OSString = "";
+                if (Entry.OS) then
+                    OSString = " (+2)"
+                elseif (Entry.MS) then
+                    OSString = " (+1)"
+                else
+                    OSString = " (+3)"
+                end
+
+                local BRString = "";
+                if (GL:higherThanZero(Entry.BRCost)) then
+                    BRString = string.format(" (BR: %s)", Entry.BRCost);
+                end
+
+                local line = string.format("%s%s%s%s",
+                    Entry.itemLink,
+                    OSString,
+                    BRString,
+                    receivedString
+                );
+
+                GameTooltip:AddLine(line);
             end
 
             GameTooltip:Show();

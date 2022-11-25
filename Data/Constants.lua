@@ -36,6 +36,38 @@ GL.Data.Constants = {
         ["ü"] = "Ü",
     },
 
+    ItemSlotTable = {
+        -- Source: http://wowwiki.wikia.com/wiki/ItemEquipLoc
+        INVTYPE_AMMO = { 0 },
+        INVTYPE_HEAD = { 1 },
+        INVTYPE_NECK = { 2 },
+        INVTYPE_SHOULDER = { 3 },
+        INVTYPE_BODY = { 4 },
+        INVTYPE_CHEST = { 5 },
+        INVTYPE_ROBE = { 5 },
+        INVTYPE_WAIST = { 6 },
+        INVTYPE_LEGS = { 7 },
+        INVTYPE_FEET = { 8 },
+        INVTYPE_WRIST = { 9 },
+        INVTYPE_HAND = { 10 },
+        INVTYPE_FINGER = { 11, 12 },
+        INVTYPE_TRINKET = { 13, 14 },
+        INVTYPE_CLOAK = { 15 },
+        INVTYPE_WEAPON = { 16, 17 },
+        INVTYPE_SHIELD = { 17 },
+        INVTYPE_2HWEAPON = { 16 },
+        INVTYPE_WEAPONMAINHAND = { 16 },
+        INVTYPE_WEAPONOFFHAND = { 17 },
+        INVTYPE_HOLDABLE = { 17 },
+        INVTYPE_RANGED = { 18 },
+        INVTYPE_THROWN = { 18 },
+        INVTYPE_RANGEDRIGHT = { 18 },
+        INVTYPE_RELIC = { 18 },
+        INVTYPE_TABARD = { 19 },
+        INVTYPE_BAG = { 20, 21, 22, 23 },
+        INVTYPE_QUIVER = { 20, 21, 22, 23 }
+    },
+
     --[[
         GLOBAL
     ]]
@@ -82,7 +114,10 @@ GL.Data.Constants = {
     },
 
     ItemsThatSouldntBeAnnounced = {
+        20725, -- Nexus Crystal
+        22450, -- Void Crystal
         29434, -- Badge of Justice
+        34057, -- Abyss Crystal
 
         -- Temporary Kael'Thas weapons
         30318, -- Netherstrand Longbow
@@ -295,7 +330,7 @@ GL.Data.Constants = {
     ]]
     Comm = {
         channel = "GargulComm2",
-        minimumAppVersion = "4.0.0",
+        minimumAppVersion = "4.12.0",
         Actions = {
             awardItem = 1,
             broadcastLootPriorities = 2,
@@ -311,10 +346,12 @@ GL.Data.Constants = {
             broadcastBoostedRollsData = 12,
             requestBoostedRollsData = 13,
             broadcastBoostedRollsMutation = 14,
-            broadcastPlusOnes = 15,
-            broadcastTMBRaidGroupsData = 16,
-            requestTMBRaidGroupsData = 17,
-            broadcastPlusTwos = 18,
+            editAwardedItem = 15,
+            deleteAwardedItem = 16,
+            broadcastPlusOnes = 17,
+            broadcastTMBRaidGroupsData = 18,
+            requestTMBRaidGroupsData = 19,
+            broadcastPlusTwos = 20,
         },
     },
 

@@ -25,7 +25,7 @@ function PlusOnes:add(playerName)
         DB.PlusOnes[playerName] = DB.PlusOnes[playerName] + 1;
     end
 
-    self:broadcast();
+    self:triggerChangeEvent();
 
     return DB.PlusOnes[playerName];
 end
@@ -46,7 +46,7 @@ function PlusOnes:deduct(playerName)
         DB.PlusOnes[playerName] = math.max(DB.PlusOnes[playerName] - 1, 0);
     end
 
-    self:broadcast();
+    self:triggerChangeEvent();
 
     return DB.PlusOnes[playerName];
 end
@@ -65,7 +65,7 @@ function PlusOnes:setToZero(playerName)
     end
 
     DB.PlusOnes[playerName] = 0;
-    self:broadcast();
+    self:triggerChangeEvent();
 
     return 0;
 end
@@ -78,7 +78,7 @@ function PlusOnes:clear()
 
     DB.PlusOnes = {};
 
-    self:broadcast();
+    self:triggerChangeEvent();
 end
 
 --- Get a player's PlusOnes value
@@ -108,9 +108,9 @@ function PlusOnes:set(playerName, value)
 
     playerName = GL:normalizedName(playerName);
 
-    DB.PlusOnes[playerName] = GL:round(value);
+    DB.PlusOnes[playerName] = GL:round(value or 0);
 
-    self:broadcast();
+    self:triggerChangeEvent();
 end
 
 --- Assign PlusOne values en masse
@@ -121,16 +121,17 @@ function PlusOnes:massSet(plusOnesByPlayerName)
     GL:debug("PlusOnes:massSet");
 
     for playerName, value in pairs(plusOnesByPlayerName) do
-        playerName = GL:normalizedName(playerName);
+        playerName = GL:normalizedName(playerName or 0);
 
-        DB.PlusOnes[playerName] = GL:round(value);
+        DB.PlusOnes[playerName] = GL:round(value or 0);
     end
 
-    self:broadcast();
+    self:triggerChangeEvent();
 end
 
-function PlusOnes:broadcast()
-    GL:debug("PlusOnes:broadcast");
+--- Trigger the PLUSONES_CHANGED event
+function PlusOnes:triggerChangeEvent()
+    GL:debug("PlusOnes:triggerChangeEvent");
     GL.Events:fire("GL.PLUSONES_CHANGED");
 
     if (self.broadcastInProgress) then

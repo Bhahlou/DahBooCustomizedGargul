@@ -4,20 +4,22 @@ local _, GL = ...;
 ---@class RollOff
 GL.RollOff = GL.RollOff or {
     inProgress = false,
-    timerId = 0, -- ID of the timer event
+    listeningForRolls = false,
     rollPattern = GL:createPattern(RANDOM_ROLL_RESULT), -- This pattern is used to validate incoming rules
+    CountDownTimer = nil,
     CurrentRollOff = {
         initiator = nil, -- The player who started the roll off
         time = nil, -- The amount of time players get to roll
-        itemId = nil, -- The ID of the item we're rolling for
+        itemID = nil, -- The ID of the item we're rolling for
         itemName = nil, -- The name of the item we're rolling for
         itemLink = nil, -- The item link of the item we're rolling for
         itemIcon = nil, -- The icon of the item we're rolling for
         note = nil, -- The note displayed on the progress bar
         Rolls = {}, -- Player rolls
     },
-    listeningForRolls = false,
-    rollListenerCancelTimerId = nil,
+    InitiateCountDownTimer = nil;
+    StopRollOffTimer = nil,
+    StopListeningForRollsTimer = nil,
 };
 local RollOff = GL.RollOff; ---@type RollOff
 local DB = GL.DB; ---@type DB
@@ -68,7 +70,6 @@ function RollOff:announceStart(itemLink, time, note)
         --- Add boosted rolls
         local BoostedRollsIdentifier = string.sub(GL.Settings:get("BoostedRolls.identifier", "BR"), 1, 3);
 
-        ---@todo: Add an additional field to the boosted roll settings for later false-positive detection
         local boostedRollsSettings = { BoostedRollsIdentifier, 1, 1, GL.Settings:get("BoostedRolls.priority", 1) };
         tinsert(SupportedRolls, boostedRollsSettings);
         local boostedRollIndex = #SupportedRolls;
@@ -253,7 +254,7 @@ function RollOff:announceStop()
     ):send();
 
     -- We stop listening for rolls one second after the rolloff ends just in case there is server lag/jitter
-    self.rollListenerCancelTimerId = GL.Ace:ScheduleTimer(function()
+    self.StopListeningForRollsTimer = GL.Ace:ScheduleTimer(function()
         self:stopListeningForRolls();
     end, 1);
 end
@@ -314,7 +315,7 @@ function RollOff:start(CommMessage)
             self.CurrentRollOff = {
                 initiator = CommMessage.Sender.id,
                 time = time,
-                itemId = Entry.id,
+                itemID = Entry.id,
                 itemName = Entry.name,
                 itemLink = Entry.link,
                 itemIcon = Entry.icon,
@@ -343,31 +344,43 @@ function RollOff:start(CommMessage)
         end
 
         -- Make sure the rolloff stops when time is up
-        self.timerId = GL.Ace:ScheduleTimer(function ()
+        self.StopRollOffTimer = GL.Ace:ScheduleTimer(function ()
             self:stop();
         end, time);
 
         -- Send a countdown in chat when enabled
         local numberOfSecondsToCountdown = GL.Settings:get("MasterLooting.numberOfSecondsToCountdown", 5);
         if (self:startedByMe() -- Only post a countdown if this user initiated the roll
-            and time > numberOfSecondsToCountdown -- No point in counting down if there's hardly enough time anyways
-            and GL.Settings:get("MasterLooting.doCountdown", false)
+            and time - numberOfSecondsToCountdown > 2-- No point in counting down if there's hardly enough time anyways
+            and GL.Settings:get("MasterLooting.doCountdown")
         ) then
             local SecondsAnnounced = {};
-            self.countDownTimer = GL.Ace:ScheduleRepeatingTimer(function ()
-                local secondsLeft = math.ceil(GL.Ace:TimeLeft(self.timerId));
-                if (secondsLeft <= numberOfSecondsToCountdown
-                    and secondsLeft > 0
-                    and not SecondsAnnounced[secondsLeft]
-                ) then
-                    SecondsAnnounced[secondsLeft] = true;
 
-                    GL:sendChatMessage(
+            self.InitiateCountDownTimer = GL.Ace:ScheduleTimer(function ()
+                self.CountDownTimer = GL.Ace:ScheduleRepeatingTimer(function ()
+                    GL:debug("Run RollOff.CountDownTimer");
+
+                    local secondsLeft = math.ceil(GL.Ace:TimeLeft(self.StopRollOffTimer));
+                    if (secondsLeft <= numberOfSecondsToCountdown
+                        and secondsLeft > 0
+                        and not SecondsAnnounced[secondsLeft]
+                    ) then
+                        SecondsAnnounced[secondsLeft] = true;
+
+                        GL:sendChatMessage(
                         string.format("%s seconde(s) restante(s) pour roll", secondsLeft),
-                        "GROUP"
-                    );
-                end
-            end, 1);
+                            "GROUP"
+                        );
+
+                        if (GL.Settings:get("MasterLooting.announceCountdownOnce")) then
+                            GL:debug("Cancel RollOff.CountDownTimer");
+
+                            GL.Ace:CancelTimer(self.CountDownTimer);
+                            self.CountDownTimer = nil;
+                        end
+                    end
+                end, .2);
+            end, time - numberOfSecondsToCountdown - 2);
         end
 
         -- Play raid warning sound
@@ -421,16 +434,23 @@ function RollOff:stop(CommMessage)
         end
     end
 
-    if (self.countDownTimer) then
-        GL.Ace:CancelTimer(self.countDownTimer);
-        self.countDownTimer = nil;
+    if (self.InitiateCountDownTimer) then
+        GL.Ace:CancelTimer(self.InitiateCountDownTimer);
+        self.InitiateCountDownTimer = nil;
+    end
+
+    if (self.CountDownTimer) then
+        GL:debug("Cancel RollOff.CountDownTimer");
+
+        GL.Ace:CancelTimer(self.CountDownTimer);
+        self.CountDownTimer = nil;
     end
 
     -- Play raid warning sound
     GL:playSound(8959);
 
     RollOff.inProgress = false;
-    GL.Ace:CancelTimer(RollOff.timerId);
+    GL.Ace:CancelTimer(RollOff.StopRollOffTimer);
 
     GL.RollerUI:hide();
 
@@ -443,7 +463,7 @@ function RollOff:stop(CommMessage)
 end
 
 -- Award the item to one of the rollers
-function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
+function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
     GL:debug("RollOff:award");
 
     -- If the roller has a roll number suffixed to his name
@@ -457,10 +477,15 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
 
     local isOS = false;
     local addPlusOne = false;
-    local cost = nil;
+    local BRCost = nil;
 
     if (boostedRoll) then
-        cost = GL.Settings:get("BoostedRolls.defaultCost", 0);
+        BRCost = GL.Settings:get("BoostedRolls.defaultCost", 0);
+    end
+
+    local Rolls = RollOff.CurrentRollOff.Rolls;
+    if (type(Rolls) ~= "table") then
+        Rolls = {};
     end
 
     if (GL:nameIsUnique(roller)) then
@@ -492,16 +517,16 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
 
                 local BoostedRollCostEditBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
                 if (BoostedRollCostEditBox) then
-                    cost = GL.BoostedRolls:toPoints(BoostedRollCostEditBox:GetText());
+                    BRCost = GL.BoostedRolls:toPoints(BoostedRollCostEditBox:GetText());
 
-                    if (cost) then
-                        GL.BoostedRolls:modifyPoints(roller, -cost);
+                    if (BRCost) then
+                        GL.BoostedRolls:modifyPoints(roller, -BRCost);
                         GL.Interface.BoostedRolls.Overview:refreshTable();
                     end
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost,addPlusOne);
+                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, BRCost, addPlusOne, 0, Rolls);
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -509,10 +534,10 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
                     GL.MasterLooterUI:close();
                 end
             end,
-            checkPlusOne = msRoll,
             checkOS = osRoll,
+            checkPlusOne = plusOneRoll,
             isBR = boostedRoll,
-            boostedRollCost = cost,
+            boostedRollCost = BRCost,
         });
 
         return;
@@ -549,16 +574,16 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
 
                 local boostedRollCostEditBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
                 if (boostedRollCostEditBox) then
-                    cost = GL.BoostedRolls:toPoints(boostedRollCostEditBox:GetText());
+                    BRCost = GL.BoostedRolls:toPoints(boostedRollCostEditBox:GetText());
 
-                    if (cost) then
-                        GL.BoostedRolls:modifyPoints(roller, -cost);
+                    if (BRCost) then
+                        GL.BoostedRolls:modifyPoints(roller, -BRCost);
                         GL.Interface.BoostedRolls.Overview:refreshTable();
                     end
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, cost,addPlusOne);
+                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, BRCost, addPlusOne, 0, Rolls);
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -568,10 +593,10 @@ function RollOff:award(roller, itemLink, msRoll, osRoll, boostedRoll)
 
                 GL.Interface.PlayerSelector:close();
             end,
-            checkPlusOne = msRoll,
             checkOS = osRoll,
+            checkPlusOne = plusOneRoll,
             isBR = boostedRoll,
-            boostedRollCost = cost,
+            boostedRollCost = BRCost,
         });
     end);
 end
@@ -583,8 +608,8 @@ function RollOff:listenForRolls()
     GL:debug("RollOff:listenForRolls");
 
     -- Make sure the timer to cancel listening for rolls is cancelled
-    if (self.rollListenerCancelTimerId) then
-        GL.Ace:CancelTimer(self.rollListenerCancelTimerId);
+    if (self.StopListeningForRollsTimer) then
+        GL.Ace:CancelTimer(self.StopListeningForRollsTimer);
     end
 
     if (self.listeningForRolls) then
@@ -604,8 +629,8 @@ end
 function RollOff:stopListeningForRolls()
     GL:debug("RollOff:stopListeningForRolls");
 
-    if (self.rollListenerCancelTimerId) then
-        GL.Ace:CancelTimer(self.rollListenerCancelTimerId);
+    if (self.StopListeningForRollsTimer) then
+        GL.Ace:CancelTimer(self.StopListeningForRollsTimer);
     end
 
     self.listeningForRolls = false;
@@ -645,7 +670,6 @@ function RollOff:processRoll(message)
         end)();
 
         --- Check for boosted rolls
-        --- @todo: Take into account pre-announcement
         if (not RollType
             and GL.BoostedRolls:enabled()
             and GL.BoostedRolls:available()
@@ -757,10 +781,10 @@ function RollOff:refreshRollsTable()
         local normalizedPlayerName = string.lower(GL:stripRealm(playerName));
 
         -- The item is soft-reserved, make sure we add a note to the roll
-        if (GL.SoftRes:itemIdIsReservedByPlayer(self.CurrentRollOff.itemId, normalizedPlayerName)) then
+        if (GL.SoftRes:itemIDIsReservedByPlayer(self.CurrentRollOff.itemID, normalizedPlayerName)) then
             rollPriority = 1;
             rollNote = "Reserved";
-            local numberOfReserves = GL.SoftRes:playerReservesOnItem(self.CurrentRollOff.itemId, normalizedPlayerName);
+            local numberOfReserves = GL.SoftRes:playerReservesOnItem(self.CurrentRollOff.itemID, normalizedPlayerName);
 
             if (numberOfReserves > 1) then
                 rollNote = string.format("%s (%sx)", rollNote, numberOfReserves);
@@ -768,7 +792,7 @@ function RollOff:refreshRollsTable()
 
         -- The item might be on a TMB list, make sure we add the appropriate note to the roll
         else
-            local TMBData = GL.TMB:byItemIdAndPlayer(self.CurrentRollOff.itemId, normalizedPlayerName);
+            local TMBData = GL.TMB:byItemIDAndPlayer(self.CurrentRollOff.itemID, normalizedPlayerName);
             local TopEntry = false;
 
             for _, Entry in pairs(TMBData) do
@@ -813,7 +837,6 @@ function RollOff:refreshRollsTable()
                     rollPriority = rollPriority - 0.5;
                     rollNote = "Wishlist";
                 end
-                print(rollPriority);
                 --rollPriority = rollPriority + TopEntry.prio; -- Make sure rolls of identical list positions "clump" together
                 rollNote = string.format("%s [%s]", rollNote, TopEntry.prio);
             end

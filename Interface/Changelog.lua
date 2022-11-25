@@ -12,6 +12,52 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "4.12.1",
+            date = "2 Novembre 2022",
+            Changes = {
+                "Rattrapage des dernières fonctionnalités standard de Gargul",
+            },
+        },
+        {
+            version = "4.12.0",
+            date = "31 Octobre 2022",
+            Changes = {
+                "|c00BE3333Important :|r Cette version introduit une réécriture complète de la structure des loots attribués, la rendant incompatible avec les versions plus anciennes de Gargul. Encouragez vos chers raiders à mettre à jour !",
+                "Maintenez Shift sur la fenêtre de roll pour comparer l'objet avec ce que vous avez d'équipé !",
+                "Correction de bug notable : Les éditions et suppressions d'attribution d'objets sont maintenant diffusés correctement au raid entier",
+            },
+        },
+        {
+            version = "4.11.0",
+            date = "27 Octobre 2022",
+            Changes = {
+                "Un joueur a passé sur un objet ? Vous avez assigné l'objet à la mauvaise personne ? Pas d'inquiétudes, vous pouvez éditer cela maintenant !",
+                "Vous pouvez maintenant changer la taille de la fenêtre des timers d'échange de loots dans |c00a79eff/dbcgl|r -> |c00a79effTimers d'échange de loots|r",
+                "Performance grandement améliorée et préparation de Gargul pour Dragonflight",
+                "Modification du message de master looter et assurance qu'il ne spammera pas le raid sur un /reload",
+            },
+        },
+        {
+            version = "4.10.1",
+            date = "19 Octobre 2022",
+            Changes = {
+                "Vous pouvez maintenant ajouter jusqu'à 10 boutons de roll avec des caractères illimités !",
+                "Les raccourcis Gargul ne supportent plus le clic droit pour des raisons techniques",
+                "Mise à jour du format d'export DFT pour maintenant utiliser les IDs d'objets à la place des noms",
+                "Vous pouvvez maintenant exclure les objets de seconde spé en exportant les loots via |c00a79eff/dbcgl export|r -> |c00a79effMaster Loot|r",
+                "Les tooltips d'objets incluent maintenant davantage de détails sur les (récents) gagnants",
+            },
+        },
+        {
+            version = "4.10.0",
+            date = "16 Octobre 2022",
+            Changes = {
+                "Quand activé, PackMule restera maintenant toujours activé même après un changement de zone/reload",
+                "Vous voulez annoncer le nombre de secondes restantes pour roll une seule fois ? Vérifize |c00a79eff/dbcgl|r -> |c00a79effMaster Loot|r",
+                "Accessibilité : vous pouvez maintenant agrandir la fenêtre de roll via |c00a79eff/dbcgl|r -> |c00a79effRoll|r",
+            },
+        },
+        {
             version = "4.9.3",
             date = "26 Octobre 2022",
             Changes = {

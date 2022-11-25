@@ -157,7 +157,7 @@ function Overview:draw()
     BoostedRollsCurrentPoints:SetHeight(22);
     BoostedRollsCurrentPoints:SetWidth(106);
     BoostedRollsCurrentPoints:SetCallback("OnTextChanged", function (widget)
-        local value = GL.BoostedRolls:toPoints(strtrim(widget:GetText()));
+        local value = GL.BoostedRolls:toPoints(strtrim(widget:GetText(), nil));
 
         if not value then
             return;
@@ -223,7 +223,7 @@ function Overview:draw()
     ApplyAliasesButton:SetWidth(120);
     ApplyAliasesButton:SetCallback("OnClick", function()
         local text = GL.Interface:getItem(self, "EditBox.Aliases"):GetText();
-        self:updateAliases(strtrim(text));
+        self:updateAliases(strtrim(text, nil));
     end);
     AliasesFrame:AddChild(ApplyAliasesButton);
 
