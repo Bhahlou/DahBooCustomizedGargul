@@ -40,7 +40,7 @@ function Exporter:draw()
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
-    Window:SetTitle("Gargul v" .. GL.version);
+    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
     Window:SetStatusText("Addon v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(600);
@@ -195,6 +195,7 @@ function Exporter:getLootEntries()
 
         if (
             (not concernsDisenchantedItem or GL.Settings:get("ExportingLoot.includeDisenchantedItems"))
+            and (AwardEntry.OS or AwardEntry.MS)
             and (not AwardEntry.OS or not AwardEntry.MS or GL.Settings:get("ExportingLoot.includeOffspecItems"))
             and (not self.dateSelected or dateString == self.dateSelected)
             and not GL:empty(AwardEntry.timestamp)
