@@ -31,9 +31,15 @@ function TimeLeft:_init()
     -- That way we don't have any stutters or weird behavior like bars not showing up
     GL.Ace:ScheduleTimer(function ()
         GL.Events:register({
+            {"TimeLeftPlayerEnteringWorldListener", "PLAYER_ENTERING_WORLD"},
             {"TimeLeftBagUpdateDelayedListener", "BAG_UPDATE_DELAYED"},
+            {"TimeLeftZoneChangedListener", "ZONE_CHANGED"},
+            {"TimeLeftPlayerAliveListener", "PLAYER_ALIVE"},
+            {"TimeLeftPlayerUnghostListener", "PLAYER_UNGHOST"},
             {"TimeLeftBagMasterLooterLostListener", "GL.USER_LOST_MASTER_LOOTER"},
             {"TimeLeftBagMasterLooterObtainedListener", "GL.USER_OBTAINED_MASTER_LOOTER"},
+            {"TimeLeftItemAwardedListener", "GL.ITEM_AWARDED"},
+            {"TimeLeftItemUnAwardedListener", "GL.ITEM_UNAWARDED"},
         }, function ()
             self:refreshBars();
         end);
@@ -117,7 +123,7 @@ function TimeLeft:draw()
     Texture:SetColorTexture(0, 0, 0, .6);
     Texture:SetAllPoints(Window)
     Window.texture = Texture;
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     local howToRollText = string.format("%s pour roll les loots !", GL.Settings:get("ShortcutKeys.rollOff"));
     local howToAwardText = string.format("%s pour attribuer les loots !", GL.Settings:get("ShortcutKeys.award"));
@@ -126,7 +132,7 @@ function TimeLeft:draw()
     Title:SetText(howToRollText);
     Title:SetTextColor(1, 1, 1, 1);
     Title.headerTextType = "howToRoll";
-    GL.Interface:setItem(self, "Header", Title);
+    GL.Interface:set(self, "Header", Title);
 
     -- Keep switching the text in the header from how to roll to how to award
     if (not self.HeaderSwitchTimer) then
@@ -434,18 +440,27 @@ function TimeLeft:refreshBars()
 
     self.refreshing = true;
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not Window) then
         self:draw();
     end
 
-    Window = GL.Interface:getItem(self, "Window");
+    Window = GL.Interface:get(self, "Window");
     Window:SetHeight(0);
 
     local ItemsWithTradeTimeRemaining = {};
     local tradeTimeRemainingByLink = {};
-    for bag = 0, 4 do
+    local awardedItemCountByLink = {};
+    local deItemCountByLink = {};
+
+    local numberOfBagsToCheck = 4;
+    -- Dragon Flight introduced an extra bag slot
+    if (GL.clientIsDragonFlightOrLater) then
+        numberOfBagsToCheck = numberOfBagsToCheck + 1;
+    end
+
+    for bag = 0, numberOfBagsToCheck do
         for slot = 1, GetContainerNumSlots(bag) do
             (function ()
                 local icon, _, _, _, _, _, itemLink, _, _ = GetContainerItemInfo(bag, slot);
@@ -461,10 +476,31 @@ function TimeLeft:refreshBars()
                     return;
                 end
 
+                -- Checks for "awarded but not received gear" and initialize counts of
+                --    items unreceived for both award and de
+                local unreceived = false;
+                local deUnreceived = false;
+                local unreceivedCount = 0;
+                local deUnreceivedCount = 0;
+                for _, line in pairs(GL.AwardedLoot:tooltipLines(itemLink) or {}) do
+                    if (string.match(line, "|de|") and string.match(line, "(pas encore reçu)")) then
+                        deUnreceived = true;
+                        deUnreceivedCount = deUnreceivedCount + 1
+                    elseif (string.match(line, "(pas encore reçu)")) then
+                        unreceived = true;
+                        unreceivedCount = unreceivedCount + 1
+                    end
+                end
+
+                awardedItemCountByLink[itemLink] = unreceivedCount
+                deItemCountByLink[itemLink] = deUnreceivedCount
+
                 tinsert(ItemsWithTradeTimeRemaining, {
                     icon = icon,
                     itemLink = itemLink,
                     timeRemaining = timeRemaining,
+                    unreceived = unreceived,
+                    deUnreceived = deUnreceived,
                 });
 
                 -- We're not tracking this item yet or this version of the item has a smaller trade time window
@@ -542,18 +578,32 @@ function TimeLeft:refreshBars()
         TimerBar:SetColor(0, 1, 0, .3); -- Reset color to green
         TimerBar:SetLabel(BagItem.itemLink);
         TimerBar:SetIcon(BagItem.icon);
+        local awarded = false;
+        local disenchanted = false;
+        if (BagItem.unreceived and awardedItemCountByLink[BagItem.itemLink] > 0) then
+            TimerBar:SetIcon("Interface\\AddOns\\Gargul\\Assets\\Icons\\trophy");
+            awardedItemCountByLink[BagItem.itemLink] = awardedItemCountByLink[BagItem.itemLink] - 1;
+            awarded = true;
+        elseif (BagItem.deUnreceived and deItemCountByLink[BagItem.itemLink] > 0) then
+            TimerBar:SetIcon("Interface\\AddOns\\Gargul\\Assets\\Icons\\disenchant");
+            deItemCountByLink[BagItem.itemLink] = deItemCountByLink[BagItem.itemLink] - 1;
+            disenchanted = true;
+        end
+
         TimerBar:Set("type", "TRADE_WINDOW_TIME_LEFT");
         TimerBar.Details = BagItem;
 
         local offsetY = ((index - 1) * 18) * -1 - 16;
         TimerBar:SetPoint("TOP", Window, "TOP", 0, offsetY);
-        TimerBar.candyBarLabel:SetFont("Fonts\\ARIALN.ttf", 13, "OUTLINE");
+        TimerBar.candyBarLabel:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE");
 
         -- Make the bar turn green/yellow/red based on time left
         TimerBar:AddUpdateFunction(function (Bar)
             local percentageLeft = (BagItem.timeRemaining / 7200) * 100;
 
-            if (percentageLeft >= 60) then
+            if (awarded or disenchanted) then
+                Bar:SetColor(0, 0, 0, .6);
+            elseif (percentageLeft >= 60) then
                 Bar:SetColor(0, 1, 0, .3);
             elseif (percentageLeft >= 30) then
                 Bar:SetColor(1, 1, 0, .3);
@@ -580,6 +630,9 @@ function TimeLeft:refreshBars()
             -- Open the award window
             elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
                 GL.Interface.Award:draw(BagItem.itemLink);
+
+            elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.disenchant")) then
+                GL.PackMule:disenchant(BagItem.itemLink);
 
             -- Unregistered hotkey was pressed and it turns out to be SHIFT_CLICK, add item link to chat/editbox etc
             elseif (keyPressIdentifier == "SHIFT_CLICK") then
@@ -639,7 +692,7 @@ function TimeLeft:stopAllBars()
 
     self.Bars = {};
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (Window) then
         Window:Hide();
@@ -650,7 +703,7 @@ end
 function TimeLeft:close()
     GL:debug("Overview:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window

@@ -6,7 +6,7 @@ PopupDialog AceGUI Widget
 Simple container widget that creates a popup dialog similar to Blizzard's dialogs
 But with added checkboxes for OS and +1 markers
 -------------------------------------------------------------------------------]]
-local Type, Version = "GargulAwardDialog", 1
+local Type, Version = "GargulDKPDeleteDialog", 1
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then return end
 
@@ -158,7 +158,7 @@ local function constructor()
     Frame:SetFrameStrata("FULLSCREEN_DIALOG");
     Frame:SetBackdrop(FrameBackdrop);
     Frame:SetBackdropColor(0, 0, 0, 1);
-
+    Frame:SetMinResize(320, 10);
     Frame:SetWidth(320);
     Frame:SetToplevel(true);
     Frame:SetScript("OnHide", OnClose);
@@ -207,85 +207,34 @@ local function constructor()
     OptionsFrame:SetLayout("FLOW");
     PopupDialogInstance:AddChild(OptionsFrame);
 
-    VerticalSpacer = AceGUI:Create("SimpleGroup");
-    VerticalSpacer:SetLayout("FILL");
-    VerticalSpacer:SetWidth(57);
-    VerticalSpacer:SetHeight(10);
-    OptionsFrame:AddChild(VerticalSpacer);
-
-    -- Plus one checkbox
-    local PlusOneCheckBox = AceGUI:Create("CheckBox");
-    PlusOneCheckBox:SetLabel("");
-    PlusOneCheckBox:SetDescription("");
-    PlusOneCheckBox:SetHeight(20);
-    PlusOneCheckBox:SetWidth(24);
-    OptionsFrame:AddChild(PlusOneCheckBox);
-    GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "PlusOne", PlusOneCheckBox);
-
-    -- Plus one label
-    local PlusOneLabel = AceGUI:Create("InteractiveLabel");
-    PlusOneLabel:SetFontObject(_G["GameFontNormal"]);
-    PlusOneLabel:SetWidth(100);
-    PlusOneLabel:SetText("+1");
-
-    PlusOneLabel:SetCallback("OnClick", function()
-        PlusOneCheckBox:ToggleChecked();
-    end);
-
-    OptionsFrame:AddChild(PlusOneLabel);
-
-    -- Plus one checkbox
-    local OffSpecCheckBox = AceGUI:Create("CheckBox");
-    OffSpecCheckBox:SetLabel("");
-    OffSpecCheckBox:SetDescription("");
-    OffSpecCheckBox:SetHeight(20);
-    OffSpecCheckBox:SetWidth(24);
-    OptionsFrame:AddChild(OffSpecCheckBox);
-    GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "OffSpec", OffSpecCheckBox);
-
-    -- Plus one label
-    local OffSpecLabel = AceGUI:Create("InteractiveLabel");
-    OffSpecLabel:SetFontObject(_G["GameFontNormal"]);
-    OffSpecLabel:SetWidth(30);
-    OffSpecLabel:SetText("+2");
-
-    OffSpecLabel:SetCallback("OnClick", function()
-        OffSpecCheckBox:ToggleChecked();
-    end);
-
-    OptionsFrame:AddChild(OffSpecLabel);
-
     HorizontalSpacer = AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");
     HorizontalSpacer:SetFullWidth(true);
     HorizontalSpacer:SetHeight(8);
     OptionsFrame:AddChild(HorizontalSpacer);
 
-    if (GL.BoostedRolls:enabled()) then
-        VerticalSpacer = AceGUI:Create("SimpleGroup");
-        VerticalSpacer:SetLayout("FILL");
-        VerticalSpacer:SetWidth(52);
-        VerticalSpacer:SetHeight(10);
-        OptionsFrame:AddChild(VerticalSpacer);
+    VerticalSpacer = AceGUI:Create("SimpleGroup");
+    VerticalSpacer:SetLayout("FILL");
+    VerticalSpacer:SetWidth(52);
+    VerticalSpacer:SetHeight(10);
+    OptionsFrame:AddChild(VerticalSpacer);
 
-        -- Boosted Roll cost label
-        local CostLabel = AceGUI:Create("Label");
-        CostLabel:SetFontObject(_G["GameFontNormal"]);
-        CostLabel:SetWidth(120);
-        CostLabel:SetText("Boosted Roll Cost:");
-        OptionsFrame:AddChild(CostLabel);
+    -- Boosted Roll cost label
+    local ReasonLabel = AceGUI:Create("Label");
+    ReasonLabel:SetFontObject(_G["GameFontNormal"]);
+    ReasonLabel:SetWidth(120);
+    ReasonLabel:SetText("GDKP Reason:");
+    OptionsFrame:AddChild(ReasonLabel);
 
-        -- Boosted Roll cost
-        local BoostedRollsCostEditBox = GL.AceGUI:Create("EditBox");
-        BoostedRollsCostEditBox:DisableButton(true);
-        BoostedRollsCostEditBox:SetHeight(20);
-        BoostedRollsCostEditBox:SetWidth(60);
-        BoostedRollsCostEditBox:SetText(GL.Settings:get("BoostedRolls.defaultCost", 0));
-        BoostedRollsCostEditBox:SetLabel("");
-        OptionsFrame:AddChild(BoostedRollsCostEditBox);
-
-        GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "Cost", BoostedRollsCostEditBox);
-    end
+    -- Boosted Roll cost
+    local GDKPDeleteReasonEditBox = GL.AceGUI:Create("EditBox");
+    GDKPDeleteReasonEditBox:DisableButton(true);
+    GDKPDeleteReasonEditBox:SetHeight(20);
+    GDKPDeleteReasonEditBox:SetWidth(60);
+    GDKPReasonEditBox:SetText("");
+    GDKPDeleteReasonEditBox:SetLabel("");
+    OptionsFrame:AddChild(GDKPDeleteReasonEditBox);
+    GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "GDKPDeleteReason", GDKPDeleteReasonEditBox);
 
     HorizontalSpacer = AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");
@@ -301,7 +250,7 @@ local function constructor()
 
     -- Yes
     local YesButton = AceGUI:Create("Button");
-    YesButton:SetText("Oui");
+    YesButton:SetText("Yes");
     YesButton:SetHeight(20);
     YesButton:SetWidth(120);
     YesButton:SetCallback("OnClick", function()
@@ -319,7 +268,7 @@ local function constructor()
 
     -- No
     local NoButton = AceGUI:Create("Button");
-    NoButton:SetText("Non");
+    NoButton:SetText("No");
     NoButton:SetHeight(20);
     NoButton:SetWidth(120);
     NoButton:SetCallback("OnClick", function()

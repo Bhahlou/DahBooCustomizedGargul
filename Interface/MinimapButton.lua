@@ -20,8 +20,8 @@ function MinimapButton:_init()
                 end
 
                 if (not GL.Interface.Settings.Overview.isVisible) then
-                return GL.Commands:call("settings");
-            end
+                    return GL.Commands:call("settings");
+                end
 
                 return GL.Interface.Settings.Overview:close();
             end

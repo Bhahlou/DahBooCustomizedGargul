@@ -12,10 +12,27 @@ GL.Interface.Changelog = {
 
     History = {
         {
-            version = "4.12.1",
-            date = "2 Novembre 2022",
+            version = "4.12.8",
+            date = "16 Novembre 2022",
             Changes = {
-                "Rattrapage des dernières fonctionnalités standard de Gargul",
+                "Le timer d'échange de loot change d'icône et de couleur après l'attribution ou le désenchantement d'un objet. De cette manière, vous pouvez facilement dire quels objects doivent encore être rolls !",
+            },
+        },
+        {
+            version = "4.12.5",
+            date = "9 Novembre 2022",
+            Changes = {
+                "Responsables du butin ! Fermer la fenêtre de roll/ventes affiche maintenant un compteur de roll et deux boutins d'accès rapide : un pour arrêter/démarrer les rolls et un pour désenchanter l'objet",
+                "Vous pouvez aussi maintenant voir tous les rolls sur un attribué attribué, en ouvrant la fenêtre d'historique d'attribution des loots et en survolant l'entrée souhaitée avec la souris",
+            },
+        },
+        {
+            version = "4.12.2",
+            date = "4 Novembre 2022",
+            Changes = {
+                "L'historique d'attribution des loots est bougé vers une fenêtre séparée. Cliquez l'icône du trophée dans la fenêtre d'attribution ou de roll",
+                "Vous pouvez maintenant marquer les rolls comme +1 ou +2 dans vos paramètres de sorte à ce que les coches soient marquées automatiquement en attribuant des objets basés sur ce type de roll",
+                "Les raccourcis de DahBooCustomizedGargul sont maintenant inactifs quand l'hôtel des ventes, la boîte aux lettres, un marchand ou la banque sont actifs",
             },
         },
         {
@@ -267,7 +284,7 @@ function Changelog:draw()
     Window:SetCallback("OnClose", function()
         self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     Window:SetPoint(GL.Interface:getPosition("Changelog"));
 
@@ -365,7 +382,7 @@ function Changelog:draw()
     Checkbox:SetValue(GL.Settings:get("changeLog"));
     Checkbox:SetLabel("Enable changelog");
     Checkbox:SetDescription("");
-    Checkbox:SetWidth(130);
+    Checkbox:SetWidth(220);
     Checkbox:SetCallback("OnValueChanged", function()
         GL.Settings:set("changeLog", Checkbox:GetValue());
     end);
@@ -378,7 +395,7 @@ end
 function Changelog:close()
     GL:debug("Changelog:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window

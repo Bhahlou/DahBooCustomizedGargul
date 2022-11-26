@@ -29,10 +29,10 @@ function RollTracking:draw(Parent, Window)
         local TempNewRollSettings = GL.Settings:get("RollTracking.Brackets");
 
         for i = 1, 10 do
-            local identifier = strtrim(InputElements[i].Identifier:GetText(), nil);
-            local min = tonumber(strtrim(InputElements[i].Min:GetText(), nil));
-            local max = tonumber(strtrim(InputElements[i].Max:GetText(), nil));
-            local priority = tonumber(strtrim(InputElements[i].SortingPriority:GetText(), nil));
+            local identifier = strtrim(InputElements[i].Identifier:GetText());
+            local min = tonumber(strtrim(InputElements[i].Min:GetText()));
+            local max = tonumber(strtrim(InputElements[i].Max:GetText()));
+            local priority = tonumber(strtrim(InputElements[i].SortingPriority:GetText()));
             local concernsOS = InputElements[i].ConcernsOS:GetValue();
             local givesPlusOne = InputElements[i].GivesPlusOne:GetValue();
 
@@ -123,14 +123,14 @@ function RollTracking:draw(Parent, Window)
         local Min = GL.AceGUI:Create("EditBox");
         Min:DisableButton(true);
         Min:SetHeight(20);
-        Min:SetWidth(80);
+        Min:SetWidth(100);
         Min:SetText(min);
         Parent:AddChild(Min);
 
         local Max = GL.AceGUI:Create("EditBox");
         Max:DisableButton(true);
         Max:SetHeight(20);
-        Max:SetWidth(80);
+        Max:SetWidth(100);
         Max:SetText(max);
         Parent:AddChild(Max);
 
