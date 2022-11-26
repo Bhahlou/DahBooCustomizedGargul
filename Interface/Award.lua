@@ -62,10 +62,10 @@ function Award:draw(itemLink)
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
-    Window:SetTitle("Gargul v" .. GL.version);
+    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(430);
-    Window:SetHeight(300);
+    Window:SetHeight(320);
     Window:EnableResize(false);
     Window.rendered = true;
     Window.frame:SetFrameStrata("HIGH");
