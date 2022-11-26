@@ -752,7 +752,7 @@ function PackMule:disenchant(itemLink, byPassConfirmationDialog)
         end
 
         -- Show the player selector
-        GL.Interface.PlayerSelector:draw("Who is your disenchanter?", PlayerNames, function (playerName)
+        GL.Interface.PlayerSelector:draw("Qui est votre désenchanteur ?", PlayerNames, function (playerName)
             GL.Interface.Dialogs.PopupDialog:open({
                 question = string.format("Set |cff%s%s|r as your disenchanter?",
                     GL:classHexColor(GL.Player:classByName(playerName)),
