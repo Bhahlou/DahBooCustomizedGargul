@@ -58,7 +58,7 @@ function MasterLooterDialog:_init()
             GL:debug("Run MasterLooterDialog.VersionCheckTimer");
 
             GL.Version:inspectQuietly();
-        end, 60);
+        end, 1800);
 
         GL.Version:inspectQuietly();
     end);
@@ -78,7 +78,7 @@ end
 ---@return void
 function MasterLooterDialog:flightAttendant()
     local function announce()
-        local message = "J'utilise Dah Boo Customized Gargul pour distribuer les loots. Cela rend le roll plus facile, donc essayez le !"
+        local message = "I'm using Gargul to distribute loot. It makes rolling easier so be sure to try it out!"
         local stw = not GL:strContains(string.lower(message), "gargul");
 
         GL:sendChatMessage(

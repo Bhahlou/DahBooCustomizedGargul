@@ -9,8 +9,8 @@ local AceGUI = GL.AceGUI;
 ---@class WelcomeSettings
 GL.Interface.Settings.Welcome = {
     description = string.format(
-            "Bienvenue ! La plupart des fonctionalités de Dah Boo Customized Gargul peuvent être testées sans être en groupe, donc vérifiez-les\n\nRoll: |c00a79eff%s|r. Award: |c00a79eff%s|r. Disenchant: |c00a79eff%s|r\n|c00f7922eNote: hotkeys are disabled when the AH, mailbox, shop or bank are active!|r",
-            GL.Settings:get("ShortcutKeys.rollOff"),
+            "Welcome! Almost all of Gargul's features can be tested when not in a group, so go check them out\n\nRoll: |c00a79eff%s|r. Award: |c00a79eff%s|r. Disenchant: |c00a79eff%s|r\n|c00f7922eNote: hotkeys are disabled when the AH, mailbox, shop or bank are active!|r",
+            GL.Settings:get("ShortcutKeys.rollOffOrAuction"),
             GL.Settings:get("ShortcutKeys.award"),
             GL.Settings:get("ShortcutKeys.disenchant")
     ),
@@ -22,7 +22,7 @@ function Welcome:draw(Parent)
     GL:debug("WelcomeSettings:draw");
 
     local MoreInfoLabel = AceGUI:Create("Label");
-    MoreInfoLabel:SetText("Pour un support personnel ou pour vous investir, vérifiez aussi notre discord:\n");
+    MoreInfoLabel:SetText("Need help? Join our Discord!\n");
     MoreInfoLabel:SetFontObject(_G["GameFontNormal"]);
     MoreInfoLabel:SetFullWidth(true);
     Parent:AddChild(MoreInfoLabel);
@@ -31,7 +31,7 @@ function Welcome:draw(Parent)
     DiscordURL:DisableButton(true);
     DiscordURL:SetHeight(20);
     DiscordURL:SetFullWidth(true);
-    DiscordURL:SetText("https://discord.gg/3BYJzqeSJ9");
+    DiscordURL:SetText("https://discord.gg/D3mDhYPVzf");
     Parent:AddChild(DiscordURL);
 
     local HorizontalSpacer = AceGUI:Create("SimpleGroup");
@@ -41,7 +41,7 @@ function Welcome:draw(Parent)
     Parent:AddChild(HorizontalSpacer);
 
     local WikiLabel = AceGUI:Create("Label");
-    WikiLabel:SetText("Dah Boo Customized Gargul's wiki page\n");
+    WikiLabel:SetText("Gargul's wiki page\n");
     WikiLabel:SetFontObject(_G["GameFontNormal"]);
     WikiLabel:SetFullWidth(true);
     Parent:AddChild(WikiLabel);
@@ -50,7 +50,7 @@ function Welcome:draw(Parent)
     WikiURL:DisableButton(true);
     WikiURL:SetHeight(20);
     WikiURL:SetFullWidth(true);
-    WikiURL:SetText("https://github.com/Bhahlou/DahBooCustomizedGargul/wiki");
+    WikiURL:SetText("https://github.com/papa-smurf/Gargul/wiki");
     Parent:AddChild(WikiURL);
 
     HorizontalSpacer = AceGUI:Create("SimpleGroup");
@@ -65,7 +65,7 @@ function Welcome:draw(Parent)
         GL.Settings:close();
         GL.Commands:call("softreserves");
     end);
-    OpenSoftRes:SetWidth(172);
+    OpenSoftRes:SetWidth(129);
     Parent:AddChild(OpenSoftRes);
 
     local OpenTMB = AceGUI:Create("Button");
@@ -74,7 +74,16 @@ function Welcome:draw(Parent)
         GL.Settings:close();
         GL.Commands:call("tmb");
     end);
-    OpenTMB:SetWidth(172);
+    OpenTMB:SetWidth(129);
+    Parent:AddChild(OpenTMB);
+
+    local OpenTMB = GL.AceGUI:Create("Button");
+    OpenTMB:SetText("GDKP");
+    OpenTMB:SetCallback("OnClick", function()
+        GL.Settings:close();
+        GL.Commands:call("gdkp");
+    end);
+    OpenTMB:SetWidth(129);
     Parent:AddChild(OpenTMB);
 
     local OpenPackMule = AceGUI:Create("Button");
@@ -82,7 +91,7 @@ function Welcome:draw(Parent)
     OpenPackMule:SetCallback("OnClick", function()
         GL.Settings:draw("PackMule");
     end);
-    OpenPackMule:SetWidth(172);
+    OpenPackMule:SetWidth(129);
     Parent:AddChild(OpenPackMule);
 
     --[[ CONTRIBUTORS ]]

@@ -5,7 +5,7 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class DroppedLootSettings
 GL.Interface.Settings.DroppedLoot = {
-    description = "Annonce automatiquement les objets tombés dans votre chat.\n\nNB : Pour annoncer les loots vous devez être dans un groupe devez avoir le rôle de responsable du butin !",
+    description = "Announce dropped loot into your group chat.\n\nNB: In order for loot to be announced you need to be in a group and need to have the master looter role!",
     wikiUrl = "https://github.com/papa-smurf/Gargul/wiki/Announcing-Loot-in-Chat",
 };
 local DroppedLoot = GL.Interface.Settings.DroppedLoot; ---@type DroppedLootSettings
@@ -19,18 +19,18 @@ function DroppedLoot:draw(Parent)
 
     local MinimumQualityLabel = AceGUI:Create("Label");
     MinimumQualityLabel:SetColor(1, .95686, .40784);
-    MinimumQualityLabel:SetText("La qualité minimum qu'un objet doit avoir pour être annoncé dans le chat");
+    MinimumQualityLabel:SetText("The minimum quality an item should have in order to be announced in chat");
     MinimumQualityLabel:SetHeight(20);
     MinimumQualityLabel:SetFullWidth(true);
     Parent:AddChild(MinimumQualityLabel);
 
     local DropDownItems = {
-        [0] = "0 - Mauvais",
-        [1] = "1 - Commun",
-        [2] = "2 - Inhabituel",
+        [0] = "0 - Poor",
+        [1] = "1 - Common",
+        [2] = "2 - Uncommon",
         [3] = "3 - Rare",
-        [4] = "4 - Epique",
-        [5] = "5 - Légendaire",
+        [4] = "4 - Epic",
+        [5] = "5 - Legendary",
     };
 
     local MinimumQuality = AceGUI:Create("Dropdown");
@@ -51,12 +51,12 @@ function DroppedLoot:draw(Parent)
 
     local Checkboxes = {
         {
-            label = "Annoncer loots dans le chat",
+            label = "Announce loot to chat",
             setting = "DroppedLoot.announceLootToChat",
         },
         {
-            label = "Utiliser avertissement raid",
-            description = "Utilise /ar au lieu de /ra en annonçant les loots",
+            label = "Use raid warning",
+            description = "Use /rw instead of /ra when announcing dropped loot",
             setting = "DroppedLoot.announceDroppedLootInRW",
         },
     };
@@ -112,13 +112,13 @@ function DroppedLoot:draw(Parent)
     TestItems:SetFullWidth(true);
     TestItems:SetText(defaultTestItems);
     TestItems:SetLabel(string.format(
-        "|cff%sAjoutez des liens ou IDs d'objets ouici séparés  par ; separated by ; (point-virgule) et 'Simulez drop' pour prévisualiser l'annonce:|r",
+        "|cff%sAdd item links or IDs here separated by ; (semicolon) and 'Simulate drop' to preview the announce:|r",
         GL:classHexColor("rogue")
     ));
     Parent:AddChild(TestItems);
 
     local OpenDataButton = GL.AceGUI:Create("Button");
-    OpenDataButton:SetText("Simuler drop");
+    OpenDataButton:SetText("Simulate drop");
     OpenDataButton:SetCallback("OnClick", function()
         GL.DroppedLoot:announceTest(GL:strSplit(TestItems:GetText(), ";"));
     end);

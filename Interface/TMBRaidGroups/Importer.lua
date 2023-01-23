@@ -101,6 +101,6 @@ function Importer:close()
     GL.Interface:storePosition(Window, "TMBImport");
 
     -- Clear the frame and its widgets
-    AceGUI:Release(Window);
+    GL.Interface:Release(Window);
     self.isVisible = false;
 end

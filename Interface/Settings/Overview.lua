@@ -1,3 +1,5 @@
+local L = Gargul_L;
+
 ---@type GL
 local _, GL = ...;
 
@@ -12,30 +14,31 @@ GL.Interface.Settings.Overview = {
     previousSection = nil,
     defaultSection = "Welcome",
     Sections = {
-        {"|c00a79effBienvenue|r", "Welcome"},
-        {"Général", "General"},
+        {"|c00a79effWELCOME|r", "Welcome"},
+        {"General", "General"},
         {"SoftRes", "SoftRes"},
-        {"TMB et DFT", "TMB"},
-        {"Loot obtenus", "DroppedLoot"},
-        {"Raccourcis", "ShortcutKeys"},
-        {"Export des loots", "ExportingLoot"},
-        {"Timer d'échange de loots", "LootTradeTimers"},
-        {"Autoloot PackMule", "PackMule"},
-        {"    Règles des items", "PackMuleRules"},
-        {"    Items ignorés", "PackMuleIgnores"},
+        {"TMB and DFT", "TMB"},
+        {"GDKP", "GDKP"},
+        {"Dropped Loot", "DroppedLoot"},
+        {"Exporting Loot", "ExportingLoot"},
+        {"Loot trade timers", "LootTradeTimers"},
+        {"Autoloot with PackMule", "PackMule"},
+        {"    Item Rules", "PackMuleRules"},
+        {"    Ignored Items", "PackMuleIgnores"},
         {"", ""},
-        {"|c00a79effAvancé|r", ""},
-        {"Master Loot", "MasterLooting"},
-        {"    Suivi des rolls", "RollTracking"},
-        {"    Groupes de raid", "RaidGroups"},
-        {"    Attribution des loots", "AwardingLoot"},
-        {"Annonces d'échange", "TradeAnnouncements"},
-        {"Roll", "Rolling"},
-        {"Surbrillance des loots", "LootHighlighting"},
-        {"Rolls boostés", "BoostedRolls"},
+        {"|c00a79effADVANCED|r", "Advanced"},
+        {"Master Looting", "MasterLooting"},
+        {"    Roll Tracking", "RollTracking"},
+        {"    TMB Raid Groups", "RaidGroups"},
+        {"    Awarding Loot", "AwardingLoot"},
+        {"Shortcut Keys", "ShortcutKeys"},
+        {"Trade Announcements", "TradeAnnouncements"},
+        {"Rolling", "Rolling"},
+        {"Loot Highlighting", "LootHighlighting"},
+        {"Boosted Rolls", "BoostedRolls"},
         {"", ""},
         {"", ""},
-        {"Commandes slash", "SlashCommands"},
+        {"Slash Commands", "SlashCommands"},
     },
     SectionIndexes = false,
 };
@@ -44,8 +47,9 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 --- Draw a setting section
 ---
 ---@param section string|nil
+---@param param function|nil What to do after closing the settings again
 ---@return void
-function Overview:draw(section)
+function Overview:draw(section, onCloseCallback)
     GL:debug("Overview:draw");
 
     local AceGUI = GL.AceGUI;
@@ -78,7 +82,7 @@ function Overview:draw(section)
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
-    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version .. " - Paramètres");
+    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version .. " - Settings");
     Window:SetLayout("Flow");
     Window:SetWidth(800);
     Window:SetHeight(600);
@@ -88,14 +92,14 @@ function Overview:draw(section)
     Window:SetPoint(GL.Interface:getPosition("Settings"));
 
     Window:SetCallback("OnClose", function()
-        self:close();
+        self:close(onCloseCallback);
     end);
 
     -- Override the default close button behavior
     local CloseButton = GL:fetchCloseButtonFromAceGUIWidget(Window);
     if (CloseButton) then
         CloseButton:SetScript("OnClick", function ()
-            self:close();
+            self:close(onCloseCallback);
         end);
     end
 
@@ -160,15 +164,42 @@ function Overview:draw(section)
     HorizontalSpacer:SetHeight(20);
     SecondColumn:AddChild(HorizontalSpacer);
 
-    -- Show the changelog button
     local ChangelogButton = GL.AceGUI:Create("Button");
     ChangelogButton:SetText("Changelog");
     ChangelogButton:SetCallback("OnClick", function()
         GL.Interface.Changelog:draw();
-        self:close();
+        self:close(function ()
+            self:draw(self.activeSection);
+        end);
     end);
     ChangelogButton:SetWidth(120);
     SecondColumn:AddChild(ChangelogButton);
+
+    local ResetUIButton = GL.AceGUI:Create("Button");
+    ResetUIButton:SetText(L.RESET_UI);
+    ResetUIButton:SetCallback("OnClick", function()
+        GL.Interface.Dialogs.PopupDialog:open({
+            question = L.RESET_UI_CONFIRMATION,
+            OnYes = function ()
+                GL.Commands:call("resetui");
+            end,
+        });
+    end);
+    ResetUIButton:SetWidth(136);
+    SecondColumn:AddChild(ResetUIButton);
+
+    local ResetSettingsButton = GL.AceGUI:Create("Button");
+    ResetSettingsButton:SetText(L.RESET_SETTINGS);
+    ResetSettingsButton:SetCallback("OnClick", function()
+        GL.Interface.Dialogs.PopupDialog:open({
+            question = L.RESET_SETTINGS_CONFIRMATION,
+            OnYes = function ()
+                GL.Commands:call("resetsettings");
+            end,
+        });
+    end);
+    ResetSettingsButton:SetWidth(136);
+    SecondColumn:AddChild(ResetSettingsButton);
 
     local PatreonButton = GL.UI:createFrame("Button", "PatreonButton" .. GL:uuid(), Window.frame, "UIPanelButtonTemplate");
     PatreonButton:Show();
@@ -196,7 +227,7 @@ function Overview:draw(section)
 end
 
 ---@return void
-function Overview:close()
+function Overview:close(onCloseCallback)
     local Window = GL.Interface:get(self, "Window");
 
     -- Some sections require additional cleanup, check if that's the case here
@@ -208,6 +239,12 @@ function Overview:close()
         if (result == false) then
             return;
         end
+    end
+
+    -- The user can pass along a close handler if his own
+    -- this allows us to open up a previous window after closing the settings for example
+    if (type(onCloseCallback) == "function") then
+        onCloseCallback();
     end
 
     self.isVisible = false;
@@ -309,18 +346,23 @@ function Overview:showSection(section)
         GL.Interface.Settings[self.activeSection]:onClose();
     end
 
-    GL.Interface:release(self, "ScrollFrame.ScrollFrame");
-
     self.activeSection = sectionClassIdentifier;
 
     -- Set the Title of the section (shown top-right)
     GL.Interface:get(self, "Label.Title"):SetText(" " .. strtrim(SectionEntry[1]));
 
     -- Prepare a new ScrollFrame for the section we're about to draw
-    local ScrollFrame = GL.AceGUI:Create("ScrollFrame");
+    local ScrollFrame = GL.Interface:get(self, "ScrollFrame.ScrollFrame") or GL.AceGUI:Create("ScrollFrame");
     local Parent = GL.Interface:get(self, "Frame.SectionWrapper");
     ScrollFrame:SetLayout("Flow");
+
+    -- Clean the ScrollFrame in case it still holds old data
+    GL.Interface:releaseChildren(ScrollFrame);
+
     Parent:AddChild(ScrollFrame);
+
+    -- Store the ScrollFrame so that we can clean/release it later
+    GL.Interface:set(self, "ScrollFrame", ScrollFrame);
 
     -- Add a description to the section if available
     if (not GL:empty(SectionClass.description)) then
@@ -328,14 +370,13 @@ function Overview:showSection(section)
         SectionDescription:SetText(SectionClass.description .. "\n\n");
         SectionDescription:SetFontObject(_G["GameFontNormal"]);
         SectionDescription:SetFullWidth(true);
-        SectionDescription:SetJustifyH("MIDDLE");
         ScrollFrame:AddChild(SectionDescription);
     end
 
     -- Add a link to our wiki when available
     if (not GL:empty(SectionClass.wikiUrl)) then
         local MoreInfoLabel = GL.AceGUI:Create("Label");
-        MoreInfoLabel:SetText("\nVisitez notre wiki pour plus d'infos:\n");
+        MoreInfoLabel:SetText("\nVisit our Wiki for more info:\n");
         MoreInfoLabel:SetFontObject(_G["GameFontNormal"]);
         MoreInfoLabel:SetFullWidth(true);
         ScrollFrame:AddChild(MoreInfoLabel);
@@ -355,9 +396,6 @@ function Overview:showSection(section)
     end
 
     SectionClass:draw(ScrollFrame, GL.Interface:get(self, "Window"));
-
-    -- Store the ScrollFrame so that we can clean/release it later
-    GL.Interface:set(self, "ScrollFrame", ScrollFrame);
 
     -- Highlight the correct section in the table on the left
     -- This delay is necessary because of how lib-st handles click and selection events
@@ -399,6 +437,22 @@ function Overview:drawCheckboxes(Checkboxes, Parent)
         GL.Interface:set(GL.Settings, Entry.setting, Checkbox);
         Parent:AddChild(Checkbox);
     end
+end
+
+---@param text string
+---@param Parent table
+---@return void
+function Overview:drawHeader(text, Parent)
+    local Header = GL.AceGUI:Create("InlineGroup");
+    Header:SetFullWidth(true);
+    Header:SetHeight(20);
+    Parent:AddChild(Header);
+
+    local HeaderText = GL.AceGUI:Create("Label");
+    HeaderText:SetFullWidth(true);
+    HeaderText:SetHeight(20);
+    HeaderText:SetText(text);
+    Header:AddChild(HeaderText);
 end
 
 --- This is a helper method that draws a spacer

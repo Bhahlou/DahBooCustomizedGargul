@@ -3,6 +3,15 @@ local _, GL = ...;
 
 GL.ScrollingTable = GL.ScrollingTable or LibStub("ScrollingTable");
 
+local AceGUI = GL.AceGUI;
+local ScrollingTable = GL.ScrollingTable;
+
+---@type Settings
+local Settings = GL.Settings;
+
+---@type GDKPAuction
+local GDKPAuction = GL.GDKP.Auction;
+
 ---@class AwardInterface
 GL.Interface.Award = {
     ItemBoxHoldsValidItem = false,
@@ -13,16 +22,9 @@ GL.Interface.Award = {
     },
 };
 
-local AceGUI = GL.AceGUI;
-local Settings = GL.Settings; ---@type Settings
-local Award = GL.Interface.Award; ---@type AwardInterface
-local ScrollingTable = GL.ScrollingTable;
+---@type AwardInterface
+local Award = GL.Interface.Award;
 
---- This is the UI the person who rolls off an item uses to prepare everything e.g:
---- Select an item
---- Set the duration of the roll off
---- Award the item to the winner
----
 ---@param itemLink string
 ---@return void
 function Award:draw(itemLink)
@@ -68,12 +70,10 @@ function Award:draw(itemLink)
     Window:SetHeight(320);
     Window:EnableResize(false);
     Window.rendered = true;
-    Window.frame:SetFrameStrata("HIGH");
     Window.statustext:GetParent():Hide(); -- Hide the statustext bar
     Window:SetCallback("OnClose", function()
         self:close();
     end);
-    Window.frame:SetFrameStrata("DIALOG");
     GL.Interface:restorePosition(Window, "Award");
     GL.Interface:set(self, "Window", Window);
 
@@ -156,8 +156,8 @@ function Award:draw(itemLink)
 
     local PlayerNameBox;
     local AwardButton = AceGUI:Create("Button");
-    AwardButton:SetText("Attribuer");
-    AwardButton:SetWidth(90);
+    AwardButton:SetText("Award");
+    AwardButton:SetWidth(70);
     AwardButton:SetHeight(20);
     AwardButton:SetDisabled(true);
     AwardButton:SetCallback("OnClick", function()
@@ -167,8 +167,7 @@ function Award:draw(itemLink)
         local winner = false;
 
         local award = function ()
-            local isOS = false;
-            local addPlusOne = false;
+            local isOS, addPlusOne = false;
             local boostedRollCost = nil;
             local GDKPPrice = nil;
 
@@ -200,16 +199,23 @@ function Award:draw(itemLink)
             end
 
             local GDKPPriceEditBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "EditBox.GDKPPrice");
+            local added = false;
             if (GDKPPriceEditBox) then
                 GDKPPrice = tonumber(GDKPPriceEditBox:GetText());
 
                 if (GL:higherThanZero(GDKPPrice)) then
-                    GL.GDKP:createAuction(GL:getItemIDFromLink(itemLink), GDKPPrice, winner);
+                    local awardChecksum = GL.AwardedLoot:addWinner(winner, itemLink, nil, nil, isOS, boostedRollCost, GDKPPrice);
+
+                    GDKPAuction:create(GL:getItemIDFromLink(itemLink), GDKPPrice, winner, nil, nil, nil, awardChecksum);
+                    added = true;
                 end
             end
 
-            -- Add the player we awarded the item to to the item's tooltip
-            GL.AwardedLoot:addWinner(winner, itemLink, nil, nil, isOS, boostedRollCost, addPlusOne);
+            if (not added) then
+                -- Add the player we awarded the item to to the item's tooltip
+                GL.AwardedLoot:addWinner(winner, itemLink, nil, nil, isOS, boostedRollCost, addPlusOne);
+            end
+
             GL.Interface.Award:reset();
 
             if (Settings:get("UI.Award.closeOnAward", true)) then
@@ -247,7 +253,7 @@ function Award:draw(itemLink)
 
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Attribuer %s à |cff%s%s|r ?",
+            question = string.format("Award %s to |cff%s%s|r?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(winner)),
                 winner
@@ -278,7 +284,7 @@ function Award:draw(itemLink)
 
     AwardHistoryButton:SetScript("OnEnter", function()
         GameTooltip:SetOwner(AwardHistoryButton, "ANCHOR_TOP");
-        GameTooltip:SetText("Historique");
+        GameTooltip:SetText("Award history");
         GameTooltip:Show();
     end);
 
@@ -300,8 +306,8 @@ function Award:draw(itemLink)
         DISENCHANT BUTTON
     ]]
     local DisenchantButton = AceGUI:Create("Button");
-    DisenchantButton:SetText("Dez");
-    DisenchantButton:SetWidth(80);
+    DisenchantButton:SetText("Disenchant");
+    DisenchantButton:SetWidth(100);
     DisenchantButton:SetHeight(20);
     DisenchantButton:SetDisabled(false);
     DisenchantButton:SetCallback("OnClick", function()
@@ -362,7 +368,7 @@ function Award:draw(itemLink)
     SecondRow:AddChild(Spacer);
 
     local PlayerNameLabel = AceGUI:Create("Label");
-    PlayerNameLabel:SetText("Tapez le nom du joueur ici");
+    PlayerNameLabel:SetText("Type player name here");
     PlayerNameLabel:SetHeight(20);
     PlayerNameLabel:SetWidth(128); -- Minimum is 122
     SecondRow:AddChild(PlayerNameLabel);
@@ -390,7 +396,7 @@ function Award:draw(itemLink)
     SecondRow:AddChild(Spacer);
 
     local PlayerNameLabelSuffix = AceGUI:Create("Label");
-    PlayerNameLabelSuffix:SetText("ou sélectionnez une ligne ci-dessous");
+    PlayerNameLabelSuffix:SetText("or select one below");
     PlayerNameLabelSuffix:SetHeight(20);
     PlayerNameLabelSuffix:SetWidth(104); -- Minimum is 104
     SecondRow:AddChild(PlayerNameLabelSuffix);
@@ -414,7 +420,7 @@ function Award:draw(itemLink)
     Window:AddChild(FourthRow);
 
     local CloseOnAward = AceGUI:Create("CheckBox");
-    CloseOnAward:SetLabel("Fermer à l'attribution");
+    CloseOnAward:SetLabel("Close on award");
     CloseOnAward:SetValue(Settings:get("UI.Award.closeOnAward", true));
     CloseOnAward:SetCallback("OnValueChanged", function (widget)
         Settings:set("UI.Award.closeOnAward", widget:GetValue());
@@ -454,7 +460,7 @@ function Award:drawPlayersTable()
     -- Combined width of all colums should be 340
     local columns = {
         {
-            name = "Dans le groupe",
+            name = "In Group",
             width = 340,
             align = "LEFT",
             color = {
@@ -519,7 +525,9 @@ function Award:topPrioForItem(itemID)
             end
         end
 
-        if (not moreThanOnePersonReservedThisItem) then
+        if (lastPlayerName
+            and not moreThanOnePersonReservedThisItem
+        ) then
             return lastPlayerName;
         end
     end
@@ -594,7 +602,11 @@ function Award:populatePlayersTable(itemID)
 
     PlayersTable:ClearSelection();
 
+    -- See if there's a top player for this item that we can preselect
     local topPrioForItem = self:topPrioForItem(itemID);
+    if (topPrioForItem) then
+        topPrioForItem = string.lower(GL:stripRealm(topPrioForItem));
+    end
 
     local TableData = {};
     local row = 1;
@@ -610,7 +622,7 @@ function Award:populatePlayersTable(itemID)
             },
         });
 
-        if (topPrioForItem == string.lower(GL:stripRealm(name))) then
+        if (topPrioForItem and topPrioForItem == string.lower(GL:stripRealm(name))) then
             PlayersTable:SetSelection(row);
             local EditBox = GL.Interface:get(self, "EditBox.PlayerName");
 

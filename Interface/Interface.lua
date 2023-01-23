@@ -137,31 +137,70 @@ end
 
 --- Release an item and remove it from our interface entirely
 ---
----@param scope table
+---@param Scope table
 ---@param identifier string
----@return boolean
-function Interface:release(scope, identifier)
-    if (type(scope) ~= "table"
-        or type(identifier) ~= "string"
-        or GL:empty(identifier)
-    ) then
-        return false
+---@return void
+function Interface:release(Scope, identifier)
+    GL:debug("Interface:release");
+
+    if (type(Scope) ~= "table") then
+        return;
     end
 
-    local Item, fullIdentifier = self:get(scope, identifier);
+    local fullIdentifier, path, Element;
 
-    if (not Item
-        or type(Item) ~= "table"
-    ) then
-        return false;
+    -- We're not given an element, but instead need to fetch it from our interface cache
+    if (not Scope.type and identifier) then
+        Element, fullIdentifier = self:get(Scope, identifier);
+        path = string.format("InterfaceItems.%s", fullIdentifier);
+
+        if (not Element
+            or type(Element) ~= "table"
+        ) then
+            return;
+        end
+    elseif (Scope.type) then
+        Element = Scope;
+    else
+        return;
     end
 
-    if (type(Item.type) == "string") then
-        GL.AceGUI:Release(Item);
+    if (type(Element.type) == "string") then
+        self:releaseChildren(Element);
+
+        if (type(Element.Hide) == "function") then
+            Element:Hide();
+        end
+
+        if (Element.frame and type(Element.frame.Hide) == "function") then
+            Element.frame:Hide();
+        end
+
+        Element = nil;
     end
 
-    local path = string.format("InterfaceItems.%s", fullIdentifier);
-    return GL:tableSet(scope, path, nil);
+    if (path and Scope) then
+        GL:tableSet(Scope, path, nil);
+    end
+end
+
+--- Release the children of an element (and their children recursively)
+---
+---@param Element table
+---@return void
+function Interface:releaseChildren(Element)
+    GL:debug("Interface:releaseChildren");
+
+    if (type(Element) ~= "table") then
+        return;
+    end
+
+    local children = Element.children or {};
+    for i = 1,#children do
+        self:releaseChildren(children[i]);
+        children[i].frame:Hide();
+        children[i] = nil;
+    end
 end
 
 --- Determine the given Item's type (e.g: Frame, Table, Button etc)
@@ -187,9 +226,17 @@ end
 --- Get an element's stored position (defaults to center of screen)
 ---
 ---@param identifier string
+---@param default table
 ---@return table
-function Interface:getPosition(identifier)
+function Interface:getPosition(identifier, default)
     identifier = string.format("UI.%s.Position", identifier);
+
+    -- There's a default, return it if no position points are available
+    if (default ~= nil
+        and not Settings:get(identifier .. ".point")
+    ) then
+        return default;
+    end
 
     return unpack({
         Settings:get(identifier .. ".point", "CENTER"),
@@ -320,6 +367,8 @@ function Interface:createButton(Parent, Details)
     local normalTexture = Details.normalTexture;
     local highlightTexture = Details.highlightTexture;
     local disabledTexture = Details.disabledTexture;
+    local imageWidth = Details.imageWidth or width;
+    local imageHeight = Details.imageHeight or height;
 
     if (fireUpdateOnCreation == nil) then
         fireUpdateOnCreation = true;
@@ -337,38 +386,58 @@ function Interface:createButton(Parent, Details)
     local name;
 
     ---@type Frame
-    local Button = table.remove(self.FramePool.Buttons, 1);
+    local Button = tremove(self.FramePool.Buttons);
 
     if (not Button) then
-        name = "GargulButton" .. GL:uuid();
+        name = "GargulButton" .. GL:uuid() .. GL:uuid();
         Button = CreateFrame("Button", name, Parent, "UIPanelButtonTemplate");
     else
         name = Button:GetName();
     end
 
     Button:SetParent(Parent);
+    Button:SetEnabled(true);
     Button:ClearAllPoints();
     Button:SetSize(width, height);
+    Button:SetFrameStrata("FULLSCREEN_DIALOG");
+    Button.updateOn = updateOn;
 
     -- Make sure the tooltip still shows even when the button is disabled
     if (disabledTooltip) then
         Button:SetMotionScriptsWhileDisabled(true);
     end
 
+    if (normalTexture) then
+        local NormalTexture = Button.normalTexture or Button:CreateTexture();
+        NormalTexture:SetTexture(normalTexture);
+        NormalTexture:ClearAllPoints();
+        NormalTexture:SetPoint("CENTER", Button, "CENTER", 0, 0);
+        NormalTexture:SetSize(imageWidth, imageHeight);
+        Button:SetNormalTexture(NormalTexture);
+
+        Button.normalTexture = NormalTexture;
+    end
+
     if (highlightTexture) then
-        local HighlightTexture = Button:CreateTexture();
+        local HighlightTexture = Button.highlightTexture or Button:CreateTexture();
         HighlightTexture:SetTexture(highlightTexture);
+        HighlightTexture:ClearAllPoints();
         HighlightTexture:SetPoint("CENTER", Button, "CENTER", 0, 0);
         HighlightTexture:SetSize(width, height);
         Button:SetHighlightTexture(HighlightTexture);
-    end
 
-    if (normalTexture) then
-        Button:SetNormalTexture(normalTexture);
+        Button.highlightTexture = HighlightTexture;
     end
 
     if (disabledTexture) then
-        Button:SetDisabledTexture(disabledTexture);
+        local DisabledTexture = Button.disabledTexture or Button:CreateTexture();
+        DisabledTexture:SetTexture(disabledTexture);
+        DisabledTexture:ClearAllPoints();
+        DisabledTexture:SetPoint("CENTER", Button, "CENTER", 0, 0);
+        DisabledTexture:SetSize(width, height);
+        Button:SetDisabledTexture(DisabledTexture);
+
+        Button.disabledTexture = DisabledTexture;
     end
 
     -- Show the tooltip on hover
@@ -415,30 +484,39 @@ function Interface:createButton(Parent, Details)
         end
     end
 
+    Button:Show();
+    return Button;
+end
+
+--- Release a button generated by Gargul
+---
+---@param Button table
+---@return void
+function Interface:releaseButton(Button)
+    local name = Button:GetName();
+
     -- Make sure we can release the button unto our pool for recycling purposes
-    Button.Release = function ()
-        Button:SetMotionScriptsWhileDisabled(false);
-        Button:SetNormalTexture(nil,"ARTWORK");
-        Button:SetHighlightTexture(nil,"ARTWORK");
-        Button:SetDisabledTexture(nil,"ARTWORK");
-        Button.update = nil;
-        Button.OnEnter = nil;
-        Button.OnLeave = nil;
-        Button.OnClick = nil;
-        Button:ClearAllPoints();
-        Button:Hide();
+    Button:SetMotionScriptsWhileDisabled(false);
+    Button:SetParent(UIParent);
+    Button.normalTexture = nil;
+    Button.highlightTexture = nil;
+    Button.disabledTexture = nil;
+    Button.update = nil;
+    Button.OnEnter = nil;
+    Button.OnLeave = nil;
+    Button.OnClick = nil;
+    Button:ClearAllPoints();
 
-        -- Get rid of the button's event listeners
-        for _, event in pairs(updateOn) do
-            GL.Events:unregister(name .. event .. "Listener");
-        end
-
-        tinsert(self.FramePool.Buttons, Button);
+    -- Get rid of the button's event listeners
+    for _, event in pairs(Button.updateOn or {}) do
+        GL.Events:unregister(name .. event .. "Listener");
     end
 
-    Button:Show();
+    Button:Hide();
+    Button = nil;
 
-    return Button;
+    ---@todo: figure out why reusing doesn't work
+    --tinsert(self.FramePool.Buttons, Button);
 end
 
 --- Create a settings (cogwheel) button
@@ -460,13 +538,14 @@ function Interface:createShareButton(Parent, Details)
     GL:debug("Interface:createShareButton");
 
     Details = Details or {};
+    Details.normalTexture = "Interface/AddOns/Gargul/Assets/Buttons/share";
+    Details.highlightTexture = "Interface/AddOns/Gargul/Assets/Buttons/share-highlighted";
+    Details.disabledTexture = "Interface/AddOns/Gargul/Assets/Buttons/share-disabled";
+
+    local Button = self:createButton(Parent, Details);
     local position = Details.position;
     local x = Details.x;
     local y = Details.y;
-    local width = Details.width or 24;
-    local height = Details.height or 24;
-
-    local Button = self:createButton(Parent, Details);
 
     -- If the parent element is an AceGUI element and no position was given we assume that the user wants
     -- to add the button as-is to the parent frame
@@ -480,15 +559,6 @@ function Interface:createShareButton(Parent, Details)
         Button:SetPoint("TOP", Parent, "TOP", x or 0, y or -7);
         Button:SetPoint("CENTER", Parent, "CENTER");
     end
-
-    local HighlightTexture = Button:CreateTexture();
-    HighlightTexture:SetTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\share-highlighted");
-    HighlightTexture:SetPoint("CENTER", Button, "CENTER", 0, 0);
-    HighlightTexture:SetSize(width, height);
-
-    Button:SetNormalTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\share");
-    Button:SetHighlightTexture(HighlightTexture);
-    Button:SetDisabledTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\share-disabled");
 
     return Button;
 end

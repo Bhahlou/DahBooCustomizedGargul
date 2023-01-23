@@ -1,20 +1,23 @@
 ---@type GL
 local _, GL = ...;
 
-local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
+---@type SettingsOverview
+local Overview = GL.Interface.Settings.Overview;
 
 ---@class GeneralSettings
 GL.Interface.Settings.General = {};
-local General = GL.Interface.Settings.General; ---@type GeneralSettings
+
+---@type GeneralSettings
+local General = GL.Interface.Settings.General;
 
 ---@return void
 function General:draw(Parent)
     GL:debug("GeneralSettings:draw");
 
-    local Checkboxes = {
+    Overview:drawCheckboxes({
         {
-            label = "Message de bienvenue",
-            description = "Affiche un message de bienvenue en lançant Dah Boo Customized Gargul",
+            label = "Welcome message",
+            description = "Show a message when booting Gargul",
             setting = "welcomeMessage",
         },
         {
@@ -25,38 +28,52 @@ function General:draw(Parent)
             end,
         },
         {
-            label = "Pas de sons",
-            setting = "noSounds",
-        },
-        {
-            label = "Pas de messages",
-            setting = "noMessages",
-        },
-        {
-            label = "Afficher journal de modifications",
-            description = "Active ou désactive le journal de modifications qui affiche le détail des changements après la mise à jour de Dah Boo Customized Gargul",
+            label = "Show changelog",
+            description = "Enable or disable the changelog which displays important update details after updating Gargul",
             setting = "changeLog",
         },
         {
-            label = "Experimental : mode debug",
-            description = "Activer ceci activera le mode debug, qui affiche les infos de debug dans votre fenêtre de chat. Ceci est prévu uniquement pour les développeurs travaillant activement sur l'addon Dah Boo Customized Gargul",
-            setting = "debugModeEnabled",
+            label = "No messages",
+            description = "This will prevent Gargul from posting any messages, ANYWHERE",
+            setting = "noMessages",
         },
         {
-            label = "Experimental: addon usage",
-            description = "Affiche l'utilisation de la mémoire par l'addon. Attention : peut causer des chutes de FPS !",
-            setting = "profilerEnabled",
-            callback = function ()
-                if (GL.Settings:get("profilerEnabled")) then
-                    GL.Profiler:draw();
-                else
-                    GL.Profiler:close();
-                end
-            end,
+            label = "No sounds",
+            setting = "noSounds",
         },
+    }, Parent);
+
+    local Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
+    local MinimumQualityLabel = GL.AceGUI:Create("Label");
+    MinimumQualityLabel:SetColor(1, .95686, .40784);
+    MinimumQualityLabel:SetText("On which channel should Gargul output its sounds (default SFX)");
+    MinimumQualityLabel:SetHeight(20);
+    MinimumQualityLabel:SetFullWidth(true);
+    Parent:AddChild(MinimumQualityLabel);
+
+    local SoundChannels = {
+        Master = "Master",
+        Music = "Music",
+        SFX = "SFX",
+        Ambience = "Ambience",
+        Dialog = "Dialog",
     };
 
-    Overview:drawCheckboxes(Checkboxes, Parent);
+    local SoundChannelDropdown = GL.AceGUI:Create("Dropdown");
+    SoundChannelDropdown:SetValue(GL.Settings:get("soundChannel"));
+    SoundChannelDropdown:SetList(SoundChannels);
+    SoundChannelDropdown:SetText(GL.Settings:get("soundChannel"));
+    SoundChannelDropdown:SetWidth(250);
+    SoundChannelDropdown:SetCallback("OnValueChanged", function()
+        local channel = SoundChannelDropdown:GetValue();
+        GL.Settings:set("soundChannel", channel);
+    end);
+    Parent:AddChild(SoundChannelDropdown);
 end
 
 GL:debug("Interface/Settings/General.lua");
