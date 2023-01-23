@@ -1,3 +1,4 @@
+--@curseforge-project-slug: libcandybar-3-0@
 --- **LibCandyBar-3.0** provides elegant timerbars with icons for use in addons.
 -- It is based of the original ideas of the CandyBar and CandyBar-2.0 library.
 -- In contrary to the earlier libraries LibCandyBar-3.0 provides you with a timerbar object with a simple API.
@@ -412,7 +413,7 @@ end
 -- @param width Width of the bar.
 -- @param height Height of the bar.
 -- @usage
--- mybar = LibStub("LibCandyBar-3.0"):New("Interface\\AddOns\\MyAddOn\\media\\statusbar", 100, 16)
+-- mybar = LibStub("LibCandyBarGargul-3.0"):New("Interface\\AddOns\\MyAddOn\\media\\statusbar", 100, 16)
 function lib:New(texture, width, height)
 	local bar = next(barCache)
 	if not bar then
