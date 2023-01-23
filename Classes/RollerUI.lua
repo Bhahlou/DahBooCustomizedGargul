@@ -46,7 +46,7 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
     Window:SetMovable(true);
     Window:EnableMouse(true);
     Window:SetClampedToScreen(true);
-    Window:SetFrameStrata("HIGH");
+    Window:SetFrameStrata("FULLSCREEN_DIALOG");
     Window:RegisterForDrag("LeftButton");
     Window:SetScript("OnDragStart", Window.StartMoving);
     Window:SetScript("OnDragStop", function()
@@ -121,7 +121,7 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
                 RollAcceptedNotification.frame:SetPoint("BOTTOMLEFT", Window, "TOPLEFT", 0, 4);
 
                 local Text = GL.AceGUI:Create("Label");
-                Text:SetText("Roll accepté !");
+                Text:SetText("Roll accepted!");
                 RollAcceptedNotification:AddChild(Text);
                 Text:SetJustifyH("MIDDLE");
 
@@ -220,7 +220,7 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
     TimerBar:SetLabel("  " .. itemLink);
 
     if (not userCanUseItem) then
-        TimerBar:SetLabel("  |c00FFFFFFVous ne pouvez pas utiliser cet objet !|r");
+        TimerBar:SetLabel("  |c00FFFFFFYou can't use this item!|r");
     end
 
     TimerBar:SetIcon(itemIcon);

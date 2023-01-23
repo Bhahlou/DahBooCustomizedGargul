@@ -33,7 +33,7 @@ function MasterLooterUI:draw(itemLink)
         and not GL.User.isMasterLooter
         and not GL.User.hasAssist
     ) then
-        return GL:warning("Vous devez être ML ou avoir une promotion ou être le chef de groupe !");
+        return GL:warning("You need to be the master looter or have an assist / lead role!");
     end
 
     -- Close the reopen masterlooter button if it exists
@@ -65,7 +65,6 @@ function MasterLooterUI:draw(itemLink)
     Window:SetWidth(500);
     Window:SetHeight(350);
     Window:EnableResize(false);
-    Window.frame:SetFrameStrata("HIGH");
     Window.statustext:GetParent():Hide(); -- Hide the statustext bar
     Window:SetCallback("OnClose", function()
         self:close();
@@ -80,6 +79,15 @@ function MasterLooterUI:draw(itemLink)
         Window.frame,
         "MasterLooting"
     );
+    SettingsButton:SetScript("OnClick", function(_, button)
+        if (button == 'LeftButton') then
+            self:close();
+
+            GL.Settings:draw("MasterLooting", function ()
+                self:draw();
+            end);
+        end
+    end);
     self.SettingsButton = SettingsButton;
 
         --[[
@@ -110,7 +118,7 @@ function MasterLooterUI:draw(itemLink)
 
                 ItemBox:DisableButton(true);
                 ItemBox:SetHeight(20);
-                ItemBox:SetWidth(220);
+                ItemBox:SetWidth(170);
                 ItemBox:SetCallback("OnTextChanged", function () MasterLooterUI:ItemBoxChanged() end); -- Update item info when input value changes
                 ItemBox:SetCallback("OnEnterPressed", function () MasterLooterUI:ItemBoxChanged() end); -- Update item info when item is dragged on top (makes no sense to use OnEnterPressed I know)
 
@@ -150,8 +158,8 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local StartButton = AceGUI:Create("Button");
-                StartButton:SetText("Commencer");
-                StartButton:SetWidth(95);
+                StartButton:SetText("Start");
+                StartButton:SetWidth(80);
                 StartButton:SetHeight(20);
                 StartButton:SetDisabled(true);
                 StartButton:SetCallback("OnClick", function()
@@ -177,8 +185,8 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local StopButton = AceGUI:Create("Button");
-                StopButton:SetText("Arrêter");
-                StopButton:SetWidth(75);
+                StopButton:SetText("Stop");
+                StopButton:SetWidth(80);
                 StopButton:SetHeight(20);
                 StopButton:SetDisabled(true);
                 StopButton:SetCallback("OnClick", function()
@@ -212,7 +220,7 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local ItemNoteLabel = AceGUI:Create("Label");
-                ItemNoteLabel:SetText("Note");
+                ItemNoteLabel:SetText("NOTE");
                 ItemNoteLabel:SetHeight(20);
                 ItemNoteLabel:SetWidth(35);
                 SecondRow:AddChild(ItemNoteLabel);
@@ -253,7 +261,7 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local TimerLabel = AceGUI:Create("Label");
-                TimerLabel:SetText("Temps (s)");
+                TimerLabel:SetText("TIMER (s)");
                 TimerLabel:SetHeight(20);
                 TimerLabel:SetWidth(55);
                 ThirdRow:AddChild(TimerLabel);
@@ -284,8 +292,8 @@ function MasterLooterUI:draw(itemLink)
                     RESET BUTTON
                 ]]
                 local ClearButton = AceGUI:Create("Button");
-                ClearButton:SetText("RAZ");
-                ClearButton:SetWidth(55);
+                ClearButton:SetText("Clear");
+                ClearButton:SetWidth(66);
                 ClearButton:SetHeight(20);
                 ClearButton:SetDisabled(false);
                 ClearButton:SetCallback("OnClick", function()
@@ -300,8 +308,8 @@ function MasterLooterUI:draw(itemLink)
                 ]]
 
                 local AwardButton = AceGUI:Create("Button");
-                AwardButton:SetText("Attribuer");
-                AwardButton:SetWidth(80);
+                AwardButton:SetText("Award");
+                AwardButton:SetWidth(70);
                 AwardButton:SetHeight(20);
                 AwardButton:SetDisabled(true);
                 AwardButton:SetCallback("OnClick", function()
@@ -311,7 +319,7 @@ function MasterLooterUI:draw(itemLink)
                     if (not selected
                         or not type(selected) == "table"
                     ) then
-                        return GL:warning("Vous devez d'abord sélectionner un joueur");
+                        return GL:warning("You need to select a player first");
                     end
 
                     local RollType = (function()
@@ -357,7 +365,7 @@ function MasterLooterUI:draw(itemLink)
 
                 AwardHistoryButton:SetScript("OnEnter", function()
                     GameTooltip:SetOwner(AwardHistoryButton, "ANCHOR_TOP");
-                    GameTooltip:SetText("Historique");
+                    GameTooltip:SetText("Award history");
                     GameTooltip:Show();
                 end);
 
@@ -373,7 +381,7 @@ function MasterLooterUI:draw(itemLink)
                     DISENCHANT BUTTON
                 ]]
                 local DisenchantButton = AceGUI:Create("Button");
-                DisenchantButton:SetText("Désenchanter");
+                DisenchantButton:SetText("Disenchant");
                 DisenchantButton:SetWidth(100);
                 DisenchantButton:SetHeight(20);
                 DisenchantButton:SetDisabled(true);
@@ -427,7 +435,7 @@ function MasterLooterUI:draw(itemLink)
         FifthRow:AddChild(PlayersTableFrame);
 
         local CloseOnStart = AceGUI:Create("CheckBox");
-        CloseOnStart:SetLabel("Fermer au démarrage");
+        CloseOnStart:SetLabel("Close on start");
         CloseOnStart:SetValue(GL.Settings:get("UI.RollOff.closeOnStart", true));
         CloseOnStart:SetCallback("OnValueChanged", function (widget)
             GL.Settings:set("UI.RollOff.closeOnStart", GL:toboolean(widget:GetValue()));
@@ -436,7 +444,7 @@ function MasterLooterUI:draw(itemLink)
         FifthRow:AddChild(CloseOnStart);
 
         local CloseOnAward = AceGUI:Create("CheckBox");
-        CloseOnAward:SetLabel("Fermer à l'attribution");
+        CloseOnAward:SetLabel("Close on award");
         CloseOnAward:SetValue(GL.Settings:get("UI.RollOff.closeOnAward", true));
         CloseOnAward:SetCallback("OnValueChanged", function (widget)
             GL.Settings:set("UI.RollOff.closeOnAward", GL:toboolean(widget:GetValue()));
@@ -509,7 +517,7 @@ function MasterLooterUI:drawReopenMasterLooterUIButton()
     Button:SetMovable(true);
     Button:EnableMouse(true);
     Button:SetClampedToScreen(true);
-    Button:SetFrameStrata("HIGH");
+    Button:SetFrameStrata("FULLSCREEN_DIALOG");
     Button:RegisterForDrag("LeftButton");
     Button:SetScript("OnDragStart", Button.StartMoving);
     Button:SetScript("OnDragStop", function()
@@ -537,7 +545,7 @@ function MasterLooterUI:drawReopenMasterLooterUIButton()
     RollCountLabel:SetSize(22, 22);
     RollCountLabel:SetPoint("BOTTOMLEFT", Button, "BOTTOMLEFT", 2, 2);
 
-    local RollCountText = RollCountLabel:CreateFontString(nil, "OVERLAY", GameFontNormal);
+    local RollCountText = RollCountLabel:CreateFontString(nil, "OVERLAY", "GameFontNormal");
     RollCountText:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE");
     RollCountText:SetPoint("BOTTOMLEFT", RollCountLabel, "BOTTOMLEFT");
 
@@ -577,7 +585,7 @@ function MasterLooterUI:drawReopenMasterLooterUIButton()
 
     PlayStopButton:SetScript("OnEnter", function()
         GameTooltip:SetOwner(PlayStopButton, "ANCHOR_TOP");
-        GameTooltip:SetText("Commencer/Arrêter");
+        GameTooltip:SetText("Start/Stop");
         GameTooltip:Show();
     end);
 
@@ -616,7 +624,7 @@ function MasterLooterUI:drawReopenMasterLooterUIButton()
 
     DisenchantButton:SetScript("OnEnter", function()
         GameTooltip:SetOwner(DisenchantButton, "ANCHOR_TOP");
-        GameTooltip:SetText("Désenchanter");
+        GameTooltip:SetText("Disenchant");
         GameTooltip:Show();
     end);
 
@@ -668,7 +676,7 @@ function MasterLooterUI:drawPlayersTable(parent)
     local columns = {
         --[[ Player name ]]
         {
-            name = "Joueur",
+            name = "Player",
             width = 100,
             align = "LEFT",
             color = {
@@ -749,7 +757,7 @@ function MasterLooterUI:drawPlayersTable(parent)
         --[[ Reserved / TMB etc ]]
         {
             name = "Note",
-            width = 158,
+        width = 158,
             align = "LEFT",
             color = {
                 r = 0.5,
@@ -759,7 +767,7 @@ function MasterLooterUI:drawPlayersTable(parent)
             },
             colorargs = nil,
         },
-        
+
     };
 
     local Table = ScrollingTable:CreateST(columns, 8, 15, nil, parent);
@@ -796,13 +804,13 @@ function MasterLooterUI:drawPlayersTable(parent)
 
             GameTooltip:ClearLines();
             GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT");
-            GameTooltip:AddLine(string.format("Loots attribués à %s dans les 5 dernières heures", roller));
+            GameTooltip:AddLine(string.format("Items won by %s:", roller));
             GameTooltip:AddLine(" ");
 
             for _, Entry in pairs(ItemsWonByRollerInTheLast8Hours) do
-                local receivedString = " (reçu)";
+                local receivedString = " (item given: yes)";
                 if (not Entry.received) then
-                    receivedString = " (pas encore reçu)";
+                    receivedString = " (item given: no)";
                 end
 
                 local OSString = "";

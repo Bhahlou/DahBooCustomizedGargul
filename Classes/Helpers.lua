@@ -1,3 +1,5 @@
+local L = Gargul_L;
+
 ---@class GL : Bootstrapper
 local _, GL = ...;
 
@@ -118,7 +120,16 @@ end
 ---
 ---@return void
 function GL:xd(mixed)
+    if (type(mixed) == "boolean") then
+        if (mixed) then
+            mixed = "true";
+        else
+            mixed = "false";
+        end
+    end
+
     mixed = mixed or " ";
+
     local success, encoded = pcall(function () return GL.JSON:encode(mixed); end);
 
     if (not success) then
@@ -144,6 +155,64 @@ function GL:capitalize(value)
     return (value:gsub("^%l", string.upper));
 end
 
+---@param constant string
+---@param messageID number
+---@return boolean
+--- Era test: /script print(_G.Gargul:isGameMessageID("ERR_LOOT_CANT_LOOT_THAT_NOW", 571));
+--- WotLK test: /script print(_G.Gargul:isGameMessageID("ERR_LOOT_CANT_LOOT_THAT_NOW", 579));
+--- Retail test: /script print(_G.Gargul:isGameMessageID("ERR_LOOT_CANT_LOOT_THAT_NOW", 604));
+function GL:isGameMessageID(constant, messageID)
+    GL:debug("GL:isGameMessageID");
+
+    if (type(constant) ~= "string"
+        or GL:empty(constant)
+    ) then
+        return false;
+    end
+
+    local constantID = GL.DB:get(string.format(
+        "Utility.GameMessageIDs.%s.%s",
+        GL.clientVersion,
+        constant
+    ));
+
+    -- We haven't seen this ID yet, let's scan it!
+    if (not constantID) then
+        local i = 1;
+        while(true) do
+            local identifier = GetGameMessageInfo(i);
+
+            if (not identifier) then
+                break;
+            end
+
+            if (constant == identifier) then
+                GL.DB:set(string.format(
+                    "Utility.GameMessageIDs.%s.%s",
+                    GL.clientVersion,
+                    constant
+                ), i);
+
+                constantID = i;
+                break;
+            end
+
+            i = i + 1;
+        end
+    end
+
+    -- Seems like this constant simply doesn't exist
+    if (constantID == nil) then
+        GL.DB:set(string.format(
+            "Utility.GameMessageIDs.%s.%s",
+            GL.clientVersion,
+            constant
+        ), -1);
+    end
+
+    return constantID == messageID;
+end
+
 --- Dump a variable (functions won't work!)
 ---
 ---@param mixed any
@@ -157,6 +226,116 @@ function GL:dump(mixed)
     end
 
     GL:message(encoded);
+end
+
+local lastClickTime;
+---@param itemLink string
+---@param mouseButtonPressed string|nil
+---@param callback function|nil Some actions (like award) support a callback
+---@param modifiedClick boolean Is this an "official" modified click?
+---@return void
+function GL:handleItemClick(itemLink, mouseButtonPressed, callback, modifiedClick)
+    GL:debug("GL:handleItemClick");
+
+    if (not itemLink
+        or type(itemLink) ~= "string"
+        or (mouseButtonPressed
+            and mouseButtonPressed ~= "LeftButton"
+        )
+        or not GL:getItemIDFromLink(itemLink)
+    ) then
+        return;
+    end
+
+    -- Make sure item interaction elements like ah/mail/shop/bank are closed
+    if (GL.auctionHouseIsShown
+        or GL.bankIsShown
+        or GL.guildBankIsShown
+        or GL.mailIsShown
+        or GL.merchantIsShown
+    ) then
+        return;
+    end
+
+    -- The user doesnt want to use shortcut keys when solo
+    if (not GL.User.isInGroup
+        and GL.Settings:get("ShortcutKeys.onlyInGroup")
+    ) then
+        return;
+    end
+
+    local keyPressIdentifier = GL.Events:getClickCombination(mouseButtonPressed);
+
+    local onDoubleClick = function ()
+        if (not GL.Settings:get("ShortcutKeys.doubleClickToTrade")) then
+            return;
+        end
+
+        -- Open a trade window with the targeted unit if we don't have one open yet
+        if (not TradeFrame:IsShown()) then
+            if (not UnitIsPlayer("target")) then
+                return;
+            end
+
+            GL.TradeWindow:open("target", function ()
+                GL.TradeWindow:addItem(GL:getItemIDFromLink(itemLink));
+            end, true);
+
+            return;
+        end
+
+        -- A trade window is open already, just add the item
+        GL.TradeWindow:addItem(GL:getItemIDFromLink(itemLink));
+    end;
+
+    -- Open the auction or roll window
+    if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOffOrAuction")) then
+        if (GL.GDKP.Session:activeSessionID()
+            and not GL.GDKP.Session:getActive().lockedAt
+        ) then
+            GL.Interface.GDKP.Auctioneer:draw(itemLink);
+        else
+            GL.MasterLooterUI:draw(itemLink);
+        end
+    -- Open the roll window
+    elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
+        GL.MasterLooterUI:draw(itemLink);
+
+    -- Open the auction window
+    elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.auction")) then
+        GL.Interface.GDKP.Auctioneer:draw(itemLink);
+
+    -- Open the award window
+    elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
+        GL.Interface.Award:draw(itemLink, callback);
+
+    -- Disenchant
+    elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.disenchant")) then
+        GL.PackMule:disenchant(itemLink, nil, callback);
+
+    -- Link the item in chat
+    elseif (not modifiedClick and keyPressIdentifier == "SHIFT_CLICK") then
+        if (ChatFrameEditBox and ChatFrameEditBox:IsVisible()) then
+            ChatFrameEditBox:Insert(itemLink);
+        else
+            ChatEdit_InsertLink(itemLink);
+        end
+
+    -- Check for unmodified double clicks (trade)
+    elseif (not IsShiftKeyDown()
+        and not IsAltKeyDown()
+        and not IsControlKeyDown()
+    ) then
+        local currentTime = GetTime();
+
+        -- Double click behavior detected
+        if (lastClickTime and currentTime - lastClickTime <= .5) then
+            onDoubleClick();
+            lastClickTime = nil;
+        else
+            lastClickTime = currentTime;
+        end
+    end
 end
 
 --- Check whether a given variable is empty
@@ -199,10 +378,33 @@ function GL:empty(mixed)
     return true;
 end
 
---- StringHash method, courtesy of Mikk38024 @ Wowpedia
+--- table.concat alternative that also works with multi-dimensional tables (implodes TOP LEVEL ONLY!)
 ---
----@param text string
+---@param Table table
+---@param delimiter string
+---@return string
+function GL:implode(Table, delimiter)
+    local Parts = {};
+
+    for _, entry in pairs(Table) do
+        local entryString = tostring(entry);
+
+        if (not GL:empty(entryString)) then
+            tinsert(Parts, entryString);
+        end
+    end
+
+    return table.concat(Parts, delimiter);
+end
+
+--- StringHash method, courtesy of Mikk38024 @ Wowpedia (https://wowpedia.fandom.com/wiki/StringHash)
+---
+---@param text string|table
 function GL:stringHash(text)
+    if (type(text) == "table") then
+        text = GL:implode(text, ".");
+    end
+
     text = tostring(text);
     local counter = 1;
     local len = string.len(text);
@@ -431,12 +633,173 @@ function GL:printTable(t, shouldReturn)
     end
 end
 
---- Clone a table
+--- Clone a table recursively (no metatable properties)
 ---
----@param original table
+---@param Original table
 ---@return table
-function GL:cloneTable(original)
-    return {unpack(original)};
+function GL:cloneTable(Original)
+    local Copy = {};
+
+    for index, value in pairs(Original) do
+        if type(value) == "table" then
+            Copy[index] = self:cloneTable(value, Copy[index])
+        else
+            Copy[index] = value
+        end
+    end
+
+    return Copy;
+end
+
+--- Courtesy of Lantis and the team over at Classic Loot Manager: https://github.com/ClassicLootManager/ClassicLootManager
+function GL.LibStItemCellUpdate (rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+    local itemId = data[realrow].cols[column].value;
+    local _, _, _, _, icon = GetItemInfoInstant(itemId or 0);
+    if icon then
+        frame:SetNormalTexture(icon);
+        frame:Show();
+        frame:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT");
+            GameTooltip:SetHyperlink("item:" .. tostring(itemId));
+            GameTooltip:Show();
+        end)
+
+        frame:SetScript("OnLeave", function() GameTooltip:Hide() end);
+    else
+        frame:Hide();
+    end
+end
+
+function GL.LibStItemLinkCellUpdate (rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+    local value = data[realrow].cols[column].value;
+    frame.text:SetText(value);
+
+    if (value) then
+        frame:Show();
+        frame:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT");
+            GameTooltip:SetHyperlink(data[realrow].cols[column].value);
+            GameTooltip:Show();
+        end)
+
+        frame:SetScript("OnLeave", function() GameTooltip:Hide() end);
+    else
+        frame:Hide();
+    end
+
+    return true;
+end
+
+function GL.LibStImageButtonCellUpdate (rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+    local path = data[realrow].cols[column].value
+
+    if path then
+        local tooltip = data[realrow].cols[column]._tooltip;
+        frame:SetNormalTexture(path);
+        frame:SetHighlightTexture(path);
+        frame:Show();
+        frame:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(frame, "ANCHOR_TOP")
+            GameTooltip:AddDoubleLine(tooltip);
+            GameTooltip:Show();
+        end)
+
+        frame:SetScript("OnLeave", function() GameTooltip:Hide() end);
+    else
+        frame:Hide();
+    end
+
+    local callback = data[realrow].cols[column]._OnClick;
+    if (type(callback) == "function") then
+        frame:SetScript("OnClick", function(self, event, ...)
+            if (type(event) ~= "string"
+                or not GL:inTable({"LeftButton", "RightButton", "MiddleButton", "Button4", "Button5"}, event)
+            ) then
+                return;
+            end
+
+            callback(self, event, ...);
+        end);
+    end
+end
+
+function GL.LibStButtonCellUpdate (rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+    local buttonText = data[realrow].cols[column].value
+
+    local buttonName = "GARGUL_" .. GL:uuid() .. GetTime();
+    local Button = CreateFrame("Button", buttonName, frame, "UIPanelButtonTemplate");
+    Button:SetText(buttonText);
+    Button:SetSize(frame:GetWidth() - 6, frame:GetHeight() - 2);
+    Button:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0);
+
+    local callback = data[realrow].cols[column]._OnClick;
+    if (type(callback) == "function") then
+        Button:SetScript("OnClick", function(self, event, ...)
+            if (type(event) ~= "string"
+                    or not GL:inTable({"LeftButton", "RightButton", "MiddleButton", "Button4", "Button5"}, event)
+            ) then
+                return;
+            end
+
+            callback(self, event, ...);
+        end);
+    end
+
+    -- Properly clean up the button after hiding it
+    local originalOnHide = frame:GetScript("OnHide");
+    frame:SetScript("OnHide", function (...)
+        if (Button and Button.Hide) then
+            Button:Hide();
+        end
+
+        Button = nil;
+        _G[buttonName] = nil;
+
+        frame.children = nil;
+        if (type(originalOnHide) == "function") then
+            originalOnHide(...);
+        end
+    end);
+end
+
+function GL.LibStInputCellUpdate (rowFrame, frame, data, cols, row, realrow, column, fShow, table, ...)
+    local inputName = "GARGUL_" .. GL:uuid() .. GetTime();
+    local BidInput = CreateFrame("EditBox", inputName, frame, "InputBoxTemplate");
+    BidInput:SetSize(frame:GetWidth() - 6, frame:GetHeight() - 2);
+    BidInput:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0);
+    BidInput:SetAutoFocus(false);
+
+    local default = data[realrow].cols[column]._default;
+    if (default) then
+        BidInput:SetText(default);
+    end
+
+    local callback = data[realrow].cols[column]._OnTextChanged;
+    if (type(callback) == "function") then
+        BidInput:SetScript("OnTextChanged", function()
+            callback(BidInput);
+        end);
+    end
+
+    -- Properly clean up the editbox after hiding it
+    local originalOnHide = frame:GetScript("OnHide");
+    frame:SetScript("OnHide", function (...)
+        if (BidInput and BidInput.Hide) then
+            BidInput:SetText("");
+            BidInput:Hide();
+            BidInput:SetParent(nil);
+            BidInput:ClearAllPoints()
+            BidInput.OnEvent = function() end;
+        end
+
+        _G[inputName] = nil;
+        BidInput = nil;
+
+        frame.children = nil;
+        if (type(originalOnHide) == "function") then
+            originalOnHide(...);
+        end
+    end);
 end
 
 --- Clears the provided scrolling table (lib-ScrollingTable)
@@ -512,13 +875,13 @@ function GL:frameMessage(message)
     local AceGUI = GL.AceGUI or LibStub("AceGUI-3.0");
 
     -- Create a container/parent frame
-    local MesseGrame = AceGUI:Create("Frame");
-    MesseGrame:SetCallback("OnClose", function(widget) AceGUI:Release(widget); end);
-    MesseGrame:SetTitle("Gargul v" .. GL.version);
-    MesseGrame:SetStatusText("");
-    MesseGrame:SetLayout("Flow");
-    MesseGrame:SetWidth(600);
-    MesseGrame:SetHeight(450);
+    local MessageFrame = AceGUI:Create("Frame");
+    MessageFrame:SetCallback("OnClose", function(widget) GL.Interface:release(widget); end);
+    MessageFrame:SetTitle("Gargul v" .. GL.version);
+    MessageFrame:SetStatusText("");
+    MessageFrame:SetLayout("Flow");
+    MessageFrame:SetWidth(600);
+    MessageFrame:SetHeight(450);
 
     -- Large edit box
     local MessageBox = AceGUI:Create("MultiLineEditBox");
@@ -528,8 +891,9 @@ function GL:frameMessage(message)
     MessageBox:DisableButton(true);
     MessageBox:SetNumLines(22);
     MessageBox:HighlightText();
+    MessageBox:SetLabel();
     MessageBox:SetMaxLetters(999999999);
-    MesseGrame:AddChild(MessageBox);
+    MessageFrame:AddChild(MessageBox);
 end
 
 --- Counting tables (or arrays if you will) is anything but straight-forward in LUA. Examples:
@@ -572,11 +936,12 @@ function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
     haltOnError = haltOnError or false;
 
     if (type(callback) ~= "function") then
-        GL:warning("Unexpected type '" .. type(callback) .. "' in GL:continueOnItemLoad, expecting type 'function'");
+        GL:warning("Unexpected type '" .. type(callback) .. "' in GL:onItemLoadDo, expecting type 'function'");
         return;
     end
 
-    if (type(Items) ~= "table") then
+    local itemsWasntATable = type(Items) ~= "table";
+    if (itemsWasntATable) then
         Items = {Items};
     end;
 
@@ -674,6 +1039,10 @@ function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
                     table.sort(ItemData, sorter);
                 end
 
+                if (itemsWasntATable) then
+                    ItemData = ItemData[1];
+                end
+
                 callback(ItemData);
                 return;
             end
@@ -697,6 +1066,12 @@ function GL:onItemLoadDo(Items, callback, haltOnError, sorter)
             and itemsLoaded >= numberOfItemsToLoad
         ) then
             callbackCalled = true;
+
+            if (itemsWasntATable) then
+                ItemData = ItemData[1];
+                callback(ItemData);
+                return;
+            end
 
             if (type(sorter) == "function") then
                 table.sort(ItemData, sorter);
@@ -838,11 +1213,8 @@ function GL:canUserUseItem(itemLinkOrID, callback)
         itemID = GL:getItemIDFromLink(itemLinkOrID);
     end
 
-    GL:onItemLoadDo(itemID, function (Results)
-        local Item = Results[1];
-
-        -- Better safe than lua error!
-        if (GL:empty(Item.link)) then
+    GL:onItemLoadDo(itemID, function (Details)
+        if (not Details) then
             return callback(true);
         end
 
@@ -852,10 +1224,10 @@ function GL:canUserUseItem(itemLinkOrID, callback)
         local IsTooltipTextRed = function (text)
             if (text and text:GetText()) then
                 local r, g, b = text:GetTextColor();
-                return math.floor(r * 256) == 255 and math.floor(g * 256) == 32 and math.floor(b * 256) == 32;
+                return math.floor(r * 256) >= 255 and math.floor(g * 256) == 32 and math.floor(b * 256) == 32;
             end
 
-            return false
+            return false;
         end;
 
         for line = 1, GL.TooltipFrame:NumLines() do
@@ -869,6 +1241,51 @@ function GL:canUserUseItem(itemLinkOrID, callback)
 
         return callback(true);
     end);
+end
+
+---@param bagID number
+---@param slot number
+---@return any
+function GL:useContainerItem(bagID, slot)
+    if (UseContainerItem) then
+        return UseContainerItem(bagID, slot)
+    end
+
+    if (C_Container and C_Container.UseContainerItem) then
+        return C_Container.UseContainerItem(bagID, slot);
+    end
+
+    return nil;
+end
+
+---@param bagID number
+---@param slot number
+---@return any
+function GL:getContainerItemInfo(bagID, slot)
+    if (GetContainerItemInfo) then
+        return GetContainerItemInfo(bagID, slot)
+    end
+
+    if (C_Container and C_Container.GetContainerItemInfo) then
+        local Info = C_Container.GetContainerItemInfo(bagID, slot);
+
+        if (not Info) then
+            return nil;
+        end
+
+        return Info.iconFileID, Info.stackCount, Info.isLocked, Info.quality, Info.isReadable,
+        Info.hasLoot, Info.hyperlink, Info.isFiltered, Info.hasNoValue, Info.itemID, Info.isBound;
+    end
+
+    return nil;
+end
+
+---@param bagID number
+---@return number
+function GL:getContainerNumSlots(bagID)
+    local handler = GetContainerNumSlots or (C_Container and C_Container.GetContainerNumSlots);
+
+    return handler(bagID);
 end
 
 --- Find the first bag id and slot for a given item id (or false)
@@ -891,8 +1308,8 @@ function GL:findBagIdAndSlotForItem(itemID, skipSoulBound, includeBankBags)
     end
 
     for bag = 0, numberOfBagsToCheck do
-        for slot = 1, GetContainerNumSlots(bag) do
-            local _, _, locked, _, _, _, _, _, _, bagItemID = GetContainerItemInfo(bag, slot);
+        for slot = 1, GL:getContainerNumSlots(bag) do
+            local _, _, locked, _, _, _, _, _, _, bagItemID = GL:getContainerItemInfo(bag, slot);
 
             if (bagItemID == itemID
                 and not locked -- The item is locked, aka it can not be put in the window
@@ -955,7 +1372,7 @@ function GL:fetchCloseButtonFromAceGUIWidget(Widget)
 
     -- Try to locate the Close button and hide it
     for _, Child in pairs({Widget.frame:GetChildren()}) do
-        if (Child.GetText and Child:GetText() == "Close") then
+        if (Child.GetText and Child:GetText() == CLOSE) then
             return Child;
         end
     end
@@ -1023,6 +1440,27 @@ function GL:getItemIDFromLink(itemLink)
     return itemID;
 end
 
+--- Return an item's quality from an item link
+---
+---@param itemLink string
+---@return number|boolean
+function GL:getItemQualityFromLink(itemLink)
+    if (not itemLink
+        or type(itemLink) ~= "string"
+        or itemLink == ""
+    ) then
+        return false;
+    end
+
+    local color = string.sub(itemLink, 5, 10);
+
+    if (not color) then
+        return false;
+    end
+
+    return GL.Data.Constants.HexColorsToItemQuality[color] or false;
+end
+
 --- Strip the realm off of a string (usually a player name)
 ---
 ---@param str string
@@ -1043,7 +1481,7 @@ function GL:stripRealm(str)
     end
 
     local Parts = self:strSplit(str, separator);
-    return Parts[1] or "";
+    return Parts[1], Parts[2];
 end
 
 --- Get the realm from a given player name
@@ -1293,7 +1731,7 @@ end
 ---
 ---@param soundNameOrNumber string
 ---@param channel string
-function GL:playSound(soundNameOrNumber, channel)
+function GL:playSound(soundNameOrNumber, channel, forceNoDuplicates, runFinishCallback)
     -- Check if the user muted the addon
     if (GL.Settings:get("noSounds")) then
         return;
@@ -1302,16 +1740,27 @@ function GL:playSound(soundNameOrNumber, channel)
     if (type(channel) ~= "string"
         or GL:empty(channel)
     ) then
-        channel = "Master";
+        channel = GL.Settings:get("soundChannel", "SFX");
     end
 
-    PlaySound(soundNameOrNumber, channel);
+    local normalizedName = strtrim(string.lower(tostring(soundNameOrNumber)));
+    normalizedName = string.gsub(normalizedName, "\\", "/");
+    pcall(function ()
+        if (GL:strContains(normalizedName, "interface/addons") or normalizedName == "none") then
+            PlaySoundFile(soundNameOrNumber, channel);
+        else
+            PlaySound(soundNameOrNumber, channel, forceNoDuplicates, runFinishCallback);
+        end
+    end);
 end
 
 local gaveNoMessagesWarning = false;
 local gaveNoAssistWarning = false;
+--- Send a chat message to any given type and channel. Group defaults to raid or group depending on what you're in
+--- CURRENT will send a chat message on the currently active channel
+---
 ---@param message string The message you'd like to send
----@param chatType string The type of message (SAY|EMOTE|YELL|PARTY|GUILD|OFFICER|RAID|RAID_WARNING|INSTANCE_CHAT|BATTLEGROUND|WHISPER|CHANNEL|AFK|DND)
+---@param chatType string The type of message (CURRENT|GROUP|SAY|EMOTE|YELL|PARTY|GUILD|OFFICER|RAID|RAID_WARNING|INSTANCE_CHAT|BATTLEGROUND|WHISPER|CHANNEL|AFK|DND)
 ---@param language string|nil The language of the message (COMMON|ORCISH|etc), if nil it's COMMON for Alliance and ORCISH for Horde
 ---@param channel string|nil The channel (numeric) or player (name string) receiving the message
 ---@param stw boolean|nil Important for throttling / spam prevention
@@ -1376,6 +1825,13 @@ function GL:sendChatMessage(message, chatType, language, channel, stw, pretend)
             end
 
             chatType = "RAID";
+        end
+    elseif (chatType == "CURRENT") then
+        chatType = DEFAULT_CHAT_FRAME.editBox:GetAttribute("chatType");
+        channel = DEFAULT_CHAT_FRAME.editBox:GetAttribute("tellTarget");
+
+        if (not GL:inTable({"BN_WHISPER", "CHANNEL", "WHISPER"}, chatType)) then
+            channel = nil;
         end
     end
 
@@ -1592,6 +2048,21 @@ function GL:tableGet(Table, keyString, default)
     return self:tableGet(Table, strjoin(".", unpack(keys)), default);
 end
 
+--- Check if a reference and control are equal. Case insensitive, and whitespaces are trimmed
+---
+---@param reference string
+---@param control string
+---@return boolean
+function GL:iEquals(reference, control)
+    if (type(reference) ~= "string"
+        or type(control) ~= "string"
+    ) then
+        return false
+    end
+
+    return string.lower(strtrim(reference)) == string.lower(strtrim(control));
+end
+
 --- Set a table value by a given key and value. Use dot notation to traverse multiple levels e.g:
 --- Settings.UI.Auctioneer.offsetX can be set using GL:tableSet(myTable, "Settings.UI.Auctioneer.offsetX", myValue)
 --- without having to worry about tables or keys existing along the way.
@@ -1599,8 +2070,9 @@ end
 ---@param Table table
 ---@param keyString string
 ---@param value any
+---@param ignoreIfExists boolean If the given final key exists then it will not be overwritten
 ---@return boolean
-function GL:tableSet(Table, keyString, value)
+function GL:tableSet(Table, keyString, value, ignoreIfExists)
     if (not keyString
         or type(keyString) ~= "string"
         or keyString == ""
@@ -1609,11 +2081,15 @@ function GL:tableSet(Table, keyString, value)
         return false;
     end
 
+    ignoreIfExists = GL:toboolean(ignoreIfExists);
     local keys = GL:strSplit(keyString, ".");
     local firstKey = keys[1];
 
     if (#keys == 1) then
-        Table[firstKey] = value;
+        if (Table[firstKey] ~= nil or not ignoreIfExists) then
+            Table[firstKey] = value;
+        end
+
         return true;
     elseif (not Table[firstKey]) then
         Table[firstKey] = {};
@@ -1623,6 +2099,26 @@ function GL:tableSet(Table, keyString, value)
 
     Table = Table[firstKey];
     return self:tableSet(Table, strjoin(".", unpack(keys)), value);
+end
+
+--- Add a value to a table by a given key and value. Use dot notation to traverse multiple levels e.g:
+--- Settings.UI.Auctioneer.offsetX can be set using GL:tableSet(myTable, "Settings.UI.Auctioneer.offsetX", myValue)
+--- without having to worry about tables or keys existing along the way.
+---
+---@param Table table
+---@param keyString string
+---@param value any
+---@return boolean
+function GL:tableAdd(Table, keyString, value)
+    local Destination = self:tableGet(Table, keyString, {});
+
+    if (type(Destination) ~= "table") then
+        self:warning("Invalid destination GL:tableAdd, requires table");
+        return false;
+    end
+
+    tinsert(Destination, value);
+    return self:tableSet(Table, keyString, Destination);
 end
 
 --- Apply a user supplied function to every member of a table

@@ -46,6 +46,13 @@ function SoftRes:_init()
         end
     end);
 
+    --- Show an alert or a system message after sucessfully importing data
+    GL.Events:register("AlertsSoftresImported", "GL.SOFTRES_IMPORTED", function ()
+        if (not GL.Alerts:fire("SoftRes", "Import successful!")) then
+            GL:success("Import of SoftRes data successful");
+        end
+    end);
+
     -- Remove old SoftRes data if it's more than 10h old
     if (self:available()
         and DB:get("SoftRes.MetaData.importedAt") < GetServerTime() - 36000
@@ -103,10 +110,10 @@ function SoftRes:handleWhisperCommand(_, message, sender)
         tinsert(ItemIDs, itemID);
     end
 
-    GL:onItemLoadDo(ItemIDs, function (Items)
+    GL:onItemLoadDo(ItemIDs, function (Details)
         local Entries = {};
 
-        for _, Entry in pairs(Items) do
+        for _, Entry in pairs(Details) do
             local itemIDString = tostring(Entry.id);
             local entryString = Entry.link;
 
@@ -721,8 +728,6 @@ function SoftRes:import(data, openOverview)
         SoftReservedItemIDs = {},
     };
 
-    GL:success("Import of SoftRes data successful");
-
     -- Attempt to "fix" player names (e.g. people misspelling their names)
     if (Settings:get("SoftRes.fixPlayerNames", true)) then
         local RewiredNames = self:fixPlayerNames();
@@ -1255,7 +1260,7 @@ function SoftRes:receiveSoftRes(CommMessage)
     GL:debug("SoftRes:receiveSoftRes");
 
     -- No need to update our tables if we broadcasted them ourselves
-    if (CommMessage.Sender.name == GL.User.name) then
+    if (CommMessage.Sender.isSelf) then
         GL:debug("Sync:receiveSoftRes received by self, skip");
         return true;
     end
@@ -1383,6 +1388,8 @@ end
 ---
 ---@return boolean
 function SoftRes:userIsAllowedToBroadcast()
+    GL:debug("SoftRes:userIsAllowedToBroadcast");
+
     return GL.User.isInGroup and (GL.User.isMasterLooter or GL.User.hasAssist);
 end
 

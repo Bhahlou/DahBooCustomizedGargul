@@ -1,15 +1,108 @@
 ---@type GL
 local _, GL = ...;
 
+---@type Version
+local Version = GL.Version;
+
+---@class Comm
 GL.Comm = {
     initialized = false,
     channel = "",
-    notifiedOfNewerVersion = false,
-    lastOutOfDateNotification = 0,
 };
 
+---@type Comm
 local Comm = GL.Comm;
-local CommActions = GL.Data.Constants.Comm.Actions or {};
+
+---@type Data
+local Actions = GL.Data.Constants.Comm.Actions or {};
+
+Comm.Actions = {
+    [Actions.awardItem] = function (Message)
+        GL.AwardedLoot:processAwardedLoot(Message);
+    end,
+    [Actions.editAwardedItem] = function (Message)
+        GL.AwardedLoot:processEditedLoot(Message);
+    end,
+    [Actions.deleteAwardedItem] = function (Message)
+        GL.AwardedLoot:deleteWinner(Message.content, false);
+    end,
+    [Actions.response] = function (Message)
+        return Message:processResponse();
+    end,
+    [Actions.inspectBags] = function (Message)
+        GL.BagInspector:report(Message);
+    end,
+    [Actions.broadcastLootPriorities] = function (Message)
+        GL.LootPriority:receiveBroadcast(Message);
+    end,
+    [Actions.broadcastSoftRes] = function (Message)
+        GL.SoftRes:receiveSoftRes(Message);
+    end,
+    [Actions.broadcastTMBData] = function (Message)
+        GL.TMB:receiveBroadcast(Message);
+    end,
+    [Actions.inspectBags] = function (Message)
+        GL.BagInspector:report(Message);
+    end,
+    [Actions.requestAppVersion] = function (Message)
+        if (Message.Sender.isSelf) then
+            return;
+        end
+
+        Message:respond(Version.current);
+    end,
+    [Actions.checkForUpdate] = function (Message)
+        Version:replyToUpdateCheck(Message);
+    end,
+    [Actions.requestSoftResData] = function (Message)
+        GL.SoftRes:replyToDataRequest(Message);
+    end,
+    [Actions.requestTMBData] = function (Message)
+        GL.TMB:replyToDataRequest(Message);
+    end,
+    [Actions.startRollOff] = function (Message)
+        GL.RollOff:start(Message);
+    end,
+    [Actions.stopRollOff] = function (Message)
+        GL.RollOff:stop(Message);
+    end,
+    [Actions.startGDKPAuction] = function (Message)
+        GL.GDKP.Auction:start(Message);
+    end,
+    [Actions.stopGDKPAuction] = function (Message)
+        GL.GDKP.Auction:stop(Message);
+    end,
+    [Actions.extendGDKPAuction] = function (Message)
+        GL.GDKP.Auction:extend(Message);
+    end,
+    [Actions.refreshGDKPAuction] = function (Message)
+        GL.GDKP.Auction:refresh(Message);
+    end,
+    [Actions.broadcastGDKPAuctionQueue] = function (Message)
+        GL.GDKP.Auction:receiveQueue(Message);
+    end,
+    [Actions.broadcastBoostedRollsData] = function (Message)
+        GL.BoostedRolls:receiveBroadcast(Message);
+    end,
+    [Actions.requestBoostedRollsData] = function (Message)
+        GL.BoostedRolls:replyToDataRequest(Message);
+    end,
+    [Actions.broadcastBoostedRollsMutation] = function (Message)
+        GL.BoostedRolls:receiveUpdate(Message);
+    end,
+    [Actions.requestTMBRaidGroupsData] = function (Message)
+        GL.TMBRaidGroups:replyToDataRequest(Message);
+    end,
+    [Actions.broadcastTMBRaidGroupsData] = function (Message)
+        GL.TMBRaidGroups:receiveBroadcast(Message);
+    end,
+    [Actions.broadcastPlusOnes] = function (Message)
+        GL.PlusOnes:receiveBroadcast(Message);
+    end,
+    [Actions.broadcastPlusTwos] = function (Message)
+        GL.PlusTwos:receiveBroadcast(Message);
+    end
+};
 
 function Comm:_init()
     GL:debug("Comm:_init");
@@ -76,7 +169,7 @@ function Comm:send(CommMessage, broadcastFinishedCallback, packageSentCallback)
     -- our messages are not dropped by the server, which happens A LOT ffs
     local stringLength = string.len(compressedMessage);
     GL:debug("Payload size: " .. stringLength);
-    local throttle = stringLength > 800;
+    local throttle = distribution ~= "WHISPER" and stringLength > 800;
 
     local throttleResetTimer;
     -- Stop throttling: reset the burst and max cps values
@@ -134,7 +227,7 @@ end
 ---@param payload string
 ---@param distribution string
 ---@return boolean
-function Comm:listen(payload, distribution)
+function Comm:listen(payload, distribution, playerName)
     GL:debug(string.format("Received message on %s", GL.Comm.channel));
 
     payload = GL.CommMessage:decompress(payload);
@@ -148,13 +241,13 @@ function Comm:listen(payload, distribution)
 
     -- Let's find out who sent us this message
     if (not Sender.id) then
-        if (distribution ~= "GUILD") then
-            GL:warning("Unable to confirm identity of sender '" .. payload.senderFqn .. "'");
-            return false;
-        end
-
-        Sender.name = payload.senderName;
+        Sender.name = playerName or GL:stripRealm(payload.senderFqn);
     end
+
+    -- Was this sent by ourself?
+    Sender.isSelf = GL:iEquals(Sender.id, GL.User.id)
+        or GL:iEquals(playerName, GL.User.name)
+        or GL:iEquals(Sender.name, GL.User.name);
 
     -- We're missing a payload
     if (not payload) then
@@ -171,31 +264,21 @@ function Comm:listen(payload, distribution)
     -- If that's the case then we'll notify the user that his version is out of date (max once every 5 seconds)
     if (payload.minimumVersion
         and type(payload.minimumVersion) == "string"
-        and not GL.Version:leftIsNewerThanOrEqualToRight(GL.version, payload.minimumVersion)
+        and not Version:leftIsNewerThanOrEqualToRight(Version.current, payload.minimumVersion)
     ) then
-        local serverTime = GetServerTime();
-        if (serverTime - GL.Comm.lastOutOfDateNotification >= 5) then
-            GL.Comm.lastOutOfDateNotification = serverTime;
-            GL:error("I'm out of date and won't work properly until you update me!");
-        end
+        Version:notBackwardsCompatibleNotice();
         return false;
     end
 
     -- The version includes a version, see if it's one we can work with
     if (payload.version and type(payload.version) == "string") then
-        -- The person sending us the message has a newer version. Ours is still compatible so we get off with a warning
-        if (not GL.Version:leftIsNewerThanOrEqualToRight(GL.version, payload.version)) then
-            if (not GL.Comm.notifiedOfNewerVersion) then
-                GL:warning("There's an update available. Go to https://www.curseforge.com/wow/addons/gargul to update.");
-                GL.Comm.notifiedOfNewerVersion = true;
-            end
-        end
+        Version:addRelease(payload.version, true);
 
         -- The person sending us the message has an old version that's not compatible with ours, let him know!
-        if (not GL.Version:leftIsNewerThanOrEqualToRight(payload.version, GL.Data.Constants.Comm.minimumAppVersion)) then
+        if (not Version:leftIsNewerThanOrEqualToRight(payload.version, GL.Data.Constants.Comm.minimumAppVersion)) then
             -- This empty message will trigger an out-of-date error on the recipient's side
             GL.CommMessage.new(
-                GL.Data.Constants.Comm.Actions.response,
+                Actions.response,
                 nil,
                 "WHISPER",
                 Sender.name
@@ -215,14 +298,14 @@ function Comm:listen(payload, distribution)
     end
 
     if (not payload.id
-        and not payload.action == CommActions.response
+        and not payload.action == Actions.response
     ) then
         GL:warning("Payload is missing required property 'id'");
         return false;
     end
 
     if (not payload.correspondenceId
-            and payload.action == CommActions.response
+        and payload.action == Actions.response
     ) then
         GL:warning("Payload is missing required property 'correspondenceId'");
         return false;
@@ -243,74 +326,11 @@ function Comm:dispatch(CommMessage)
     GL.User:refresh();
 
     local action = CommMessage.action;
-
-    if (action == CommActions.response) then
-        return CommMessage:processResponse();
-
-    elseif (action == CommActions.awardItem) then
-        return GL.AwardedLoot:processAwardedLoot(CommMessage);
-
-    elseif (action == CommActions.editAwardedItem) then
-        return GL.AwardedLoot:processEditedLoot(CommMessage);
-
-    elseif (action == CommActions.deleteAwardedItem) then
-        return GL.AwardedLoot:deleteWinner(CommMessage.content, false);
-
-    elseif (action == CommActions.broadcastLootPriorities) then
-        return GL.LootPriority:receiveBroadcast(CommMessage);
-
-    elseif (action == CommActions.broadcastSoftRes) then
-        return GL.SoftRes:receiveSoftRes(CommMessage);
-
-    elseif (action == CommActions.broadcastTMBData) then
-        return GL.TMB:receiveBroadcast(CommMessage);
-
-    elseif (action == CommActions.inspectBags) then
-        return GL.BagInspector:report(CommMessage);
-
-    elseif (action == CommActions.requestAppVersion) then
-        if (GL.User.name ~= CommMessage.Sender.name) then
-            GL:debug("Respond to CommActions.requestAppVersion");
-            return CommMessage:respond(GL.Version.current);
-        end
-
-        return;
-
-    elseif (action == CommActions.requestSoftResData) then
-        return GL.SoftRes:replyToDataRequest(CommMessage);
-
-    elseif (action == CommActions.requestTMBData) then
-        return GL.TMB:replyToDataRequest(CommMessage);
-
-    elseif (action == CommActions.startRollOff) then
-        return GL.RollOff:start(CommMessage);
-
-    elseif (action == CommActions.stopRollOff) then
-        return GL.RollOff:stop(CommMessage);
-
-    elseif (action == CommActions.broadcastBoostedRollsData) then
-        return GL.BoostedRolls:receiveBroadcast(CommMessage);
-
-    elseif (action == CommActions.requestBoostedRollsData) then
-        return GL.BoostedRolls:replyToDataRequest(CommMessage);
-
-    elseif (action == CommActions.broadcastBoostedRollsMutation) then
-        return GL.BoostedRolls:receiveUpdate(CommMessage);
-
-    elseif (action == CommActions.requestTMBRaidGroupsData) then
-        return GL.TMBRaidGroups:replyToDataRequest(CommMessage);
-    
-    elseif (action == CommActions.broadcastTMBRaidGroupsData) then
-        return GL.TMBRaidGroups:receiveBroadcast(CommMessage);
-        
-    elseif (action == CommActions.broadcastPlusOnes) then
-        return GL.PlusOnes:receiveBroadcast(CommMessage);
-
-    elseif (action == CommActions.broadcastPlusTwos) then
-        return GL.PlusTwos:receiveBroadcast(CommMessage);
+    if (Comm.Actions[action]) then
+        return Comm.Actions[action](CommMessage);
     end
 
-    GL:warning(string.format("Unknown comm action '%s'", action));
+    GL:warning(string.format("Unknown comm action '%s', make sure to update Gargul!", action));
 end
 
 GL:debug("Comm.lua");

@@ -101,7 +101,7 @@ function TradeWindow:open(playerName, callback, allwaysExecuteCallback)
         end, 1);
 
         GL.Events:register("TradeWindowTradeShowCallbackListener", "TRADE_SHOW", function ()
-            -- Remove our trade window show eventlistener, we no longer need it
+            -- Remove our trade window show event listener, we no longer need it
             GL.Events:unregister("TradeWindowTradeShowCallbackListener");
 
             -- We can cancel our timer now
@@ -144,6 +144,7 @@ function TradeWindow:handleEvents(event, message)
     -- Trade started
     if (event == "TRADE_SHOW") then
         self.ItemsToAdd = {};
+        GL.Ace:CancelTimer(self.SetCopperTimer);
 
         -- Trade window shown, show/update the announcement checkbox
         self:updateAnnouncementCheckBox();
@@ -156,6 +157,7 @@ function TradeWindow:handleEvents(event, message)
         -- Periodically add items to the trade window
         -- We don't do this instantly because that can bug out the UI
         GL:debug("Schedule new TradeWindow.AddItemsTimer");
+
         self.AddItemsTimer = GL.Ace:ScheduleRepeatingTimer(function ()
             GL:debug("Run TradeWindow.AddItemsTimer");
 
@@ -166,6 +168,7 @@ function TradeWindow:handleEvents(event, message)
     -- Trade closed
     if (event == "TRADE_CLOSED") then
         self.ItemsToAdd = {};
+        GL.Ace:CancelTimer(self.SetCopperTimer);
 
         -- Make sure to cancel any lingering timers
         GL:debug("Cancel TradeWindow.AddItemsTimer");
@@ -191,7 +194,7 @@ function TradeWindow:handleEvents(event, message)
         end
 
         -- Fire a custom GL event. This ensures that the listeners have access to the data set in self.State
-        GL.Events:fire("GL." .. event);
+        GL.Events:fire("GL." .. event, self.State);
 
         return;
     end
@@ -317,6 +320,32 @@ function TradeWindow:addItem(itemID)
     tinsert(self.ItemsToAdd, itemID);
 end
 
+--- Attempt to set a copper amount in the trade window
+--- Since we use a timer here we require a target so that we can double-check
+--- whether we're still trading the right person right before adding the copper
+---
+---@param amount number
+---@param target string
+---@return void
+function TradeWindow:setCopper(amount, target, callback)
+    GL:debug("TradeWindow:setCopper");
+
+    GL.Ace:CancelTimer(self.SetCopperTimer);
+    self.SetCopperTimer = GL.Ace:ScheduleTimer(function ()
+        -- Looks like the target changed somewhere along the way
+        if (not GL:iEquals(GL:tableGet(self.State or {}, "partner"), target)) then
+            return;
+        end
+
+        _G.MoneyInputFrame_SetCopper(_G.TradePlayerInputMoneyFrame, amount);
+
+        -- Let the application know whether setting the desired amount of copper succeeded
+        if (type(callback) == "function") then
+            callback(_G.MoneyInputFrame_GetCopper(_G.TradePlayerInputMoneyFrame) == amount);
+        end
+    end, .5);
+end
+
 --- Process the ItemsToAdd table
 ---
 ---@return void
@@ -353,7 +382,7 @@ function TradeWindow:processItemsToAdd()
     end
 
     -- Everything went well, put the item in the trade window!
-    UseContainerItem(unpack(itemPositionInBag));
+    GL:useContainerItem(unpack(itemPositionInBag));
 end
 
 --- Check whether we should announce trade details
@@ -582,7 +611,7 @@ function TradeWindow:announceTradeDetails(Details)
 
             -- We gave them gold for an enchantment (trading gold for gold is not possible, the trade won't be accepted)
             if (theyEnchantedSomething and not theyTradedItems) then
-                return GL:sendChatMessage(string.format("%s a enchanté mon %s avec %s pour %s",
+                return GL:sendChatMessage(string.format("%s enchanted my %s with %s for %s",
                     Details.partner,
                     EnchantedByThem.itemLink,
                     EnchantedByThem.enchantment,
@@ -598,12 +627,12 @@ function TradeWindow:announceTradeDetails(Details)
         if (theyTradedGold and not theyTradedItems and not theyEnchantedSomething) then
             -- And gave nothing in return
             if (iDidNothing) then
-                return GL:sendChatMessage(string.format("J'ai reçu %s de %s", goldTradedByThem, Details.partner), channel, nil, recipient);
+                return GL:sendChatMessage(string.format("I received %s from %s", goldTradedByThem, Details.partner), channel, nil, recipient);
             end
 
             -- We gave them an enchantment for their gold (trading gold for gold is not possible, the trade won't be accepted)
             if (iEnchantedSomething and not iTradedItems) then
-                return GL:sendChatMessage(string.format("J'ai enchanté %s avec %s pour %s et ai reçu %s",
+                return GL:sendChatMessage(string.format("I enchanted %s with %s for %s and received %s",
                     EnchantedByMe.itemLink,
                     EnchantedByMe.enchantment,
                     Details.partner,
@@ -618,13 +647,13 @@ function TradeWindow:announceTradeDetails(Details)
         -- We enchanted an item, potentially gave gold and got nothing in return
         if (iEnchantedSomething and not iTradedItems and theyDidNothing) then
             if (not iTradedGold) then
-                return GL:sendChatMessage(string.format("J'ai enchanté %s avec %s pour %s",
+                return GL:sendChatMessage(string.format("I enchanted %s with %s for %s",
                     EnchantedByMe.itemLink,
                     EnchantedByMe.enchantment,
                     Details.partner
                 ), channel, nil, recipient);
             else
-                return GL:sendChatMessage(string.format("J'ai enchanté %s avec %s pour %s et ai donné %s",
+                return GL:sendChatMessage(string.format("I enchanted %s with %s for %s and gave %s",
                     EnchantedByMe.itemLink,
                     EnchantedByMe.enchantment,
                     Details.partner,
@@ -636,13 +665,13 @@ function TradeWindow:announceTradeDetails(Details)
         -- We only received an enchantment, potentially received gold as well and did nothing in return
         if (theyEnchantedSomething and not theyTradedItems and iDidNothing) then
             if (not theyTradedGold) then
-                return GL:sendChatMessage(string.format("%s a enchanté mon %s avec %s",
+                return GL:sendChatMessage(string.format("%s enchanted my %s with %s",
                     Details.partner,
                     EnchantedByThem.itemLink,
                     EnchantedByThem.enchantment
                 ), channel, nil, recipient);
             else
-                return GL:sendChatMessage(string.format("%s a enchanté mon  %s avec %s et m'a donné %s",
+                return GL:sendChatMessage(string.format("%s enchanted my %s with %s and gave me %s",
                     Details.partner,
                     EnchantedByThem.itemLink,
                     EnchantedByThem.enchantment,
@@ -655,7 +684,7 @@ function TradeWindow:announceTradeDetails(Details)
         if (iEnchantedSomething and not iTradedItems and theyEnchantedSomething and not theyTradedItems) then
             -- We enchanted each other's items and I gave him gold
             if (iTradedGold) then
-                return GL:sendChatMessage(string.format("%s a enchanté mon %s avec %s et j'ai enchanté son %s avec %s. Je lui ai aussi donné %s",
+                return GL:sendChatMessage(string.format("%s enchanted my %s with %s and I enchanted their %s with %s. I also gave him %s",
                     Details.partner,
                     EnchantedByThem.itemLink,
                     EnchantedByThem.enchantment,
@@ -667,7 +696,7 @@ function TradeWindow:announceTradeDetails(Details)
 
             -- We enchanted each other's items and he gave me gold
             if (theyTradedGold) then
-                return GL:sendChatMessage(string.format("%s a enchanté mon %s avec %s et m'a donné %s. J'ai enchanté son %s avec %s.",
+                return GL:sendChatMessage(string.format("%s enchanted my %s with %s and gave me %s. I enchanted their %s with %s.",
                     Details.partner,
                     EnchantedByThem.itemLink,
                     EnchantedByThem.enchantment,
@@ -679,7 +708,7 @@ function TradeWindow:announceTradeDetails(Details)
             end
 
             -- No money was traded in the process
-            return GL:sendChatMessage(string.format("%s a enchanté mon %s avec %s et j'ai enchanté son %s avec %s",
+            return GL:sendChatMessage(string.format("%s enchanted my %s with %s and I enchanted their %s with %s",
                 Details.partner,
                 EnchantedByThem.itemLink,
                 EnchantedByThem.enchantment,
@@ -698,7 +727,7 @@ function TradeWindow:announceTradeDetails(Details)
 
             -- If we gave items AND gold then we start with the gold first
             if (iTradedGold) then
-                message = string.format("J'ai donné %s", goldTradedByMe);
+                message = string.format("I gave %s", goldTradedByMe);
                 messageLength = string.len(message);
                 itemsInMessage = 1;
             end
@@ -711,8 +740,8 @@ function TradeWindow:announceTradeDetails(Details)
                 (function()
                     if (Entry.quantity <= 1) then
                         if (messageLength < 1) then
-                            message = string.format("J'ai donné %s", Entry.itemLink);
-                            messageLength = messageLength + string.len("J'ai donné ") + itemLinkLength;
+                            message = string.format("I gave %s", Entry.itemLink);
+                            messageLength = messageLength + string.len("I gave ") + itemLinkLength;
 
                             return;
                         else
@@ -733,8 +762,8 @@ function TradeWindow:announceTradeDetails(Details)
                         end
                     else
                         if (messageLength < 1) then
-                            message = string.format("J'ai donné %sx%s", Entry.itemLink, Entry.quantity);
-                            messageLength = messageLength + string.len("J'ai donné x") + itemLinkLength + string.len(Entry.quantity);
+                            message = string.format("I gave %sx%s", Entry.itemLink, Entry.quantity);
+                            messageLength = messageLength + string.len("I gave x") + itemLinkLength + string.len(Entry.quantity);
 
                             return;
                         else
@@ -763,7 +792,7 @@ function TradeWindow:announceTradeDetails(Details)
                 -- We enchanted something so we need to take that into account
                 if (iEnchantedSomething) then
                     local itemLinkLength = string.len(GL:getItemNameFromLink(EnchantedByMe.itemLink)) + 2;
-                    newMessageLength = messageLength + string.len(" à  et enchanté son  avec ")
+                    newMessageLength = messageLength + string.len(" to  and enchanted their  with ")
                         + string.len(Details.partner)
                         + itemLinkLength
                         + string.len(EnchantedByMe.enchantment);
@@ -772,14 +801,14 @@ function TradeWindow:announceTradeDetails(Details)
                         GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                         firstOutput = false;
 
-                        message = string.format("à %s et enchanté son %s avec %s",
+                        message = string.format("to %s and enchanted their %s with %s",
                             Details.partner,
                             EnchantedByMe.itemLink,
                             EnchantedByMe.enchantment
                         );
                         GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                     else
-                        message = string.format("%s à %s et enchanté son %s avec %s",
+                        message = string.format("%s to %s and enchanted their %s with %s",
                             message,
                             Details.partner,
                             EnchantedByMe.itemLink,
@@ -789,28 +818,28 @@ function TradeWindow:announceTradeDetails(Details)
                         GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                     end
                 else
-                    newMessageLength = messageLength + string.len(" à ") + string.len(Details.partner);
+                    newMessageLength = messageLength + string.len(" to ") + string.len(Details.partner);
 
                     if (newMessageLength >= 255) then
                         GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                         firstOutput = false;
-                        message = string.format("à %s", Details.partner);
+                        message = string.format("to %s", Details.partner);
                         GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                     else
-                        message = string.format("%s à %s", message, Details.partner);
+                        message = string.format("%s to %s", message, Details.partner);
                         GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                     end
                 end
             else -- There's nothing left to announce. This happens VERY rarely
                 if (iEnchantedSomething) then
-                    message = string.format("à %s et enchanté son %s avec %s",
+                    message = string.format("to %s and enchanted their %s with %s",
                         Details.partner,
                         EnchantedByMe.itemLink,
                         EnchantedByMe.enchantment
                     );
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                 else
-                    message = string.format("%s à %s", message, Details.partner);
+                    message = string.format("%s to %s", message, Details.partner);
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                 end
             end
@@ -830,7 +859,7 @@ function TradeWindow:announceTradeDetails(Details)
 
         -- If we received items AND gold then we start with the gold first
         if (theyTradedGold) then
-            message = string.format("J'ai reçu %s", goldTradedByThem);
+            message = string.format("I received %s", goldTradedByThem);
             messageLength = string.len(message);
             itemsInMessage = 1;
         end
@@ -843,8 +872,8 @@ function TradeWindow:announceTradeDetails(Details)
             (function()
                 if (Entry.quantity <= 1) then
                     if (messageLength < 1) then
-                        message = string.format("J'ai reçu %s", Entry.itemLink);
-                        messageLength = messageLength + string.len("J'ai reçu ") + itemLinkLength;
+                        message = string.format("I received %s", Entry.itemLink);
+                        messageLength = messageLength + string.len("I received ") + itemLinkLength;
 
                         return;
                     else
@@ -865,8 +894,8 @@ function TradeWindow:announceTradeDetails(Details)
                     end
                 else
                     if (messageLength < 1) then
-                        message = string.format("J'ai reçu %sx%s", Entry.itemLink, Entry.quantity);
-                        messageLength = messageLength + string.len("J'ai reçu x") + itemLinkLength + string.len(Entry.quantity);
+                        message = string.format("I received %sx%s", Entry.itemLink, Entry.quantity);
+                        messageLength = messageLength + string.len("I received x") + itemLinkLength + string.len(Entry.quantity);
 
                         return;
                     else
@@ -896,7 +925,7 @@ function TradeWindow:announceTradeDetails(Details)
             if (theyEnchantedSomething) then
                 local itemLinkLength = string.len(GL:getItemNameFromLink(EnchantedByThem.itemLink)) + 2;
 
-                newMessageLength = messageLength + string.len(" de  et reçu mon  enchanté avec ")
+                newMessageLength = messageLength + string.len(" from  and got my  enchanted with ")
                     + string.len(Details.partner)
                     + itemLinkLength
                     + string.len(EnchantedByThem.enchantment);
@@ -905,14 +934,14 @@ function TradeWindow:announceTradeDetails(Details)
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                     firstOutput = false;
 
-                    message = string.format("de %s et reçu mon %s enchanté avec %s",
+                    message = string.format("from %s and got my %s enchanted with %s",
                         Details.partner,
                         EnchantedByThem.itemLink,
                         EnchantedByThem.enchantment
                     );
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                 else
-                    message = string.format("%s de %s et reçu mon %s enchanté avec %s",
+                    message = string.format("%s from %s and got my %s enchanted with %s",
                         message,
                         Details.partner,
                         EnchantedByThem.itemLink,
@@ -922,28 +951,28 @@ function TradeWindow:announceTradeDetails(Details)
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                 end
             else
-                newMessageLength = messageLength + string.len(" de ") + string.len(Details.partner);
+                newMessageLength = messageLength + string.len(" from ") + string.len(Details.partner);
 
                 if (newMessageLength >= 255) then
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                     firstOutput = false;
-                    message = string.format("de %s", Details.partner);
+                    message = string.format("from %s", Details.partner);
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                 else
-                    message = string.format("%s de %s", message, Details.partner);
+                    message = string.format("%s from %s", message, Details.partner);
                     GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
                 end
             end
         else -- There's nothing left to announce. This happens VERY rarely
             if (theyEnchantedSomething) then
-                message = string.format("de %s et reçu mon %s enchanté avec %s",
+                message = string.format("from %s and got my %s enchanted with %s",
                     Details.partner,
                     EnchantedByThem.itemLink,
                     EnchantedByThem.enchantment
                 );
                 GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
             else
-                message = string.format("%s de %s", message, Details.partner);
+                message = string.format("%s from %s", message, Details.partner);
                 GL:sendChatMessage(message, channel, nil, recipient, firstOutput);
             end
         end

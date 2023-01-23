@@ -155,8 +155,15 @@ function DroppedLoot:lootChanged()
     return lootChanged;
 end
 
--- Remove the highlights on all loot buttons
+--- Remove the highlights on all loot buttons
+---@return void
 function DroppedLoot:removeHighlights()
+    GL:debug("DroppedLoot:removeHighlights");
+
+    if (GL.isRetail) then
+        return;
+    end
+
     for buttonIndex = 1, _G.LOOTFRAME_NUMBUTTONS do
         local Button = getglobal("LootButton" .. buttonIndex);
 
@@ -172,8 +179,8 @@ function DroppedLoot:highlightItemsOfInterest()
 
     -- There's no point highlighting loot if the player
     -- is not in a group or highlights are disabled
-    if (not GL.User.isInGroup
-        or not GL.Settings:get("highlightsEnabled")
+    if (not GL.Settings:get("highlightsEnabled")
+        or GL.isRetail
         or (
             not GL.Settings:get("highlightHardReservedItems")
             and not GL.Settings:get("highlightSoftReservedItems")
@@ -309,7 +316,11 @@ function DroppedLoot:hookClickEvents()
             elseif (buttonProvider == "XLoot") then
                 Button = getglobal("XLootButton" .. buttonIndex);
             else
-                Button = getglobal("LootButton" .. buttonIndex);
+                --Button = getglobal("LootButton" .. buttonIndex);
+                -- No need to support the vanilla button since it's handled by the
+                -- HandleModifiedItemClick handler in bootstrap.lua
+
+                return;
             end
 
             --- No button with this index was found, no need to look further
@@ -318,39 +329,12 @@ function DroppedLoot:hookClickEvents()
             end
 
             Button:HookScript("OnClick", function()
-                local slot = Button.slot or buttonIndex;
-
+                local slot = tonumber(Button.slot) or buttonIndex;
                 if (not slot) then
                     return;
                 end
 
-                -- The user doesnt want to use shortcut keys when solo
-                if (not GL.User.isInGroup
-                    and GL.Settings:get("ShortcutKeys.onlyInGroup")
-                ) then
-                    return;
-                end
-
-                local itemLink = GetLootSlotLink(slot);
-
-                if (not itemLink or type(itemLink) ~= "string") then
-                    return;
-                end
-
-                local keyPressIdentifier = GL.Events:getClickCombination();
-
-                -- Open the roll window
-                if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
-                    GL.MasterLooterUI:draw(itemLink);
-
-                    -- Open the award window
-                elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
-                    GL.Interface.Award:draw(itemLink);
-
-                    -- Disenchant the item
-                elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.disenchant")) then
-                    GL.PackMule:disenchant(itemLink);
-                end
+                GL:handleItemClick(GetLootSlotLink(slot));
             end);
 
             self.ButtonsHooked[buttonProvider][buttonIndex] = true;
@@ -525,6 +509,8 @@ function DroppedLoot:announce(Modifiers)
                 local source = "TMB";
                 if (GL.TMB:wasImportedFromDFT()) then
                     source = "DFT";
+                elseif (GL.TMB:wasImportedFromCPR()) then
+                    source = "CPR";
                 elseif (GL.TMB:wasImportedFromCSV()) then
                     source = "Item";
                 end
@@ -701,20 +687,20 @@ function DroppedLoot:announceTest(...)
         itemIDs[key] = value;
     end
 
-    GL:onItemLoadDo(itemIDs, function (Items)
+    GL:onItemLoadDo(itemIDs, function (Details)
         self:announce({
             Functions = {
-                GetNumLootItems = function () return GL:count(Items); end,
+                GetNumLootItems = function () return GL:count(Details); end,
                 GetLootSlotInfo = function (slot)
-                    local SlotItem = Items[slot];
+                    local SlotItem = Details[slot];
 
                     return SlotItem.icon, SlotItem.name, 1, nil, SlotItem.quality, false, false, nil, true;
                 end,
                 GetLootSlotLink = function (slot)
-                    return Items[slot].link or nil;
+                    return Details[slot].link or nil;
                 end,
                 GetLootSlotType = function(slot)
-                    local itemLink = Items[slot].link or "";
+                    local itemLink = Details[slot].link or "";
 
                     if (GL:strContains(itemLink, "Hcurrency:")) then
                         return LOOT_SLOT_CURRENCY;
