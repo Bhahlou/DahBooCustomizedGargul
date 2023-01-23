@@ -78,9 +78,9 @@ function GL:_init()
         self.clientVersion = (expansion or 0) * 10000 + (majorPatch or 0) * 100 + (minorPatch or 0);
     end
 
-    if self.clientVersion < 20000 then
+    if (self.clientVersion) < 20000 then
         self.isEra = true;
-    elseif self.clientVersion < 90000 then
+    elseif (self.clientVersion) < 90000 then
         self.isClassic = true;
     else
         if (self.clientVersion >= 100000) then
@@ -95,6 +95,12 @@ function GL:_init()
     self.DB:_init();
     self.Version:_init();
     self.Settings:_init();
+
+    -- Register media
+    local media = LibStub("LibSharedMedia-3.0")
+    media:Register("sound", "Gargul: uh-oh", "Interface/AddOns/".. self.name .."/Assets/Sounds/uh-oh.ogg");
+    media:Register("font", "PTSansNarrow", "Interface/AddOns/".. self.name .."/Assets/Fonts/PTSansNarrow.ttf");
+    GL.FONT = media:Fetch("font", "PTSansNarrow");
 
     -- Show a welcome message
     if (self.Settings:get("welcomeMessage")) then
@@ -115,14 +121,13 @@ function GL:_init()
         hooksecurefunc(MasterLooterFrame, 'Hide', function(self) self:ClearAllPoints() end);
     end
 
-    -- Add forwards compatibility
-    self:polyFill();
-
     self.Comm:_init();
     self.User:_init();
     self.AwardedLoot:_init();
     self.SoftRes:_init();
+    self.GDKP.Auction:_init();
     self.TMB:_init();
+    self.GDKP.Session:_init();
     self.BoostedRolls:_init();
     self.DroppedLoot:_init();
     self.GroupLoot:_init();
@@ -130,13 +135,16 @@ function GL:_init()
     self.TradeWindow:_init();
     self.Interface.MasterLooterDialog:_init();
     self.Interface.TradeWindow.TimeLeft:_init();
+    self.Interface.GDKP.BidderQueue:_init();
     self.TMBRaidGroups:_init();
 
     -- Hook native window events
     self:hookNativeWindowEvents();
 
-    -- Hook the bagslot events
-    self:hookBagSlotEvents();
+    -- Hook item click events
+    hooksecurefunc("HandleModifiedItemClick", function(itemLink)
+        self:handleItemClick(itemLink, GetMouseButtonClicked(), nil, true);
+    end);
 
     -- Hook item tooltip events
     self:hookTooltipSetItemEvents();
@@ -156,30 +164,7 @@ function GL:_init()
 
     -- Show the changelog window
     GL.Interface.Changelog:reportChanges();
-end
 
---- Adds forwards compatibility
----
----@return void
-function GL:polyFill()
-    if (_G.GetContainerItemInfo ~= nil or not C_Container.GetContainerItemInfo) then
-        return;
-    end
-
-    -- The GetContainerNumSlots has the same return type in both classic and DF
-    _G.GetContainerNumSlots = C_Container.GetContainerNumSlots;
-
-    -- DF returns a single table instead of single values, polyFill time!
-    _G.GetContainerItemInfo = function (bagID, slot)
-        local result = C_Container.GetContainerItemInfo(bagID, slot);
-
-        if (not result) then
-            return nil;
-        end
-
-        return result.iconFileID, result.stackCount, result.isLocked, result.quality, result.isReadable,
-            result.hasLoot, result.hyperlink, result.isFiltered, result.hasNoValue, result.itemID, result.isBound;
-    end
 end
 
 -- Register the dbcgl slash command
@@ -190,6 +175,11 @@ end);
 -- Register the gargul slash command
 GL.Ace:RegisterChatCommand("dbcgargul", function (...)
     GL.Commands:_dispatch(...);
+end);
+
+-- Register the gdkp slash command
+GL.Ace:RegisterChatCommand("gdkp", function (...)
+    GL.Commands:call("gdkp");
 end);
 
 --- Announce conflicting addons, if any
@@ -259,55 +249,11 @@ function GL:hookNativeWindowEvents()
     end);
 end
 
---- Hook into the HandleModifiedItemClick event to allow for Gargul's many hotkeys
----
----@return void
-function GL:hookBagSlotEvents()
-    hooksecurefunc("HandleModifiedItemClick", function(itemLink)
-        -- The user doesnt want to use shortcut keys when solo
-        if (not GL.User.isInGroup
-            and GL.Settings:get("ShortcutKeys.onlyInGroup")
-        ) then
-            return;
-        end
-
-        if (not itemLink or type(itemLink) ~= "string") then
-            return;
-        end
-
-        -- Make sure item interaction elements like ah/mail/shop/bank are closed
-        if (self.auctionHouseIsShown
-            or self.bankIsShown
-            or self.guildBankIsShown
-            or self.mailIsShown
-            or self.merchantIsShown
-        ) then
-            return;
-        end
-
-        local keyPressIdentifier = GL.Events:getClickCombination();
-
-        -- Open the roll window
-        if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
-            GL.MasterLooterUI:draw(itemLink);
-
-        -- Open the award window
-        elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
-            GL.Interface.Award:draw(itemLink);
-
-        --Disenchant items from bags is disabled for now since it always triggers the dressupframe
-        --elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.disenchant")) then
-        --    GL.PackMule:disenchant(itemLink);
-        end
-    end);
-end
-
 --- We hook all the tooltip data (tmb/softres etc) to a single event to make caching easier
 ---
 ---@return void
 function GL:hookTooltipSetItemEvents()
-    -- Bind the appendAwardedLootToTooltip method to the OnTooltipSetItem event
-    GL:onTooltipSetItem(function(Tooltip)
+    GL.onTooltipSetItemFunc = function(Tooltip)
         -- No valid item tooltip was provided
         if (not Tooltip
             or not Tooltip.GetItem
@@ -347,6 +293,10 @@ function GL:hookTooltipSetItemEvents()
             for _, line in pairs(GL.LootPriority:tooltipLines(itemLink) or {}) do
                 tinsert(Lines, line);
             end
+
+            for _, line in pairs(GL.GDKP.Session:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
         end
 
         self.lastTooltipItemLink = itemLink;
@@ -362,7 +312,10 @@ function GL:hookTooltipSetItemEvents()
         if (linesAdded) then
             Tooltip:AddLine(" ");
         end
-    end);
+    end;
+
+    -- Bind the appendAwardedLootToTooltip method to the OnTooltipSetItem event
+    GL:onTooltipSetItem(GL.onTooltipSetItemFunc);
 end
 
 --[[ CREATE NECESSARY FRAMES ]]

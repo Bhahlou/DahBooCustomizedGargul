@@ -1,4 +1,4 @@
-[![Discord Dah Boo](https://img.shields.io/discord/864124999300153344?label=discord)](https://discord.gg/3BYJzqeSJ9)
+[![Gargul Discord](https://img.shields.io/discord/864124999300153344?label=discord)](https://discord.gg/D3mDhYPVzf)
 ##
 
 ## Qaund devriez vous utiliser Dah Boo Customized Gargul ?
