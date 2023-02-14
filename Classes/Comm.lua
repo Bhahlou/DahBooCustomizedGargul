@@ -72,11 +72,8 @@ Comm.Actions = {
     [Actions.stopGDKPAuction] = function (Message)
         GL.GDKP.Auction:stop(Message);
     end,
-    [Actions.extendGDKPAuction] = function (Message)
+    [Actions.rescheduleGDKPAuction] = function (Message)
         GL.GDKP.Auction:extend(Message);
-    end,
-    [Actions.refreshGDKPAuction] = function (Message)
-        GL.GDKP.Auction:refresh(Message);
     end,
     [Actions.broadcastGDKPAuctionQueue] = function (Message)
         GL.GDKP.Auction:receiveQueue(Message);
@@ -96,12 +93,24 @@ Comm.Actions = {
     [Actions.broadcastTMBRaidGroupsData] = function(Message)
         GL.TMBRaidGroups:receiveBroadcast(Message);
     end,
-    [Actions.broadcastPlusOnes] = function(Message)
-        GL.TMBRaidGroups:receiveBroadcast(Message);
+    [Actions.broadcastPlusOnesData] = function (Message)
+        GL.PlusOnes:receiveBroadcast(Message);
     end,
-    [Actions.broadcastPlusTwos] = function(Message)
-        GL.TMBRaidGroups:receiveBroadcast(Message);
+    [Actions.requestPlusOnesData] = function (Message)
+        GL.PlusOnes:replyToDataRequest(Message);
     end,
+    [Actions.broadcastPlusOnesMutation] = function (Message)
+        GL.PlusOnes:receiveUpdate(Message);
+    end,
+    [Actions.broadcastPlusTwosData] = function (Message)
+        GL.PlusTwos:receiveBroadcast(Message);
+    end,
+    [Actions.requestPlusTwosData] = function (Message)
+        GL.PlusTwos:replyToDataRequest(Message);
+    end,
+    [Actions.broadcastPlusTwosMutation] = function (Message)
+        GL.PlusTwos:receiveUpdate(Message);
+    end
 
 };
 

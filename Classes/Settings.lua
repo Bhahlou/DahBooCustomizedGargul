@@ -51,9 +51,9 @@ function Settings:sanitizeSettings()
     self:enforceTemporarySettings();
 
     -- Remove plus one entries with a value of 0
-    for player, po in pairs(DB:get("PlusOnes") or {}) do
+    for player, po in pairs(DB:get("PlusOnes.Totals") or {}) do
         if (not tonumber(po) or po < 1) then
-            DB:set("PlusOnes." .. player, nil);
+            DB:set("PlusOnes.Totals." .. player, nil);
         end
     end
 
@@ -81,21 +81,52 @@ end
 function Settings:enforceTemporarySettings()
     GL:debug("Settings:enforceTemporarySettings");
 
-    -- This is reserved for version-based logic (e.g. cleaning up variables, settings etc.)
+    --- This is reserved for version-based logic (e.g. cleaning up variables, settings etc.)
 
-    -- No point enforcing these temp settings if the user has never used Gargul
-    -- before or has already loaded this version before!
+    --- No point enforcing these temp settings if the user has never used Gargul
+    --- before or has already loaded this version before!
     if (GL.firstBoot
         or not GL.Version.firstBoot
     ) then
         return;
     end
 
-    -- in 5.0.13 we remove the GDKP.doCountdown and x settings
+    --- In 5.2.0 we completely redid the GDKP queue flow and UI
+    --- Make sure to re-enable so users at least get to experience it again
+    if (GL.version == "5.2.0" or (not DB.LoadDetails["5.2.0"])) then
+        self:set("GDKP.enableBidderQueue", true);
+        DB.LoadDetails["5.2.0"] = GetServerTime();
+    end
+
+    --- In 5.2.0 we moved GDKP item details from settings to GDKP DB
+    if (DB:get("Settings.GDKP.SettingsPerItem")) then
+        local OldSettings = DB:get("Settings.GDKP.SettingsPerItem");
+
+        if (type(OldSettings) ~= "table") then
+            OldSettings = {};
+        end
+
+        if (GL:empty(DB:get("GDKP.SettingsPerItem"))) then
+            DB:set("GDKP.SettingsPerItem", OldSettings);
+        end
+
+        DB:set("Settings.GDKP.SettingsPerItem", nil);
+    end
+
+    --- In 5.1.0 we added +1 broadcasting, auto-share should be disabled by default
+    if (GL.version == "5.1.1" or (
+        not GL.firstBoot and not DB.LoadDetails["5.1.1"])
+    ) then
+        DB:set("Settings.PlusOnes.automaticallyShareData", false);
+        DB:set("Settings.PlusTwos.automaticallyShareData", false);
+        DB.LoadDetails["5.1.1"] = GetServerTime();
+    end
+
+    --- in 5.0.13 we remove the GDKP.doCountdown and x settings
     DB:set("Settings.GDKP.doCountdown", nil);
     DB:set("Settings.GDKP.announceCountdownOnce", nil);
 
-    -- In 5.0.8 we set the minimum delayBetweenQueuedAuctions to 1 instead of 0 to help prevent race conditions
+    --- In 5.0.8 we set the minimum delayBetweenQueuedAuctions to 1 instead of 0 to help prevent race conditions
     local delayBetweenQueuedAuctions = tonumber(GL.Settings:get("GDKP.delayBetweenQueuedAuctions"));
     if (delayBetweenQueuedAuctions and delayBetweenQueuedAuctions < 1) then
         GL.Settings:set("GDKP.delayBetweenQueuedAuctions", 1);
@@ -330,9 +361,16 @@ end
 ---
 ---@param keyString string
 ---@param value any
----@return void
-function Settings:set(keyString, value)
-    return GL:tableSet(self.Active, keyString, value);
+---@param quiet boolean Should trigger event?
+---@return boolean
+function Settings:set(keyString, value, quiet)
+    local success = GL:tableSet(self.Active, keyString, value);
+
+    if (success and not quiet) then
+        GL.Events:fire("GL.SETTING_CHANGED", keyString, value);
+    end
+
+    return success
 end
 
 GL:debug("Settings.lua");

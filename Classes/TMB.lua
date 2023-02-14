@@ -3,6 +3,16 @@ local _, GL = ...;
 
 GL.AceGUI = GL.AceGUI or LibStub("AceGUI-3.0");
 
+---@type Data
+local Constants = GL.Data.Constants;
+local CommActions = Constants.Comm.Actions;
+
+---@type Settings
+local Settings = GL.Settings;
+
+---@type Events
+local Events = GL.Events;
+
 ---@class TMB
 GL.TMB = {
     _initialized = false,
@@ -14,10 +24,6 @@ GL.TMB = {
 };
 local TMB = GL.TMB; ---@type TMB
 
-local Constants = GL.Data.Constants; ---@type Data
-local CommActions = Constants.Comm.Actions;
-local Settings = GL.Settings; ---@type Settings
-
 ---@return boolean
 function TMB:_init()
     GL:debug("TMB:_init");
@@ -26,8 +32,33 @@ function TMB:_init()
         return false;
     end
 
-    GL.Events:register("TMBUserJoinedGroupListener", "GL.USER_JOINED_GROUP", function () self:requestData(); end);
+    Events:register("TMBUserJoinedGroupListener", "GL.USER_JOINED_GROUP", function () self:requestData(); end);
 
+    Events:register("TMBItemReceived", "GL.ITEM_RECEIVED", function (_, Details)
+        -- We don't want to automatically award loot
+        if (not Settings:get("AwardingLoot.awardOnReceive")) then
+            return;
+        end
+
+        -- This item is of too low quality, we don't care
+        local quality = tonumber(Details.quality);
+        if (not quality
+            or quality < Settings:get("AwardingLoot.awardOnReceiveMinimumQuality")
+        ) then
+            return;
+        end
+
+        -- This isn't an item we should award
+        if (GL:inTable(Constants.ItemsThatShouldntBeAnnounced, Details.itemID)) then
+            return;
+        end
+
+        local autoAward = Settings:get("AwardingLoot.autoTradeAfterAwardingAnItem");
+        Settings:set("AwardingLoot.autoTradeAfterAwardingAnItem", false, true);
+        GL.AwardedLoot:addWinner(Details.playerName, Details.itemLink, false);
+        Settings:set("AwardingLoot.autoTradeAfterAwardingAnItem", autoAward, true);
+    end);
+    
     self._initialized = true;
     return true;
 end
@@ -439,7 +470,7 @@ end
 function TMB:clear()
     GL.DB.TMB = {};
 
-    GL.Events:fire("GL.TMB_CLEARED");
+    Events:fire("GL.TMB_CLEARED");
 end
 
 --- Check whether the current TMB data was imported from DFT
@@ -652,7 +683,7 @@ function TMB:import(data, triedToDecompress, source)
         hash = GL:uuid() .. GetServerTime(),
     };
 
-    GL.Events:fire("GL.TMB_IMPORTED");
+    Events:fire("GL.TMB_IMPORTED");
     GL.Interface.TMB.Importer:close();
     self:draw();
 
@@ -668,7 +699,64 @@ function TMB:import(data, triedToDecompress, source)
         self:broadcast();
     end
 
+    -- Report players without any TMB entries
+    local PlayersWithoutTMBDetails = self:playersWithoutTMBDetails();
+    if (not GL:empty(PlayersWithoutTMBDetails)) then
+        local MissingPlayers = {};
+        for _, name in pairs(PlayersWithoutTMBDetails) do
+            tinsert(MissingPlayers, {GL:capitalize(name), GL:classHexColor(GL.Player:classByName(name))});
+        end
+
+        GL:warning(string.format("The following players have no %s entries:", self:source()));
+        GL:multiColoredMessage(MissingPlayers, ", ");
+    end
+
     return true;
+end
+
+--- Where did our current TMB data come from?
+---@return string
+function TMB:source()
+    if (GL.TMB:wasImportedFromDFT()) then
+        return "DFT";
+    end
+
+    if (GL.TMB:wasImportedFromCPR()) then
+        return "CPR";
+    end
+
+    if (GL.TMB:wasImportedFromCSV()) then
+        return "Item";
+    end
+
+    return "TMB";
+end
+
+--- Return the names of all players that don't have any TMB details
+---
+---@return table
+function TMB:playersWithoutTMBDetails()
+    GL:debug("TMB:playersWithoutTMBDetails");
+
+    local PlayersWithDetails = {};
+    for _, Item in pairs(GL.DB:get("TMB.Items", {})) do
+        for _, Entry in pairs(Item or {}) do
+            if (Entry.character) then
+                PlayersWithDetails[Entry.character] = true;
+            end
+        end
+    end
+
+    local PlayersWithoutTMBDetails = {};
+    for _, name in pairs(GL.User:groupMemberNames() or {}) do
+        name = string.lower(GL:stripRealm(name));
+
+        if (not PlayersWithDetails[name]) then
+            tinsert(PlayersWithoutTMBDetails, name);
+        end
+    end
+
+    return PlayersWithoutTMBDetails;
 end
 
 --- Attempt to transform the DFT format to a TMB format
@@ -945,7 +1033,7 @@ function TMB:broadcast()
     end
 
     self.broadcastInProgress = true;
-    GL.Events:fire("GL.TMB_BROADCAST_STARTED");
+    Events:fire("GL.TMB_BROADCAST_STARTED");
 
     local Broadcast = function ()
         GL:message("Broadcasting TMB data...");
@@ -963,7 +1051,7 @@ function TMB:broadcast()
         ):send(function ()
             GL:success("TMB broadcast finished");
             self.broadcastInProgress = false;
-            GL.Events:fire("GL.TMB_BROADCAST_ENDED");
+            Events:fire("GL.TMB_BROADCAST_ENDED");
 
             Label = GL.Interface:get(GL.TMB, "Label.BroadcastProgress");
             if (Label) then
@@ -985,8 +1073,8 @@ function TMB:broadcast()
     if (UnitAffectingCombat("player")) then
         GL:message("You are currently in combat, delaying TMB broadcast");
 
-        GL.Events:register("TMBOutOfCombatListener", "PLAYER_REGEN_ENABLED", function ()
-            GL.Events:unregister("TMBOutOfCombatListener");
+        Events:register("TMBOutOfCombatListener", "PLAYER_REGEN_ENABLED", function ()
+            Events:unregister("TMBOutOfCombatListener");
             Broadcast();
         end);
     else
