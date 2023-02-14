@@ -380,7 +380,6 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
     end
 
     local checksum = GL:strPadRight(GL:strLimit(GL:stringHash(timestamp .. itemID) .. GL:stringHash(winner .. GL.DB:get("SoftRes.MetaData.id", "")), 20, ""), "0", 20);
-
     local AwardEntry = {
         checksum = checksum,
         itemLink = itemLink,

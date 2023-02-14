@@ -72,10 +72,7 @@ function Auction:_init()
     if (self._initialized) then
         return false;
     end
-    print(GL)
-    print(GL.Interface)
-    print(GL.Interface.GDKP)
-    print(GL.Interface.GDKP.Auctioneer)
+
     Auctioneer = GL.Interface.GDKP.Auctioneer or {};
 
     -- An event is fired whenever a bid is accepted, in which case we broadcast the latest auction details
