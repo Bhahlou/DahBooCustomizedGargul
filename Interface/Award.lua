@@ -10,7 +10,7 @@ local ScrollingTable = GL.ScrollingTable;
 local Settings = GL.Settings;
 
 ---@type GDKPAuction
---local GDKPAuction = GL.GDKP.Auction;
+local GDKPAuction = GL.GDKP.Auction;
 
 ---@class AwardInterface
 GL.Interface.Award = {

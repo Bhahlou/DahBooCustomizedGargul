@@ -287,9 +287,9 @@ local function constructor()
         GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "Cost", BoostedRollsCostEditBox);
     end
 
-    --if (GL.GDKP.Session:activeSessionID()
-        --and not GL.GDKP.Session:getActive().lockedAt
-    --) then
+    if (GL.GDKP.Session:activeSessionID()
+        and not GL.GDKP.Session:getActive().lockedAt
+    ) then
         HorizontalSpacer = AceGUI:Create("SimpleGroup");
         HorizontalSpacer:SetLayout("FILL");
         HorizontalSpacer:SetFullWidth(true);
@@ -322,7 +322,7 @@ local function constructor()
             YesButton:Fire("OnClick");
         end); -- Update item info when input value changes
         GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "GDKPPrice", GDKPPriceEditBox);
-    --end
+    end
 
     HorizontalSpacer = AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");

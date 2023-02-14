@@ -58,7 +58,7 @@ function MasterLooterDialog:_init()
             GL:debug("Run MasterLooterDialog.VersionCheckTimer");
 
             GL.Version:inspectQuietly();
-        end, 60);
+        end, 1800);
 
         GL.Version:inspectQuietly();
     end);
@@ -78,11 +78,11 @@ end
 ---@return void
 function MasterLooterDialog:flightAttendant()
     local function announce()
-        local message = GL.Settings:get("MasterLooting.announceMasterLooterMessage");
+        local message = "I'm using Gargul to distribute loot. It makes rolling easier so be sure to try it out!"
         local stw = not GL:strContains(string.lower(message), "gargul");
 
         GL:sendChatMessage(
-            GL.Settings:get("MasterLooting.announceMasterLooterMessage"),
+            message,
             "GROUP",
             nil,
             nil,
@@ -122,7 +122,7 @@ function MasterLooterDialog:draw()
         self:close();
     end);
     Window:SetPoint(GL.Interface:getPosition("MasterLooterDialog"));
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     local DescriptionFrame = AceGUI:Create("SimpleGroup");
     DescriptionFrame:SetLayout("FILL");
@@ -235,7 +235,7 @@ end
 function MasterLooterDialog:close()
     GL:debug("MasterLooterDialog:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not Window) then
         return;

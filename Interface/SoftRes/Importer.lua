@@ -5,9 +5,8 @@ GL.AceGUI = GL.AceGUI or LibStub("AceGUI-3.0");
 
 local AceGUI = GL.AceGUI;
 
-GL:tableSet(GL, "Interface.BoostedRolls.Importer", {
+GL:tableSet(GL, "Interface.SoftRes.Importer", {
     isVisible = false,
-    boostedRollsBoxContent = "",
 
     InterfaceItems = {
         Icons = {},
@@ -17,7 +16,7 @@ GL:tableSet(GL, "Interface.BoostedRolls.Importer", {
     },
 });
 
-local Importer = GL.Interface.BoostedRolls.Importer;
+local Importer = GL.Interface.SoftRes.Importer;
 
 function Importer:draw()
     GL:debug("Importer:draw");
@@ -27,47 +26,46 @@ function Importer:draw()
     end
 
     self.isVisible = true;
-    self.boostedRollsBoxContent = "";
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
     Window:SetTitle("Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(600);
-    Window:SetHeight(550);
+    Window:SetHeight(480);
     Window:EnableResize(false);
     Window.statustext:GetParent():Hide(); -- Hide the statustext bar
     Window:SetCallback("OnClose", function()
         self:close();
-        GL.BoostedRolls:draw();
     end);
     GL.Interface:set(self, "Window", Window);
 
-    Window:SetPoint(GL.Interface:getPosition("BoostedRollsImport"));
+    Window:SetPoint(GL.Interface:getPosition("SoftReserveImport"));
 
     -- Make sure the window can be closed by pressing the escape button
-    _G["GARGUL_BOOSTEDROLLS_IMPORTER_WINDOW"] = Window.frame;
-    tinsert(UISpecialFrames, "GARGUL_BOOSTEDROLLS_IMPORTER_WINDOW");
+    _G["GARGUL_SOFTRES_IMPORTER_WINDOW"] = Window.frame;
+    tinsert(UISpecialFrames, "GARGUL_SOFTRES_IMPORTER_WINDOW");
 
     -- Explanation
     local Description = AceGUI:Create("Label");
     Description:SetFontObject(_G["GameFontNormal"]);
     Description:SetFullWidth(true);
-    Description:SetText("Here you can import boosted roll data and aliases from a table in CSV or TSV format or pasted from a Google Docs Sheet.\n\nThe table needs at least two columns: The player name followed by the amount of points. Additional columns are optional and may contain aliases for the player.\nHere is an example line:\n\nFoobar,240,Barfoo");
+    Description:SetText("In order to get started you first need to create a raid on softres.it. Afterwards click on 'Addon Export', select 'Gargul', copy the data and paste it in the form below.");
     Window:AddChild(Description);
 
     -- Large edit box
-    local BoostedRollDataBox = AceGUI:Create("MultiLineEditBox");
-    BoostedRollDataBox:SetFullWidth(true);
-    BoostedRollDataBox:DisableButton(true);
-    BoostedRollDataBox:SetFocus();
-    BoostedRollDataBox:SetLabel("");
-    BoostedRollDataBox:SetNumLines(20);
-    BoostedRollDataBox:SetMaxLetters(999999999);
-    Window:AddChild(BoostedRollDataBox);
+    local softReservesBoxContent = "";
+    local SoftResBox = AceGUI:Create("MultiLineEditBox");
+    SoftResBox:SetFullWidth(true);
+    SoftResBox:DisableButton(true);
+    SoftResBox:SetFocus();
+    SoftResBox:SetLabel("");
+    SoftResBox:SetNumLines(20);
+    SoftResBox:SetMaxLetters(999999999);
+    Window:AddChild(SoftResBox);
 
-    BoostedRollDataBox:SetCallback("OnTextChanged", function(_, _, text)
-        self.boostedRollsBoxContent = text;
+    SoftResBox:SetCallback("OnTextChanged", function(_, _, text)
+        softReservesBoxContent = text;
     end)
 
     -- Status message frame
@@ -89,18 +87,9 @@ function Importer:draw()
     ImportButton:SetText("Import");
     ImportButton:SetWidth(140);
     ImportButton:SetCallback("OnClick", function()
-        if (GL.BoostedRolls:available()) then
-            GL.Interface.Dialogs.PopupDialog:open("NEW_BOOSTEDROLLS_IMPORT_CONFIRMATION");
-        else
-            self:import();
-        end
+        GL.SoftRes:import(softReservesBoxContent, true);
     end);
     Window:AddChild(ImportButton);
-end
-
--- Import
-function Importer:import()
-    GL.BoostedRolls:import(self.boostedRollsBoxContent, true);
 end
 
 -- Close the import frame and clean up after ourselves
@@ -116,11 +105,11 @@ function Importer:close()
     end
 
     -- Store the frame's last position for future play sessions
-    GL.Interface:storePosition(Window, "BoostedRollsImport");
+    GL.Interface:storePosition(Window, "SoftReserveImport");
 
     -- Clear the frame and its widgets
     GL.Interface:release(Window);
     self.isVisible = false;
 end
 
-GL:debug("Interfaces/BoostedRolls/Importer.lua");
+GL:debug("Interfaces/SoftRes/Importer.lua");
