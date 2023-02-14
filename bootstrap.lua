@@ -105,7 +105,7 @@ function GL:_init()
     -- Show a welcome message
     if (self.Settings:get("welcomeMessage")) then
         print(string.format(
-            "|cff%sDah Boo Customized Gargul v%s|r by Bhahl@Auberdine. Type |cff%s/dbcgl|r or |cff%s/dbgargul|r to get started!",
+            "|cff%sDah Boo Customized Gargul v%s|r by Bhahl@Auberdine. Type |cff%s/dbcgl|r or |cff%s/dbcgargul|r to get started!",
             self.Data.Constants.addonHexColor,
             self.version,
             self.Data.Constants.addonHexColor,
@@ -167,7 +167,7 @@ function GL:_init()
 end
 
 -- Register the gl slash command
-GL.Ace:RegisterChatCommand("gl", function (...)
+GL.Ace:RegisterChatCommand("dbcgl", function (...)
     GL.Commands:_dispatch(...);
 end);
 

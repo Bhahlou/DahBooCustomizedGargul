@@ -56,6 +56,12 @@
     <Include file="Libs\AceTimer-3.0\AceTimer-3.0.xml" />
 
     <!--
+    Provides an API to register an options table with the config registry,
+    as well as associate it with a slash command.
+    -->
+    <Include file="Libs\AceConfig-3.0\AceConfig-3.0.xml" />
+
+    <!--
     lib-st provides a convenient way to create and display a scrolling table of data.
     Supply column info and your table data, and you're off!
 
@@ -95,4 +101,9 @@
     LibDBIcon-1.0 is a small library you can throw in your LDB addon that will create a small minimap icon for you and nothing more.
     -->
     <Include file="Libs\LibDBIcon-1.0\LibDBIcon-1.0\LibDBIcon-1.0.lua" />
+
+    <!--
+    LibSharedMedia-3.0: Shared handling of media data (fonts, sounds, textures, ...) between addons.
+    -->
+    <Include file="Libs\LibSharedMedia-3.0\lib.xml"/>
 </Ui>

@@ -5,6 +5,10 @@
 ## Version: 5.0.22
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
+## X-Donate: https://www.patreon.com/gargul
+## X-Wago-ID: Xb6XmOKp
+## X-Curse-Project-ID: 418746
+## X-License: ARR
 
 # Libraries
 libraries.xml
@@ -19,6 +23,7 @@ Data/Localizations/en.lua
 Data/Constants.lua
 Data/DefaultSettings.lua
 Data/ItemLinks.lua
+Data/ArtTextureID.lua
 
 # Class objects
 Classes/Helpers.lua
@@ -130,11 +135,11 @@ Interface/Dialogs/ConfirmWithSingleInputDialog.lua
 Interface/Dialogs/ConfirmWithSingleInputDialogWidget.lua
 Interface/Dialogs/IncomingBoostedRollDataDialog.lua
 Interface/Dialogs/IncomingBoostedRollDataDialogWidget.lua
-Interface/Dialogs/PopupDialog.lua
-Interface/Dialogs/PopupDialogWidget.lua
 Interface/Dialogs/HyperlinkDialog.lua
 Interface/Dialogs/HyperlinkDialogWidget.lua
 Interface/Dialogs/MasterLooterDialog.lua
+Interface/Dialogs/PopupDialog.lua
+Interface/Dialogs/PopupDialogWidget.lua
 Interface/ReminderToAssignLootUsingGargul.lua
 Interface/ShortcutKeysLegend.lua
 
