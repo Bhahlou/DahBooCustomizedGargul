@@ -1,3 +1,5 @@
+local L = Gargul_L;
+
 ---@type GL
 local _, GL = ...;
 
@@ -28,7 +30,7 @@ GDKP.Session = {
     broadcastInProgress = false,
     includeTradeInSession = true,
     inProgress = false,
-    lastOutBidNotificationShownAt = nil,
+    lastOutBidNotificationShownAt = 0,
     requestingData = false,
     timerId = 0, -- ID of the timer event
 
@@ -77,10 +79,21 @@ function Session:_init()
         GL.Interface.GDKP.Distribute.Overview:refresh(); -- Refresh the distribution overview in case it's opened
     end);
 
-    if (self:activeSessionID()) then
+    local Instance = self:getActive();
+    if (Instance and not Instance.lockedAt) then
         GL.Ace:ScheduleTimer(function ()
+            if (not self:userIsAllowedToBroadcast()) then
+                return;
+            end
+
+            local Window = GL.Interface.GDKP.Auctioneer:open();
+
+            if (Window) then
+                Window.Minimize.MinimizeButton:Click();
+            end
+
             GL.Interface.Alerts:fire("GargulNotification", {
-                message = string.format("|c00BE3333GDKP Activated!|r"),
+                message = string.format("|c00BE3333%s!|r", L.GDKP_ACTIVATED),
             });
         end, 5);
     end
@@ -100,10 +113,17 @@ function Session:copperOwedToPlayer(player, sessionID)
         return;
     end
 
-    local GoldTrades = GL:tableGet(Instance, "GoldTrades." .. player, {
+    -- You can't owe yourself anything
+    if (GL:iEquals(player, GL.User.name)) then
+        return 0;
+    end
+
+    local GoldTraded = GL:tableGet(Instance, "GoldTrades." .. player, {
         from = 0,
         to = 0,
     });
+
+    local goldMailed = GL:tableGet(Instance, "GoldMails." .. player, 0);
 
     local playerCutInCopper = 0;
     -- Only include the player cut if the current GDKP session is locked and ready for payout
@@ -111,8 +131,8 @@ function Session:copperOwedToPlayer(player, sessionID)
         playerCutInCopper = GL:tableGet(Instance, "Pot.Cuts." .. player, 0) * 10000;
     end
 
-    local copperReceived = GoldTrades.from;
-    local copperGiven = GoldTrades.to;
+    local copperReceived = GoldTraded.from;
+    local copperGiven = GoldTraded.to + goldMailed;
     local copperSpentByPlayer = self:goldSpentByPlayer(player, Instance.ID) * 10000;
     local copperToReceive = copperSpentByPlayer - copperReceived;
     local copperToGive = playerCutInCopper - copperToReceive - copperGiven;
@@ -339,6 +359,27 @@ function Session:registerGoldTrade(Details)
     self:store(Instance);
 end
 
+---@param player string
+---@param copper number
+---@return void
+function Session:registerGoldMail(player, copper)
+    GL:debug("Session:registerGoldMail");
+
+    local Instance = self:getActive();
+
+    if (not Instance) then
+        return;
+    end
+
+    Instance.GoldMails = Instance.GoldMails or {};
+    Instance.GoldMails[player] = Instance.GoldMails[player] or 0;
+    Instance.GoldMails[player] = Instance.GoldMails[player] + copper;
+
+    Events:fire("GL.GDKP_GOLD_MAILED");
+
+    self:store(Instance);
+end
+
 ---@param ID string
 ---@return table|nil
 function Session:byID(ID)
@@ -378,7 +419,7 @@ function Session:itemHistory(itemLinkOrID)
     local totalSaleValue = 0;
     local lastSoldTimestamp = 0;
     local lastSoldPrice = 0;
-    for _, Instance in pairs(DB.GDKP.Ledger or {}) do
+    for _, Instance in pairs(DB:get("GDKP.Ledger") or {}) do
         for _, Auction in pairs(Instance.Auctions or {}) do
             if (type(Auction) == "table"
                 and Auction.itemID == itemID
@@ -487,7 +528,7 @@ function Session:setActive(sessionID)
     local Instance = self:byID(sessionID);
     if (not Instance
         or Instance.deletedAt
-        or DB.GDKP.activeSession == sessionID
+        or DB:get("GDKP.activeSession") == sessionID
     ) then
         return false;
     end
@@ -511,7 +552,7 @@ end
 function Session:ownedByUser()
     GL:debug("Session:ownedByUser");
 
-    for _, Instance in pairs (DB.GDKP.Ledger or {}) do
+    for _, Instance in pairs (DB:get("GDKP.Ledger") or {}) do
         if (GL:tableGet(Instance or {}, "CreatedBy.uuid") == GL.User.id) then
             return true;
         end
@@ -524,7 +565,7 @@ end
 function Session:exists(sessionIdentifier)
     GL:debug("Session:exists");
 
-    return DB.GDKP.Ledger[sessionIdentifier] and not GL:empty(DB.GDKP.Ledger[sessionIdentifier].ID);
+    return not not DB:get("GDKP.Ledger." .. sessionIdentifier .. ".ID");
 end
 
 ---@param title string
@@ -672,7 +713,7 @@ function Session:delete(sessionID)
     end
 
     -- This session is the currently active one, clear it
-    if (DB.GDKP.activeSession == sessionID) then
+    if (DB:get("GDKP.activeSession") == sessionID) then
         self:clearActive();
     end
 
@@ -716,12 +757,12 @@ end
 function Session:clearActive()
     GL:debug("Session:clearActive");
 
-    if (not DB.GDKP.activeSession) then
+    local activeSession = DB:get("GDKP.activeSession");
+    if (not activeSession) then
         return false;
     end
 
-    local activeSession = DB.GDKP.activeSession;
-    DB.GDKP.activeSession = nil;
+    DB:set("GDKP.activeSession", nil);
 
     Events:fire("GL.GDKP_ACTIVE_SESSION_CLEARED", activeSession);
     Events:fire("GL.GDKP_ACTIVE_SESSION_CHANGED");
@@ -733,7 +774,9 @@ end
 function Session:userIsAllowedToBroadcast()
     GL:debug("Session:userIsAllowedToBroadcast");
 
-    return GL.User.isInGroup and (GL.User.isMasterLooter or GL.User.hasAssist);
+    return not GL.User.isInGroup or (
+        GL.User.isInGroup and (GL.User.isMasterLooter or GL.User.hasAssist)
+    );
 end
 
 GL:debug("GDKP.lua");
