@@ -35,7 +35,7 @@ function Overview:draw()
     Window:SetCallback("OnClose", function()
        self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     Window:SetPoint(GL.Interface:getPosition("TMBOverview"));
 
@@ -88,7 +88,7 @@ end
 function Overview:close()
     GL:debug("Overview:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window

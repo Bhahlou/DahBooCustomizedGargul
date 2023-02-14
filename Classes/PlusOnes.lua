@@ -43,7 +43,7 @@ function PlusOnes:deduct(playerName)
         DB.PlusOnes[playerName] = 0;
     else
         -- Make sure the plusOne doesn't end up below 0
-        DB.PlusOnes[playerName] = math.max(DB.PlusOnes[playerName] - 1, 0);
+        DB.PlusOnes[playerName] = max(DB.PlusOnes[playerName] - 1, 0);
     end
 
     self:triggerChangeEvent();
@@ -130,6 +130,8 @@ function PlusOnes:massSet(plusOnesByPlayerName)
 end
 
 --- Trigger the PLUSONES_CHANGED event
+---
+---@return void
 function PlusOnes:triggerChangeEvent()
     GL:debug("PlusOnes:triggerChangeEvent");
     GL.Events:fire("GL.PLUSONES_CHANGED");

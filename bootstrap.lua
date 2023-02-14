@@ -12,9 +12,15 @@ GL.firstBoot = false; -- Indicates whether the user is new to Gargul
 GL.isEra = false;
 GL.isRetail = false;
 GL.isClassic = false;
+GL.clientIsDragonFlightOrLater = false;
 GL.version = GetAddOnMetadata(GL.name, "Version");
 GL.DebugLines = {};
-GL.EventFrame = {};
+GL.EventFrame = nil;
+GL.auctionHouseIsShown = false;
+GL.bankIsShown = false;
+GL.guildBankIsShown = false;
+GL.mailIsShown = false;
+GL.merchantIsShown = false;
 GL.loadedOn = 32503680000; -- Year 3000
 
 -- Register our addon with the Ace framework
@@ -72,11 +78,15 @@ function GL:_init()
         self.clientVersion = (expansion or 0) * 10000 + (majorPatch or 0) * 100 + (minorPatch or 0);
     end
 
-    if self.clientVersion < 20000 then
+    if (self.clientVersion) < 20000 then
         self.isEra = true;
-    elseif self.clientVersion < 90000 then
+    elseif (self.clientVersion) < 90000 then
         self.isClassic = true;
     else
+        if (self.clientVersion >= 100000) then
+            self.clientIsDragonFlightOrLater = true;
+        end
+
         self.isRetail = true;
     end
 
@@ -86,10 +96,16 @@ function GL:_init()
     self.Version:_init();
     self.Settings:_init();
 
+    -- Register media
+    local media = LibStub("LibSharedMedia-3.0")
+    media:Register("sound", "Gargul: uh-oh", "Interface/AddOns/".. self.name .."/Assets/Sounds/uh-oh.ogg");
+    media:Register("font", "PTSansNarrow", "Interface/AddOns/".. self.name .."/Assets/Fonts/PTSansNarrow.ttf");
+    GL.FONT = media:Fetch("font", "PTSansNarrow");
+
     -- Show a welcome message
     if (self.Settings:get("welcomeMessage")) then
         print(string.format(
-            "|cff%sDah Boo Customized Gargul v%s|r by Bhahl@Auberdine. Tapez |cff%s/dbcgl|r or |cff%s/dbgargul|r pour commencer !",
+            "|cff%sDah Boo Customized Gargul v%s|r by Bhahl@Auberdine. Type |cff%s/dbcgl|r or |cff%s/dbgargul|r to get started!",
             self.Data.Constants.addonHexColor,
             self.version,
             self.Data.Constants.addonHexColor,
@@ -105,14 +121,13 @@ function GL:_init()
         hooksecurefunc(MasterLooterFrame, 'Hide', function(self) self:ClearAllPoints() end);
     end
 
-    -- Add forwards compatibility
-    self:polyFill();
-
     self.Comm:_init();
     self.User:_init();
     self.AwardedLoot:_init();
     self.SoftRes:_init();
+    self.GDKP.Auction:_init();
     self.TMB:_init();
+    self.GDKP.Session:_init();
     self.BoostedRolls:_init();
     self.DroppedLoot:_init();
     self.GroupLoot:_init();
@@ -120,10 +135,15 @@ function GL:_init()
     self.TradeWindow:_init();
     self.Interface.MasterLooterDialog:_init();
     self.Interface.TradeWindow.TimeLeft:_init();
-    self.TMBRaidGroups:_init();
+    self.Interface.GDKP.BidderQueue:_init();
 
-    -- Hook the bagslot events
-    self:hookBagSlotEvents();
+    -- Hook native window events
+    self:hookNativeWindowEvents();
+
+    -- Hook item click events
+    hooksecurefunc("HandleModifiedItemClick", function(itemLink)
+        self:handleItemClick(itemLink, GetMouseButtonClicked());
+    end);
 
     -- Hook item tooltip events
     self:hookTooltipSetItemEvents();
@@ -143,40 +163,22 @@ function GL:_init()
 
     -- Show the changelog window
     GL.Interface.Changelog:reportChanges();
+
 end
 
---- Adds forwards compatibility
----
----@return void
-function GL:polyFill()
-    if (_G.GetContainerItemInfo ~= nil or not C_Container.GetContainerItemInfo) then
-        return;
-    end
-
-    -- The GetContainerNumSlots has the same return type in both classic and DF
-    _G.GetContainerNumSlots = C_Container.GetContainerNumSlots;
-
-    -- DF returns a single table instead of single values, polyFill time!
-    _G.GetContainerItemInfo = function (bagID, slot)
-        local result = C_Container.GetContainerItemInfo(bagID, slot);
-
-        if (not result) then
-            return nil;
-        end
-
-        return result.iconFileID, result.stackCount, result.isLocked, result.quality, result.isReadable,
-            result.hasLoot, result.hyperlink, result.isFiltered, result.hasNoValue, result.itemID, result.isBound;
-    end
-end
-
--- Register the dbcgl slash command
-GL.Ace:RegisterChatCommand("dbcgl", function (...)
+-- Register the gl slash command
+GL.Ace:RegisterChatCommand("gl", function (...)
     GL.Commands:_dispatch(...);
 end);
 
 -- Register the gargul slash command
 GL.Ace:RegisterChatCommand("dbcgargul", function (...)
     GL.Commands:_dispatch(...);
+end);
+
+-- Register the gdkp slash command
+GL.Ace:RegisterChatCommand("gdkp", function (...)
+    GL.Commands:call("gdkp");
 end);
 
 --- Announce conflicting addons, if any
@@ -201,44 +203,90 @@ function GL:announceConflictingAddons()
     ));
 end
 
---- Hook into the HandleModifiedItemClick event to allow for Gargul's many hotkeys
+--- Keep track of when native UI elements (like AH/mailbox) are active
 ---
 ---@return void
-function GL:hookBagSlotEvents()
-    hooksecurefunc("HandleModifiedItemClick", function(itemLink)
-        -- The user doesnt want to use shortcut keys when solo
-        if (not GL.User.isInGroup
-            and GL.Settings:get("ShortcutKeys.onlyInGroup")
-        ) then
-            return;
-        end
+function GL:hookNativeWindowEvents()
+    -- Make sure to reset window states when zoning
+    GL.Events:register("BootstrapPlayerEnteringWorld", "PLAYER_ENTERING_WORLD", function ()
+        GL.auctionHouseIsShown = false;
+        GL.bankIsShown = false;
+        GL.guildBankIsShown = false;
+        GL.mailIsShown = false;
+        GL.merchantIsShown = false;
+    end);
 
-        if (not itemLink or type(itemLink) ~= "string") then
-            return;
-        end
+    -- See https://wowpedia.fandom.com/wiki/PLAYER_INTERACTION_MANAGER_FRAME_HIDE for types
+    if (not GL.isEra) then
+        GL.Events:register("BootstrapPlayerInteractionShow", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, type)
+            if (type == 5) then
+                self.merchantIsShown = true;
+            elseif (type == 8) then
+                self.bankIsShown = true;
+            elseif (type == 10) then
+                self.guildBankIsShown = true;
+            elseif (type == 17) then
+                self.mailIsShown = true;
+            elseif (type == 21) then
+                self.auctionHouseIsShown = true;
+            end
+        end);
 
-        local keyPressIdentifier = GL.Events:getClickCombination();
-        local keyPressRecognized = false;
+        GL.Events:register("BootstrapPlayerInteractionHide", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(_, type)
+            if (type == 5) then
+                self.merchantIsShown = false;
+            elseif (type == 8) then
+                self.bankIsShown = false;
+            elseif (type == 10) then
+                self.guildBankIsShown = false;
+            elseif (type == 17) then
+                self.mailIsShown = false;
+            elseif (type == 21) then
+                self.auctionHouseIsShown = false;
+            end
+        end);
 
-        -- Open the roll window
-        if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
-            GL.MasterLooterUI:draw(itemLink);
-            keyPressRecognized = true;
+        return;
+    end
 
-        -- Open the award window
-        elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
-            GL.Interface.Award:draw(itemLink);
-            keyPressRecognized = true;
-        end
+    GL.Events:register("BootstrapAuctionHouseShowListener", "AUCTION_HOUSE_SHOW", function()
+        self.auctionHouseIsShown = true;
+    end);
 
-        -- Close the stack split window immediately after opening
-        if (keyPressRecognized and IsShiftKeyDown()) then
-            GL.Ace:ScheduleTimer(function ()
-                if (_G.StackSplitFrame) then
-                    _G.StackSplitFrame:Hide();
-                end
-            end, .05);
-        end
+    GL.Events:register("BootstrapAuctionHouseClosedListener", "AUCTION_HOUSE_CLOSED", function()
+        self.auctionHouseIsShown = false;
+    end);
+
+    GL.Events:register("BootstrapMailShowListener", "MAIL_SHOW", function()
+        self.mailIsShown = true;
+    end);
+
+    GL.Events:register("BootstrapMailClosedListener", "MAIL_CLOSED", function()
+        self.mailIsShown = false;
+    end);
+
+    GL.Events:register("BootstrapMerchantShowListener", "MERCHANT_SHOW", function()
+        self.merchantIsShown = true;
+    end);
+
+    GL.Events:register("BootstrapMerchantClosedListener", "MERCHANT_CLOSED", function()
+        self.merchantIsShown = false;
+    end);
+
+    GL.Events:register("BootstrapBankFrameShowListener", "BANKFRAME_OPENED", function()
+        self.bankIsShown = true;
+    end);
+
+    GL.Events:register("BootstrapBankFrameClosedListener", "BANKFRAME_CLOSED", function()
+        self.bankIsShown = false;
+    end);
+
+    GL.Events:register("BootstrapGuildBankFrameShowListener", "GUILDBANKFRAME_OPENED", function()
+        self.guildBankIsShown = true;
+    end);
+
+    GL.Events:register("BootstrapGuildBankFrameClosedListener", "GUILDBANKFRAME_CLOSED", function()
+        self.guildBankIsShown = false;
     end);
 end
 
@@ -246,8 +294,7 @@ end
 ---
 ---@return void
 function GL:hookTooltipSetItemEvents()
-    -- Bind the appendAwardedLootToTooltip method to the OnTooltipSetItem event
-    GL:onTooltipSetItem(function(Tooltip)
+    GL.onTooltipSetItemFunc = function(Tooltip)
         -- No valid item tooltip was provided
         if (not Tooltip
             or not Tooltip.GetItem
@@ -287,6 +334,10 @@ function GL:hookTooltipSetItemEvents()
             for _, line in pairs(GL.LootPriority:tooltipLines(itemLink) or {}) do
                 tinsert(Lines, line);
             end
+
+            for _, line in pairs(GL.GDKP.Session:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
         end
 
         self.lastTooltipItemLink = itemLink;
@@ -302,7 +353,10 @@ function GL:hookTooltipSetItemEvents()
         if (linesAdded) then
             Tooltip:AddLine(" ");
         end
-    end);
+    end;
+
+    -- Bind the appendAwardedLootToTooltip method to the OnTooltipSetItem event
+    GL:onTooltipSetItem(GL.onTooltipSetItemFunc);
 end
 
 --[[ CREATE NECESSARY FRAMES ]]

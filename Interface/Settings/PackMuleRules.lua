@@ -5,7 +5,7 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class PackMuleRulesSettings
 GL.Interface.Settings.PackMuleRules = {
-    description = "For group loot use:\n|c00f7922ePASS|r, |c00f7922eGREED|r, |c00f7922eNEED|r, |c00f7922eIGNORE|r\n\nFor Master Looting use player names and placeholders:\n|c00f7922eSELF|r - send to yourself\n|c00f7922eRANDOM|r - send to random player\n|c00f7922eRR|r - round robin\n|c00f7922eDE|r - send to disenchanter (/gl sd [mydisenchanter])\n|c00f7922eIGNORE|r - prevent from being auto-looted\n\nList of players are also supported:\n|c00f7922ePlayer1 Player2 SELF|r - Items will be sent to a random person in this list.\n\nSend an item to the first player who's in the raid instead of random by adding an exclamation mark: |c00f7922e!Player1 !Player2 SELF|r",
+    description = "For group loot use: |c00f7922ePASS|r, |c00f7922eGREED|r, |c00f7922eNEED|r, |c00f7922eIGNORE|r\nNote: group loot rules only work on items that are tradeable after picking them up. |c00f7922eNEED|r only works when you have lead/assist!\n\nFor Master Looting use player names and placeholders:\n|c00f7922eSELF|r - send to yourself\n|c00f7922eRANDOM|r - send to random player\n|c00f7922eRR|r - round robin\n|c00f7922eDE|r - send to disenchanter (/gl sd [mydisenchanter])\n|c00f7922eIGNORE|r - prevent from being auto-looted\n\nList of players are also supported:\n|c00f7922ePlayer1,Player2,SELF|r - Items will be sent to a random person in this list.\n\nSend an item to the first player who's in the raid instead of random by adding an exclamation mark: |c00f7922e!Player1,!Player2,SELF|r",
 
     UIComponents = {
         Input = {
@@ -79,7 +79,7 @@ function PackMuleRules:draw(Parent)
     end
 
     -- Make sure to draw additional item rules in case we have less than 30
-    for _ = #SpecificItemRules, 30 do
+    for _ = #SpecificItemRules, 75 do
         self:drawSpecifItemRule(Parent);
     end
 end
@@ -224,23 +224,16 @@ function PackMuleRules:drawLowerThanQualityRule(Frame, Rule)
     beforeLowerThanRuleLabel:SetWidth(34);
     Row:AddChild(beforeLowerThanRuleLabel);
 
-    local LowerThanList;
+    local LowerThanList = {};
+    local lowestValidItemQuality = 0;
+    local highestValidItemQuality = 4;
+    if (not GL.isEra) then -- Minimum master looting levels differ between Era and TBC
+        lowestValidItemQuality = 2;
+    end
 
-    -- Minimum master looting levels differ between Era and TBC
-    if (GL.isEra) then
-        LowerThanList = {
-            [0] = "|c009d9d9dPoor|r",
-            [1] = "|c00ffffffCommon|r",
-            [2] = "|c001eff00Uncommon|r",
-            [3] = "|c000070ddRare|r",
-            [4] = "|c00a335eeEpic|r",
-        };
-    else
-        LowerThanList = {
-            [2] = "|c001eff00Uncommon|r",
-            [3] = "|c000070ddRare|r",
-            [4] = "|c00a335eeEpic|r",
-        };
+    local ItemQualityColors = GL.Data.Constants.ItemQualityColors;
+    for i = lowestValidItemQuality, highestValidItemQuality do
+        LowerThanList[i] = string.format("|c00%s%s|r", ItemQualityColors[i].hex, ItemQualityColors[i].description);
     end
 
     -- DROPDOWN
@@ -294,23 +287,16 @@ function PackMuleRules:drawHigherThanQualityRule(Frame, Rule)
     beforeHigherThanRuleLabel:SetWidth(34);
     Row:AddChild(beforeHigherThanRuleLabel);
 
-    local HigherThanList;
+    local HigherThanList = {};
+    local lowestValidItemQuality = 0;
+    local highestValidItemQuality = 4;
+    if (not GL.isEra) then -- Minimum master looting levels differ between Era and TBC
+        lowestValidItemQuality = 2;
+    end
 
-    -- Minimum master looting levels differ between Era and TBC
-    if (GL.isEra) then
-        HigherThanList = {
-            [0] = "|c009d9d9dPoor|r",
-            [1] = "|c00ffffffCommon|r",
-            [2] = "|c001eff00Uncommon|r",
-            [3] = "|c000070ddRare|r",
-            [4] = "|c00a335eeEpic|r",
-        };
-    else
-        HigherThanList = {
-            [2] = "|c001eff00Uncommon|r",
-            [3] = "|c000070ddRare|r",
-            [4] = "|c00a335eeEpic|r",
-        };
+    local ItemQualityColors = GL.Data.Constants.ItemQualityColors;
+    for i = lowestValidItemQuality, highestValidItemQuality do
+        HigherThanList[i] = string.format("|c00%s%s|r", ItemQualityColors[i].hex, ItemQualityColors[i].description);
     end
 
     -- DROPDOWN

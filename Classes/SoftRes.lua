@@ -46,6 +46,13 @@ function SoftRes:_init()
         end
     end);
 
+    --- Show an alert or a system message after sucessfully importing data
+    GL.Events:register("AlertsSoftresImported", "GL.SOFTRES_IMPORTED", function ()
+        if (not GL.Alerts:fire("SoftRes", "Import successful!")) then
+            GL:success("Import of SoftRes data successful");
+        end
+    end);
+
     -- Remove old SoftRes data if it's more than 10h old
     if (self:available()
         and DB:get("SoftRes.MetaData.importedAt") < GetServerTime() - 36000
@@ -103,10 +110,10 @@ function SoftRes:handleWhisperCommand(_, message, sender)
         tinsert(ItemIDs, itemID);
     end
 
-    GL:onItemLoadDo(ItemIDs, function (Items)
+    GL:onItemLoadDo(ItemIDs, function (Details)
         local Entries = {};
 
-        for _, Entry in pairs(Items) do
+        for _, Entry in pairs(Details) do
             local itemIDString = tostring(Entry.id);
             local entryString = Entry.link;
 
@@ -401,6 +408,24 @@ function SoftRes:draw()
     );
 end
 
+---@param itemID number|string
+---@return nil|string, nil|string
+function SoftRes:getHardReserveDetailsByID(itemID)
+    local Details = GL:tableGet(SoftRes, "MaterializedData.HardReserveDetailsByID." .. tostring(itemID));
+
+    if (not Details) then
+        return;
+    end
+
+    return Details.reservedFor, Details.note;
+end
+
+---@param itemLink string
+---@return nil|string, nil|string
+function SoftRes:getHardReserveDetailsByItemLink(itemLink)
+    return self:getHardReserveDetailsByID(GL:getItemIDFromLink(itemLink));
+end
+
 --- Get soft-reserve details for a given player
 ---
 ---@param name string The name of the player
@@ -593,9 +618,30 @@ function SoftRes:tooltipLines(itemLink)
         return {};
     end
 
+    local Lines = {};
+
     -- Check if the item is hard-reserved
-    if (self:linkIsHardReserved(itemLink)) then
-        return { string.format("|cFFcc2743%s|r", "\nThis item is hard-reserved!") };
+    local hardReservedFor, hardReservedNote = self:getHardReserveDetailsByItemLink(itemLink);
+    if (hardReservedFor or hardReservedNote) then
+        tinsert(Lines, string.format("\n|cFFcc2743%s|r", "This item is hard-reserved."));
+        if (hardReservedFor) then
+            local forString = string.format("|cFFcc2743 For:|r |cFF%s%s|r",
+                GL:classHexColor(self:getPlayerClass(hardReservedFor, false)),
+                hardReservedFor
+            );
+
+            tinsert(Lines, forString);
+        end
+
+        if (hardReservedNote) then
+            local noteString = string.format("|cFFcc2743 Note:|r %s",
+                hardReservedNote
+            );
+
+            tinsert(Lines, noteString);
+        end
+
+        return Lines;
     end
 
     local Reservations = self:byItemLink(itemLink);
@@ -617,8 +663,6 @@ function SoftRes:tooltipLines(itemLink)
         return {};
     end
 
-    local Lines = {};
-
     -- Add the header
     tinsert(Lines, string.format("\n|cFFEFB8CD%s|r", "Reserved by"));
 
@@ -639,7 +683,7 @@ function SoftRes:tooltipLines(itemLink)
 
     -- Add the reservation details to ActiveReservations (add 2x / 3x etc when same item was reserved multiple times)
     for _, Entry in pairs(ActiveReservations) do
-        local class = self:getPlayerClass(Entry.player);
+        local class = self:getPlayerClass(Entry.player, 0);
         local entryString = Entry.player;
 
         -- User reserved the same item multiple times
@@ -650,7 +694,7 @@ function SoftRes:tooltipLines(itemLink)
         -- Add the actual soft reserves to the tooltip
         tinsert(Lines, string.format(
             "|cFF%s    %s|r",
-            GL:classHexColor(class),
+            GL:classHexColor(class, GL.Data.Constants.disabledTextColor),
             GL:capitalize(entryString)
         ));
     end
@@ -694,7 +738,7 @@ function SoftRes:import(data, openOverview)
 
     -- Make sure all the required properties are available and of the correct type
     if (GL:empty(data)) then
-        GL.Interface:getItem("SoftRes.Importer", "Label.StatusMessage"):SetText("Invalid soft-reserve data provided");
+        GL.Interface:get("SoftRes.Importer", "Label.StatusMessage"):SetText("Invalid soft-reserve data provided");
         return false;
     end
 
@@ -720,8 +764,6 @@ function SoftRes:import(data, openOverview)
         ReservedItemIDs = {},
         SoftReservedItemIDs = {},
     };
-
-    GL:success("Import of SoftRes data successful");
 
     -- Attempt to "fix" player names (e.g. people misspelling their names)
     if (Settings:get("SoftRes.fixPlayerNames", true)) then
@@ -809,7 +851,7 @@ function SoftRes:importGargulData(data)
     -- Something went wrong while base64 decoding the payload
     if (not base64DecodeSucceeded) then
         local errorMessage = "Unable to base64 decode the data. Make sure you copy/paste it as-is from softres.it without adding any additional characters or whitespaces!";
-        GL.Interface:getItem("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end
@@ -821,7 +863,7 @@ function SoftRes:importGargulData(data)
     -- Something went wrong while zlib decoding the payload
     if (not zlibDecodeSucceeded) then
         local errorMessage = "Unable to zlib decode the data. Make sure you copy/paste it as-is from softres.it without adding any additional characters or whitespaces!";
-        GL.Interface:getItem("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end
@@ -831,14 +873,14 @@ function SoftRes:importGargulData(data)
     jsonDecodeSucceeded, data = pcall(function () return GL.JSON:decode(data); end);
     if (not jsonDecodeSucceeded) then
         local errorMessage = "Unable to json decode the data. Make sure you paste the SoftRes data as-is in the box up top without adding/removing anything! If the issue persists then hop in our Discord for support!";
-        GL.Interface:getItem("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end
 
     local function throwGenericInvalidDataError()
         local errorMessage = "Invalid data provided. Make sure to click the 'Gargul Export' button on softres.it and paste the full contents here";
-        GL.Interface:getItem("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end
@@ -1076,7 +1118,7 @@ function SoftRes:importCSVData(data, reportStatus)
     -- The user attempted to import invalid data
     if (GL:empty(SoftReserveData)) then
         local errorMessage = "Invalid data provided. Make sure to click the 'Gargul Export' button on softres.it and paste the full contents here";
-        GL.Interface:getItem("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("SoftRes.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end
@@ -1255,7 +1297,7 @@ function SoftRes:receiveSoftRes(CommMessage)
     GL:debug("SoftRes:receiveSoftRes");
 
     -- No need to update our tables if we broadcasted them ourselves
-    if (CommMessage.Sender.name == GL.User.name) then
+    if (CommMessage.Sender.isSelf) then
         GL:debug("Sync:receiveSoftRes received by self, skip");
         return true;
     end
@@ -1383,6 +1425,8 @@ end
 ---
 ---@return boolean
 function SoftRes:userIsAllowedToBroadcast()
+    GL:debug("SoftRes:userIsAllowedToBroadcast");
+
     return GL.User.isInGroup and (GL.User.isMasterLooter or GL.User.hasAssist);
 end
 

@@ -39,7 +39,7 @@ function RaidGroups:draw(Parent)
     StatusMessageLabel:SetFontObject(_G["GameFontNormal"]);
     StatusMessageLabel:SetFullWidth(true);
     StatusMessageLabel:SetColor(1, 0, 0)
-    GL.Interface:setItem(self, "StatusMessage", StatusMessageLabel);
+    GL.Interface:set(self, "StatusMessage", StatusMessageLabel);
     
     local AceGUI = GL.AceGUI;
     
@@ -59,7 +59,7 @@ function RaidGroups:draw(Parent)
                 Entry.callback(Checkbox);
             end
         end);
-        GL.Interface:setItem(GL.Settings, Entry.setting, Checkbox);
+        GL.Interface:set(GL.Settings, Entry.setting, Checkbox);
         Parent:AddChild(Checkbox);
     end
 
@@ -127,7 +127,7 @@ end
 function RaidGroups:refreshPrioritySettings(Parent)
 
     local useAsSortCriteria = GL.Settings:get("TMBRaidGroups.useAsSortCriteria");
-    local currentStatusMessage = GL.Interface:getItem(self,"Label.StatusMessage")
+    local currentStatusMessage = GL.Interface:get(self,"Label.StatusMessage")
     local currentText = "";
     local rollBracketCounter = GL:count(GL.Settings:get("RollTracking.Brackets"));
 

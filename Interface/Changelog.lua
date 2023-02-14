@@ -12,49 +12,124 @@ GL.Interface.Changelog = {
 
     History = {
         {
-            version = "4.12.1",
-            date = "2 Novembre 2022",
+            version = "5.0.19",
+            date = "January 21st, 2022",
             Changes = {
-                "Rattrapage des dernières fonctionnalités standard de Gargul",
+                "Hi everyone! Phase 2 has brought with it a lot of WoW API updates. Many add-ons have not been updated yet and using them can affect other addons, like Gargul. If something's not working, then please join the Gargul discord and read the pinned messages to hopefully figure out what add-on or action is the causing issues.",
+                "Show a reminder that GDKP is active after logging in",
+                "Added SR, WL, PL and TMB placeholders to the awarded loot export, check them out in |c00a79eff/gl export|r",
+                "Fixed auto-trading for Classic Era",
+                "Loot is now highlighted properly again"
+            },
+        },
+        {
+            version = "5.0.13",
+            date = "January 11th, 2022",
+            Changes = {
+                "Added gold spent and bid to the GDKP distribution export",
+                "Restructured the GDKP countdown settings, check them out via |c00a79eff/gl|r > GDKP"
+            },
+        },
+        {
+            version = "5.0.7",
+            date = "December 28th, 2022",
+            Changes = {
+                "GDKP time gain: raiders using Gargul can now immediately see the loot you've queued up and can prepare and bid accordingly before the auctions have even started!",
+                "GDKP time gain 2: Added a 'what to do when no one bids' setting that allows you to automatically skip or disenchant unwanted items!",
+                "Fixed an issue where rolls would not be accepted right when / shortly after a rolloff has ended",
+                "Many QoL fixes, check the full changelog on curseforge/wago or our discord server above",
+            },
+        },
+        {
+            version = "5.0.5",
+            date = "December 23rd, 2022",
+            Changes = {
+                "GDKP auto bidding, auto awarding, queued auctions, and other QoL things just hit Gargul! Go check them out with |c00a79eff/gl gdkp|r!",
+            },
+        },
+        {
+            version = "5.0.4",
+            date = "December 19th, 2022",
+            Changes = {
+                "GDKP IS HERE! Next level GDKP automation, bidding, tracking and pot calculation and distribution. Built on Gargul's solid core and backed by an active community!\n\nEncourage raid leaders to leverage it or check it out for yourself with |c00a79eff/gl gdkp|r, no need to be in a group! Coming soon: queued auctions! Happy Holidays <3",
+            },
+        },
+        {
+            version = "4.12.14",
+            date = "December 1st, 2022",
+            Changes = {
+                "Gargul now also supports prio3 runs using |c00a79effhttp://classicpr.io/|r. Go check them out and use the |c00a79eff/gl cpr|r command in-game to import!",
+                "PackMule's auto group loot is automatically disabled when leaving the raid/group. Check out the settings in |c00a79eff/gl pm|r!",
+            },
+        },
+        {
+            version = "4.12.13",
+            date = "November 29th, 2022",
+            Changes = {
+                "Auto looting now also works for group loot in raids/heroics, even on BoP items in a safe and secure way! Check it out in |c00a79eff/gl pm|r!",
+            },
+        },
+        {
+            version = "4.12.8",
+            date = "November 16th, 2022",
+            Changes = {
+                "Loot trade timers change icon and color after awarding or disenchanting an item. That way you can easily tell which items still need to be rolled out!",
+            },
+        },
+        {
+            version = "4.12.5",
+            date = "November 9th, 2022",
+            Changes = {
+                "Master looters! Closing the auction/rolloff window now presents you with a roll counter and two quick access buttons: one for stopping/starting the rolls and one for disenchanting the item",
+                "You can now also see all rolls on an awarded item, by opening the award history window and hovering your mouse over an entry",
+            },
+        },
+        {
+            version = "4.12.2",
+            date = "November 4th, 2022",
+            Changes = {
+                "Awarded loot history is moved to a separate window, click the trophy icon in your rolloff or award window",
+                "You can now mark rolls as +1 or OS in your settings so that the checkboxes will be checked automatically when awarding an item based on the type of roll",
+                "Gargul's hotkeys are now inactive when the auction house, mailbox, shop or bank are active",
             },
         },
         {
             version = "4.12.0",
-            date = "31 Octobre 2022",
+            date = "October 31th, 2022",
             Changes = {
-                "|c00BE3333Important :|r Cette version introduit une réécriture complète de la structure des loots attribués, la rendant incompatible avec les versions plus anciennes de Gargul. Encouragez vos chers raiders à mettre à jour !",
-                "Maintenez Shift sur la fenêtre de roll pour comparer l'objet avec ce que vous avez d'équipé !",
-                "Correction de bug notable : Les éditions et suppressions d'attribution d'objets sont maintenant diffusés correctement au raid entier",
+                "|c00BE3333Important:|r This version introduces a complete rewrite of the awarded loot structure, making it incompatible with older versions of Gargul. Encourage your fellow raiders to update!",
+                "Hold shift on the roll window to compare the item with what you have equipped!",
+                "Notable bugfix: Edited and deleted awarded items are now broadcast to the entire raid properly",
             },
         },
         {
             version = "4.11.0",
-            date = "27 Octobre 2022",
+            date = "October 27th, 2022",
             Changes = {
-                "Un joueur a passé sur un objet ? Vous avez assigné l'objet à la mauvaise personne ? Pas d'inquiétudes, vous pouvez éditer cela maintenant !",
-                "Vous pouvez maintenant changer la taille de la fenêtre des timers d'échange de loots dans |c00a79eff/dbcgl|r -> |c00a79effTimers d'échange de loots|r",
-                "Performance grandement améliorée et préparation de Gargul pour Dragonflight",
-                "Modification du message de master looter et assurance qu'il ne spammera pas le raid sur un /reload",
+                "Player passed on an item? Did you assign an item to the wrong player? No worries, you can edit all that now!",
+                "You can now change the size of the Loot trade timers window in |c00a79eff/gl|r -> |c00a79effLoot trade timers|r",
+                "Improved performance greatly and prepared Gargul for Dragonflight",
+                "Changed the Gargul master looter message and made sure it doens't spam the raid on /reload",
             },
         },
         {
             version = "4.10.1",
-            date = "19 Octobre 2022",
+            date = "October 19th, 2022",
             Changes = {
-                "Vous pouvez maintenant ajouter jusqu'à 10 boutons de roll avec des caractères illimités !",
-                "Les raccourcis Gargul ne supportent plus le clic droit pour des raisons techniques",
-                "Mise à jour du format d'export DFT pour maintenant utiliser les IDs d'objets à la place des noms",
-                "Vous pouvvez maintenant exclure les objets de seconde spé en exportant les loots via |c00a79eff/dbcgl export|r -> |c00a79effMaster Loot|r",
-                "Les tooltips d'objets incluent maintenant davantage de détails sur les (récents) gagnants",
+                "You can now add up to 10 roll buttons with unlimited characters!",
+                "Gargul shortcut keys no longer support the right mouse button for technical reasons",
+                "Updated the DFT loot export format to now use item IDs instead of names",
+                "You can now exclude offspec items when exporting loot via |c00a79eff/gl export|r -> |c00a79effMaster Looting|r",
+                "Item tooltips now include more details of (recent) winners",
             },
         },
         {
             version = "4.10.0",
-            date = "16 Octobre 2022",
+            date = "October 16th, 2022",
             Changes = {
-                "Quand activé, PackMule restera maintenant toujours activé même après un changement de zone/reload",
-                "Vous voulez annoncer le nombre de secondes restantes pour roll une seule fois ? Vérifize |c00a79eff/dbcgl|r -> |c00a79effMaster Loot|r",
-                "Accessibilité : vous pouvez maintenant agrandir la fenêtre de roll via |c00a79eff/dbcgl|r -> |c00a79effRoll|r",
+                "When enabled, PackMule will now always stay enabled even after a zone switch/reload",
+                "Only want to announce the seconds left to roll once? Check |c00a79eff/gl|r -> |c00a79effMaster Looting|r",
+                "Accessibility: you can now increase the rolling window's size via |c00a79eff/gl|r -> |c00a79effRolling|r",
             },
         },
         {
@@ -66,6 +141,7 @@ GL.Interface.Changelog = {
             },
         },
         {
+
             version = "4.9.2",
             date = "15 Octobre 2022",
             Changes = {
@@ -223,14 +299,20 @@ local Changelog = GL.Interface.Changelog; ---@type ChangelogInterface
 function Changelog:reportChanges()
     GL:debug("Changelog:reportChanges");
 
-    if (not GL.Version.firstBoot -- This is not this version's first boot, no need to report
-        or not GL.Settings:get("changeLog", true) -- The user is not interested in the changelog
-    ) then
+    -- This is not this version's first boot, no need to report
+    if (not GL.Version.firstBoot) then
         return;
     end
 
     local latestVersionChangesShown = GL.DB.LoadDetails.latestVersionChangesShown or 0;
     local latestChangelogVersion = self.History[1].version;
+
+    -- If changelog is disabled and there are no pressing matters, then return
+    if (not GL.Settings:get("changeLog", true)
+        and GL.Version:leftIsOlderThanRight("5.0.4", latestVersionChangesShown)
+    ) then
+        return;
+    end
 
     -- There are no changes to display between this version and the last, skip!
     if (not GL.Version:leftIsOlderThanRight(latestVersionChangesShown, latestChangelogVersion)) then
@@ -267,9 +349,25 @@ function Changelog:draw()
     Window:SetCallback("OnClose", function()
         self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     Window:SetPoint(GL.Interface:getPosition("Changelog"));
+
+    --[[ CHRISTMAS HOLIDAYS SANTA HAT ]]
+    local month, day = tonumber(date('%m')), tonumber(date('%d'));
+    if (month and day
+        and ((month == 12 and day >= 12)
+            or (month == 1 and day <= 12)
+        )
+    ) then
+        local SantaHat = GL.AceGUI:Create("Icon");
+        SantaHat:SetWidth(83);
+        SantaHat:SetHeight(81);
+        SantaHat:SetImage("Interface/AddOns/DahBooCustomizedGargul/Assets/Icons/santa_hat");
+        SantaHat.frame:SetParent(Window.frame);
+        SantaHat.frame:SetPoint("TOPLEFT", Window.frame, "TOPLEFT", -26, 36);
+        SantaHat.frame:Show();
+    end
 
     local ScrollFrameHolder = GL.AceGUI:Create("ScrollFrame");
     ScrollFrameHolder:SetLayout("Fill");
@@ -282,7 +380,7 @@ function Changelog:draw()
     ScrollFrameHolder:AddChild(ScrollFrame);
 
     local WhatIsGargul = GL.AceGUI:Create("Label");
-    WhatIsGargul:SetText("Dah Boo Customized Gargul rend la gestion des loots super facile, cliquez sur le bouton ci-dessous pour commencer !");
+    WhatIsGargul:SetText("Gargul makes handing out loot super easy, click the button below to get started!");
     WhatIsGargul:SetFontObject(_G["GameFontNormal"]);
     WhatIsGargul:SetFullWidth(true);
     ScrollFrame:AddChild(WhatIsGargul);
@@ -294,7 +392,7 @@ function Changelog:draw()
     ScrollFrame:AddChild(HorizontalSpacer);
 
     local OpenGargul = GL.AceGUI:Create("Button");
-    OpenGargul:SetText("Ouvrir Dah Boo Customized Gargul");
+    OpenGargul:SetText("Open Gargul");
     OpenGargul:SetCallback("OnClick", function()
         self:close();
         return GL.Commands:call("settings");
@@ -309,7 +407,7 @@ function Changelog:draw()
     ScrollFrame:AddChild(HorizontalSpacer);
 
     local DiscordLabel = GL.AceGUI:Create("Label");
-    DiscordLabel:SetText("|c00a79effObtenez de l'aide et impliquez vous sur notre Discord|r");
+    DiscordLabel:SetText("|c00a79effGet support and involved on our Discord|r");
     DiscordLabel:SetFontObject(_G["GameFontNormal"]);
     DiscordLabel:SetFullWidth(true);
     ScrollFrame:AddChild(DiscordLabel);
@@ -318,18 +416,16 @@ function Changelog:draw()
     DiscordBox:DisableButton(true);
     DiscordBox:SetHeight(20);
     DiscordBox:SetFullWidth(true);
-    DiscordBox:SetText("https://discord.gg/3BYJzqeSJ9");
+    DiscordBox:SetText("https://discord.gg/D3mDhYPVzf");
     ScrollFrame:AddChild(DiscordBox);
 
     for _, LogEntry in pairs(self.History) do
         -- Add some whitespace between this and the previous entry
-        if (not firstEntry) then
-            HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
-            HorizontalSpacer:SetLayout("FILL");
-            HorizontalSpacer:SetFullWidth(true);
-            HorizontalSpacer:SetHeight(16);
-            ScrollFrame:AddChild(HorizontalSpacer);
-        end
+        HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
+        HorizontalSpacer:SetLayout("FILL");
+        HorizontalSpacer:SetFullWidth(true);
+        HorizontalSpacer:SetHeight(16);
+        ScrollFrame:AddChild(HorizontalSpacer);
 
         -- Version label
         local VersionLabel = AceGUI:Create("Label");
@@ -349,13 +445,35 @@ function Changelog:draw()
                 ScrollFrame:AddChild(HorizontalSpacer);
             end
 
-            -- Changes
-            local ChangeLabel = AceGUI:Create("Label");
-            ChangeLabel:SetText(string.format("|c00a79eff-|r|c00FFF569 %s|r", change));
-            ChangeLabel:SetFontObject(_G["GameFontNormal"]);
-            ChangeLabel:SetHeight(20);
-            ChangeLabel:SetFullWidth(true);
-            ScrollFrame:AddChild(ChangeLabel);
+            -- Highlight GDKP update
+            --if (LogEntry.version == "5.0.7" and not GL.isRetail) then
+            if (false and not GL.isRetail) then
+                HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
+                HorizontalSpacer:SetLayout("FILL");
+                HorizontalSpacer:SetFullWidth(true);
+                HorizontalSpacer:SetHeight(6);
+                ScrollFrame:AddChild(HorizontalSpacer);
+
+                local ChangeLabel = AceGUI:Create("Label");
+                ChangeLabel:SetText(string.format("\n|c00FFF569%s|r\n \n", change));
+                ChangeLabel:SetFontObject(_G["GameFontNormal"]);
+                ChangeLabel:SetHeight(20);
+                ChangeLabel:SetFullWidth(true);
+                ScrollFrame:AddChild(ChangeLabel);
+
+                local LCG = LibStub("LibCustomGlowGargul-1.0");
+                local BorderColor = {1, 1, 1, 1};
+                LCG.PixelGlow_Start(ChangeLabel.frame, BorderColor, 140, 0, 5, 3, 10, 2, false, 2);
+                BorderColor = {.77, .12, .23, 1};
+                LCG.PixelGlow_Start(ChangeLabel.frame, BorderColor, 70, .02, 5, 3, 10, 2, false, 1);
+            else
+                local ChangeLabel = AceGUI:Create("Label");
+                ChangeLabel:SetText(string.format("|c00a79eff-|r|c00FFF569 %s|r", change));
+                ChangeLabel:SetFontObject(_G["GameFontNormal"]);
+                ChangeLabel:SetHeight(20);
+                ChangeLabel:SetFullWidth(true);
+                ScrollFrame:AddChild(ChangeLabel);
+            end
 
             firstChange = false;
         end
@@ -365,7 +483,7 @@ function Changelog:draw()
     Checkbox:SetValue(GL.Settings:get("changeLog"));
     Checkbox:SetLabel("Enable changelog");
     Checkbox:SetDescription("");
-    Checkbox:SetWidth(130);
+    Checkbox:SetWidth(220);
     Checkbox:SetCallback("OnValueChanged", function()
         GL.Settings:set("changeLog", Checkbox:GetValue());
     end);
@@ -378,7 +496,7 @@ end
 function Changelog:close()
     GL:debug("Changelog:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window
@@ -394,7 +512,7 @@ function Changelog:close()
     Settings:set("UI.Changelog.Position.offsetY", offsetY);
 
     -- Clear the frame and its widgets
-    AceGUI:Release(Window);
+    GL.Interface:release(Window);
     self.isVisible = false;
 end
 

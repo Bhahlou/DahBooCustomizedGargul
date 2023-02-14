@@ -30,7 +30,7 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     local Window = AceGUI:Create("Frame");
     Window:SetTitle("Gargul v" .. GL.version);
     Window:SetLayout("FLOW");
-    Window:SetWidth(530);
+    Window:SetWidth(430);
     Window:SetHeight(282);
     Window:EnableResize(false);
     Window.statustext:GetParent():Hide(); -- Hide the statustext bar
@@ -38,7 +38,7 @@ function PlayerSelector:draw(description, PlayerNames, callback)
         self:close();
     end);
     Window:SetPoint(GL.Interface:getPosition("PlayerSelector"));
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     -- Make sure the window can be closed by pressing the escape button
     _G["GARGUL_PLAYER_SELECTOR_WINDOW"] = Window.frame;
@@ -74,7 +74,7 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     SecondRow:AddChild(Spacer);
 
     local PlayerNameLabel = AceGUI:Create("Label");
-    PlayerNameLabel:SetText("Entrez le nom d'un joueur ici");
+    PlayerNameLabel:SetText("Type player name here");
     PlayerNameLabel:SetHeight(20);
     PlayerNameLabel:SetWidth(128); -- Minimum is 122
     SecondRow:AddChild(PlayerNameLabel);
@@ -92,7 +92,7 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     end); -- Award
     PlayerNameBox:SetFocus();
     SecondRow:AddChild(PlayerNameBox);
-    GL.Interface:setItem(self, "PlayerName", PlayerNameBox);
+    GL.Interface:set(self, "PlayerName", PlayerNameBox);
 
     Spacer = AceGUI:Create("SimpleGroup");
     Spacer:SetLayout("Fill");
@@ -101,9 +101,9 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     SecondRow:AddChild(Spacer);
 
     local PlayerNameLabelSuffix = AceGUI:Create("Label");
-    PlayerNameLabelSuffix:SetText("ou sélectionnez une ligne ci-dessous");
+    PlayerNameLabelSuffix:SetText("or select one below");
     PlayerNameLabelSuffix:SetHeight(20);
-    PlayerNameLabelSuffix:SetWidth(204); -- Minimum is 104
+    PlayerNameLabelSuffix:SetWidth(104); -- Minimum is 104
     SecondRow:AddChild(PlayerNameLabelSuffix);
 
     local TableFrame = GL.AceGUI:Create("SimpleGroup");
@@ -113,11 +113,11 @@ function PlayerSelector:draw(description, PlayerNames, callback)
     Window:AddChild(TableFrame);
 
     ConfirmButton = AceGUI:Create("Button");
-    ConfirmButton:SetText("Confirmer");
+    ConfirmButton:SetText("Confirm");
     ConfirmButton:SetWidth(140);
     ConfirmButton:SetHeight(20);
     ConfirmButton:SetCallback("OnClick", function()
-        local PlayersTable = GL.Interface:getItem(self, "Table.Players");
+        local PlayersTable = GL.Interface:get(self, "Table.Players");
         local selected = PlayersTable:GetRow(PlayersTable:GetSelection());
 
         if (not selected or type(selected) ~= "table") then
@@ -142,14 +142,14 @@ end
 function PlayerSelector:close()
     GL:debug("PlayerSelector:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not Window) then
         return;
     end
 
     GL.Interface:storePosition(Window, "PlayerSelector");
-    local PlayersTable = GL.Interface:getItem(self, "Table.Players");
+    local PlayersTable = GL.Interface:get(self, "Table.Players");
     PlayersTable:ClearSelection();
     PlayersTable:SetData({}, true);
     PlayersTable:Hide();
@@ -205,7 +205,7 @@ function PlayerSelector:drawPlayersTable(Parent, PlayerNames)
     Table:EnableSelection(true);
     Table.frame:SetPoint("BOTTOM", Parent, "BOTTOM", 0, 10);
     Table:SetData(TableRows);
-    GL.Interface:setItem(self, "Players", Table);
+    GL.Interface:set(self, "Players", Table);
 
     Table:RegisterEvents({
         OnClick = function (_, _, data, _, _, realrow)
@@ -220,7 +220,7 @@ function PlayerSelector:drawPlayersTable(Parent, PlayerNames)
             end
 
             local selectedPlayer = data[realrow].cols[1].value;
-            local EditBox = GL.Interface:getItem(self, "EditBox.PlayerName");
+            local EditBox = GL.Interface:get(self, "EditBox.PlayerName");
 
             if (EditBox and EditBox.SetText) then
                 EditBox:SetText(GL:capitalize(selectedPlayer));

@@ -6,8 +6,12 @@ GL.AceGUI = GL.AceGUI or LibStub("AceGUI-3.0");
 GL:tableSet(GL, "Interface.TradeWindow.TimeLeft", {
     _initialized = false,
     isVisible = false,
+    awaitingRefresh = false,
+    barsToShow = 0,
     broadcastIsVisible = false,
     dragging = false,
+    lastRefreshAt = 0,
+    minimumSecondsBetweenRefreshes = 3,
     refreshing = false,
     Bars = {},
     Broadcast = nil,
@@ -27,13 +31,22 @@ function TimeLeft:_init()
         return;
     end
 
+    self.barsToShow = GL.Settings:get("LootTradeTimers.maximumNumberOfBars", 5);
+
     -- Make sure to wait a bit with registering everything after a reload
     -- That way we don't have any stutters or weird behavior like bars not showing up
     GL.Ace:ScheduleTimer(function ()
         GL.Events:register({
-            {"TimeLeftBagUpdateDelayedListener", "BAG_UPDATE_DELAYED"},
+            {"TimeLeftPlayerEnteringWorldListener", "PLAYER_ENTERING_WORLD"},
+            --{"TimeLeftBagUpdateDelayedListener", "BAG_UPDATE_DELAYED"}, ---@todo reset when Blizzard fixes the event
+            {"TimeLeftBagUpdateListener", "BAG_UPDATE"}, ---@todo remove when Blizzard fixes the delayed event
+            {"TimeLeftZoneChangedListener", "ZONE_CHANGED"},
+            {"TimeLeftPlayerAliveListener", "PLAYER_ALIVE"},
+            {"TimeLeftPlayerUnghostListener", "PLAYER_UNGHOST"},
             {"TimeLeftBagMasterLooterLostListener", "GL.USER_LOST_MASTER_LOOTER"},
             {"TimeLeftBagMasterLooterObtainedListener", "GL.USER_OBTAINED_MASTER_LOOTER"},
+            {"TimeLeftItemAwardedListener", "GL.ITEM_AWARDED"},
+            {"TimeLeftItemUnAwardedListener", "GL.ITEM_UNAWARDED"},
         }, function ()
             self:refreshBars();
         end);
@@ -69,7 +82,6 @@ function TimeLeft:draw()
 
     local Window = CreateFrame("Frame", "GARGUL_TIMELEFT_WINDOW", UIParent, Frame);
     self.Window = Window;
-
     Window:Show();
     Window:SetSize(240, 16);
     Window:SetPoint(GL.Interface:getPosition("TimeLeft"));
@@ -117,16 +129,16 @@ function TimeLeft:draw()
     Texture:SetColorTexture(0, 0, 0, .6);
     Texture:SetAllPoints(Window)
     Window.texture = Texture;
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
-    local howToRollText = string.format("%s pour roll les loots !", GL.Settings:get("ShortcutKeys.rollOff"));
-    local howToAwardText = string.format("%s pour attribuer les loots !", GL.Settings:get("ShortcutKeys.award"));
+    local howToRollText = string.format("%s to roll out loot!", GL.Settings:get("ShortcutKeys.rollOffOrAuction"));
+    local howToAwardText = string.format("%s to award loot!", GL.Settings:get("ShortcutKeys.award"));
     local Title = Window:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall");
     Title:SetPoint("TOPLEFT", 3, -3);
     Title:SetText(howToRollText);
     Title:SetTextColor(1, 1, 1, 1);
     Title.headerTextType = "howToRoll";
-    GL.Interface:setItem(self, "Header", Title);
+    GL.Interface:set(self, "Header", Title);
 
     -- Keep switching the text in the header from how to roll to how to award
     if (not self.HeaderSwitchTimer) then
@@ -156,7 +168,7 @@ function TimeLeft:draw()
     Cogwheel:Show();
     Cogwheel:SetClipsChildren(true);
     Cogwheel:SetSize(13, 13);
-    Cogwheel:SetPoint("TOPRIGHT", Window, "TOPRIGHT", -2, -3);
+    Cogwheel:SetPoint("TOPRIGHT", Window, "TOPRIGHT", -20, -3);
 
     local CogwheelTexture = Cogwheel:CreateTexture();
     CogwheelTexture:SetPoint("BOTTOMRIGHT", 0, 0);
@@ -182,7 +194,7 @@ function TimeLeft:draw()
     BroadCast:Show();
     BroadCast:SetClipsChildren(true);
     BroadCast:SetSize(13, 13);
-    BroadCast:SetPoint("TOPRIGHT", Window, "TOPRIGHT", -20, -1);
+    BroadCast:SetPoint("TOPRIGHT", Window, "TOPRIGHT", -38, -1);
 
     local BroadCastTexture = BroadCast:CreateTexture();
     BroadCastTexture:SetPoint("BOTTOMRIGHT", 0, 0);
@@ -204,6 +216,73 @@ function TimeLeft:draw()
         end
     end);
 
+    local Maximize;
+    local Minimize = CreateFrame("Button", "TimeLeft_BroadCast" .. GL:uuid(), Window, Frame);
+    Minimize:Show();
+    Minimize:SetClipsChildren(true);
+    Minimize:SetSize(24, 24);
+    Minimize:SetPoint("TOPRIGHT", Window, "TOPRIGHT", 2, 4);
+
+    local MinimizeTexture = Minimize:CreateTexture();
+    MinimizeTexture:SetPoint("BOTTOMRIGHT", 0, 0);
+    MinimizeTexture:SetSize(24,24);
+    MinimizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttonup-up.blp");
+    MinimizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttonup-disabled.blp");
+    Minimize.texture = MinimizeTexture;
+
+    Minimize:SetScript('OnEnter', function()
+        GameTooltip:SetOwner(MinimizeTexture, "ANCHOR_TOP");
+        GameTooltip:AddLine("Minimize");
+        GameTooltip:Show();
+        MinimizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttonup-up.blp");
+    end);
+    Minimize:SetScript('OnLeave', function()
+        GameTooltip:Hide();
+        MinimizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttonup-disabled.blp");
+    end);
+
+    Minimize:SetScript("OnClick", function(_, button)
+        if (button == 'LeftButton') then
+            Minimize:Hide();
+            Maximize:Show();
+            self.barsToShow = 1;
+            self:refreshBars();
+        end
+    end);
+
+    Maximize = CreateFrame("Button", "TimeLeft_BroadCast" .. GL:uuid(), Window, Frame);
+    Maximize:Hide();
+    Maximize:SetClipsChildren(true);
+    Maximize:SetSize(24, 24);
+    Maximize:SetPoint("TOPRIGHT", Window, "TOPRIGHT", 2, 4);
+
+    local MaximizeTexture = Maximize:CreateTexture();
+    MaximizeTexture:SetPoint("BOTTOMRIGHT", 0, 0);
+    MaximizeTexture:SetSize(24,24);
+    MaximizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttondown-up.blp");
+    MaximizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttondown-disabled.blp");
+    Maximize.texture = MaximizeTexture;
+
+    Maximize:SetScript('OnEnter', function()
+        GameTooltip:SetOwner(MinimizeTexture, "ANCHOR_TOP");
+        GameTooltip:AddLine("Maximize");
+        GameTooltip:Show();
+        MaximizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttondown-up.blp");
+    end);
+    Maximize:SetScript('OnLeave', function()
+        GameTooltip:Hide();
+        MaximizeTexture:SetTexture("interface/minimap/ui-minimap-minimizebuttondown-disabled.blp");
+    end);
+
+    Maximize:SetScript("OnClick", function(_, button)
+        if (button == 'LeftButton') then
+            Minimize:Show();
+            Maximize:Hide();
+            self.barsToShow = GL.Settings:get("LootTradeTimers.maximumNumberOfBars", 5);
+            self:refreshBars();
+        end
+    end);
+
     self:refreshBars();
 end
 
@@ -218,14 +297,14 @@ function TimeLeft:createHotkeyExplanationWindow()
 
     HotKeyExplanation:SetLayout("Fill");
     HotKeyExplanation:SetWidth(210);
-    HotKeyExplanation:SetHeight(74);
+    HotKeyExplanation:SetHeight(78);
     HotKeyExplanation.frame:SetParent(self.Window);
     self:hideExplanationWindow();
 
     local Text = GL.AceGUI:Create("Label");
     Text:SetText(string.format(
-        "\nRoll : |c00a79eff%s|r\nAttrib : |c00a79eff%s|r\nDez : |c00a79eff%s|r",
-        GL.Settings:get("ShortcutKeys.rollOff"),
+        "\nRoll or auction: |c00a79eff%s|r\nAward: |c00a79eff%s|r\nDisenchant: |c00a79eff%s|r\nTrade: |c00a79effDBLCLK|r",
+        GL.Settings:get("ShortcutKeys.rollOffOrAuction"),
         GL.Settings:get("ShortcutKeys.award"),
         GL.Settings:get("ShortcutKeys.disenchant")
     ));
@@ -240,7 +319,7 @@ function TimeLeft:createBroadcastWindow()
     GL:debug("TimeLeft:createBroadcastWindow");
 
     local BroadCast = GL.AceGUI:Create("InlineGroup");
-    self.BroadCast = BroadCast;
+    BroadCast:PauseLayout();
 
     BroadCast:SetLayout("Fill");
     BroadCast:SetWidth(210);
@@ -252,14 +331,14 @@ function TimeLeft:createBroadcastWindow()
     if (GL.User.isInRaid) then
         channel = "raid";
     end
-    Text:SetText("Diffusion à " .. channel);
+    Text:SetText("Broadcast to " .. channel);
     BroadCast:AddChild(Text);
     Text:SetJustifyH("MIDDLE");
 
     local BroadcastButton = CreateFrame("Button", "GargulUI_TradeTimers_Broadcast", BroadCast.frame, "GameMenuButtonTemplate");
     BroadcastButton:SetPoint("TOPLEFT", BroadCast.frame, "BOTTOMLEFT", 20, 72);
     BroadcastButton:SetSize(160, 20);
-    BroadcastButton:SetText("Diffusion");
+    BroadcastButton:SetText("Broadcast");
     BroadcastButton:SetNormalFontObject("GameFontNormal");
     BroadcastButton:SetHighlightFontObject("GameFontNormal");
     BroadcastButton:SetScript("OnClick", function ()
@@ -300,7 +379,7 @@ function TimeLeft:createBroadcastWindow()
 
             barNumber = barNumber + 1;
             GL.Ace:ScheduleTimer(function ()
-                broadcastBars(barNumber);
+                broadcastBars();
             end, .5);
         end;
 
@@ -311,12 +390,14 @@ function TimeLeft:createBroadcastWindow()
     local CancelButton = CreateFrame("Button", "GargulUI_TradeTimers_Broadcast", BroadCast.frame, "GameMenuButtonTemplate");
     CancelButton:SetPoint("TOPLEFT", BroadcastButton, "BOTTOMLEFT", 0, -10);
     CancelButton:SetSize(160, 20);
-    CancelButton:SetText("Annuler");
+    CancelButton:SetText("Cancel");
     CancelButton:SetNormalFontObject("GameFontNormal");
     CancelButton:SetHighlightFontObject("GameFontNormal");
     CancelButton:SetScript("OnClick", function ()
         self:hideBroadcastWindow();
     end);
+
+    self.BroadCast = BroadCast;
 end
 
 function TimeLeft:toggleBroadcastWindow()
@@ -418,11 +499,15 @@ function TimeLeft:enabled()
     return true;
 end
 
-function TimeLeft:refreshBars()
+function TimeLeft:refreshBars(byRefresh)
     GL:debug("TimeLeft:refreshBars");
 
     -- We're already busy refreshing, return so we don't refresh endlessly
-    if (self.refreshing) then
+    if (self.refreshing
+        or (self.awaitingRefresh
+            and not byRefresh
+        )
+    ) then
         return;
     end
 
@@ -432,23 +517,47 @@ function TimeLeft:refreshBars()
         return;
     end
 
+    local pcTime = GetTime();
+    local timeLeftBeforeNextRefresh = math.ceil(self.minimumSecondsBetweenRefreshes - (pcTime - self.lastRefreshAt));
+    if (timeLeftBeforeNextRefresh > 0) then
+        self.awaitingRefresh = true;
+        GL.Ace:CancelTimer(self.RefreshThrottleTimer);
+
+        self.RefreshThrottleTimer = GL.Ace:ScheduleTimer(function ()
+            self:refreshBars(true);
+        end, math.max(timeLeftBeforeNextRefresh, 1));
+
+        return;
+    end
+
+    self.lastRefreshAt = GetTime();
+    self.awaitingRefresh = false;
     self.refreshing = true;
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not Window) then
         self:draw();
     end
 
-    Window = GL.Interface:getItem(self, "Window");
+    Window = GL.Interface:get(self, "Window");
     Window:SetHeight(0);
 
     local ItemsWithTradeTimeRemaining = {};
     local tradeTimeRemainingByLink = {};
-    for bag = 0, 4 do
-        for slot = 1, GetContainerNumSlots(bag) do
+    local awardedItemCountByLink = {};
+    local deItemCountByLink = {};
+
+    local numberOfBagsToCheck = 4;
+    -- Dragon Flight introduced an extra bag slot
+    if (GL.clientIsDragonFlightOrLater) then
+        numberOfBagsToCheck = numberOfBagsToCheck + 1;
+    end
+
+    for bag = 0, numberOfBagsToCheck do
+        for slot = 1, GL:getContainerNumSlots(bag) do
             (function ()
-                local icon, _, _, _, _, _, itemLink, _, _ = GetContainerItemInfo(bag, slot);
+                local icon, _, _, _, _, _, itemLink, _, _ = GL:getContainerItemInfo(bag, slot);
 
                 -- There's no eligible item in this bag slot
                 if (not icon or not itemLink) then
@@ -461,10 +570,32 @@ function TimeLeft:refreshBars()
                     return;
                 end
 
+                -- Checks for "awarded but not received gear" and initialize counts of
+                --    items unreceived for both award and de
+                local unreceived = false;
+                local deUnreceived = false;
+                local unreceivedCount = 0;
+                local deUnreceivedCount = 0;
+                for _, line in pairs(GL.AwardedLoot:tooltipLines(itemLink) or {}) do
+                    line = string.lower(line);
+                    if (string.match(line, "|de|") and string.match(line, "given: no")) then
+                        deUnreceived = true;
+                        deUnreceivedCount = deUnreceivedCount + 1
+                    elseif (string.match(line, "given: no")) then
+                        unreceived = true;
+                        unreceivedCount = unreceivedCount + 1
+                    end
+                end
+
+                awardedItemCountByLink[itemLink] = unreceivedCount
+                deItemCountByLink[itemLink] = deUnreceivedCount
+
                 tinsert(ItemsWithTradeTimeRemaining, {
                     icon = icon,
                     itemLink = itemLink,
                     timeRemaining = timeRemaining,
+                    unreceived = unreceived,
+                    deUnreceived = deUnreceived,
                 });
 
                 -- We're not tracking this item yet or this version of the item has a smaller trade time window
@@ -522,7 +653,7 @@ function TimeLeft:refreshBars()
     self:stopAllBars();
 
     local barsAvailable = false;
-    for index = 1, GL.Settings:get("LootTradeTimers.maximumNumberOfBars", 5) do
+    for index = 1, self.barsToShow or 0 do
         local BagItem = ItemsWithTradeTimeRemaining[index];
 
         if (GL:empty(BagItem)) then
@@ -542,18 +673,32 @@ function TimeLeft:refreshBars()
         TimerBar:SetColor(0, 1, 0, .3); -- Reset color to green
         TimerBar:SetLabel(BagItem.itemLink);
         TimerBar:SetIcon(BagItem.icon);
+        local awarded = false;
+        local disenchanted = false;
+        if (BagItem.unreceived and awardedItemCountByLink[BagItem.itemLink] > 0) then
+            TimerBar:SetIcon("Interface\\AddOns\\DahBooCustomizedGargul\\Assets\\Icons\\trophy");
+            awardedItemCountByLink[BagItem.itemLink] = awardedItemCountByLink[BagItem.itemLink] - 1;
+            awarded = true;
+        elseif (BagItem.deUnreceived and deItemCountByLink[BagItem.itemLink] > 0) then
+            TimerBar:SetIcon("Interface\\AddOns\\DahBooCustomizedGargul\\Assets\\Icons\\disenchant");
+            deItemCountByLink[BagItem.itemLink] = deItemCountByLink[BagItem.itemLink] - 1;
+            disenchanted = true;
+        end
+
         TimerBar:Set("type", "TRADE_WINDOW_TIME_LEFT");
         TimerBar.Details = BagItem;
 
         local offsetY = ((index - 1) * 18) * -1 - 16;
         TimerBar:SetPoint("TOP", Window, "TOP", 0, offsetY);
-        TimerBar.candyBarLabel:SetFont("Fonts\\ARIALN.ttf", 13, "OUTLINE");
+        TimerBar.candyBarLabel:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE");
 
         -- Make the bar turn green/yellow/red based on time left
         TimerBar:AddUpdateFunction(function (Bar)
             local percentageLeft = (BagItem.timeRemaining / 7200) * 100;
 
-            if (percentageLeft >= 60) then
+            if (awarded or disenchanted) then
+                Bar:SetColor(0, 0, 0, .6);
+            elseif (percentageLeft >= 60) then
                 Bar:SetColor(0, 1, 0, .3);
             elseif (percentageLeft >= 30) then
                 Bar:SetColor(1, 1, 0, .3);
@@ -562,33 +707,8 @@ function TimeLeft:refreshBars()
             end
         end);
 
-        -- Close the roll window on rightclick
-        TimerBar:SetScript("OnMouseDown", function(_, mouseButtonPressed)
-            -- The user doesnt want to use shortcut keys when solo
-            if (not GL.User.isInGroup
-                and GL.Settings:get("ShortcutKeys.onlyInGroup")
-            ) then
-                return;
-            end
-
-            local keyPressIdentifier = GL.Events:getClickCombination(mouseButtonPressed);
-
-            -- Open the roll window
-            if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
-                GL.MasterLooterUI:draw(BagItem.itemLink);
-
-            -- Open the award window
-            elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
-                GL.Interface.Award:draw(BagItem.itemLink);
-
-            -- Unregistered hotkey was pressed and it turns out to be SHIFT_CLICK, add item link to chat/editbox etc
-            elseif (keyPressIdentifier == "SHIFT_CLICK") then
-                if (ChatFrameEditBox and ChatFrameEditBox:IsVisible()) then
-                    ChatFrameEditBox:Insert(BagItem.itemLink);
-                else
-                    ChatEdit_InsertLink(BagItem.itemLink);
-                end
-            end
+        TimerBar:SetScript("OnMouseUp", function(_, mouseButtonPressed)
+            HandleModifiedItemClick(BagItem.itemLink, mouseButtonPressed);
         end)
 
         TimerBar:SetScript("OnLeave", function()
@@ -639,7 +759,7 @@ function TimeLeft:stopAllBars()
 
     self.Bars = {};
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (Window) then
         Window:Hide();
@@ -650,7 +770,7 @@ end
 function TimeLeft:close()
     GL:debug("Overview:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window

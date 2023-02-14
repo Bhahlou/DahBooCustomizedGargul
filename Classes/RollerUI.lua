@@ -46,7 +46,7 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
     Window:SetMovable(true);
     Window:EnableMouse(true);
     Window:SetClampedToScreen(true);
-    Window:SetFrameStrata("HIGH");
+    Window:SetFrameStrata("FULLSCREEN_DIALOG");
     Window:RegisterForDrag("LeftButton");
     Window:SetScript("OnDragStart", Window.StartMoving);
     Window:SetScript("OnDragStop", function()
@@ -121,7 +121,7 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
                 RollAcceptedNotification.frame:SetPoint("BOTTOMLEFT", Window, "TOPLEFT", 0, 4);
 
                 local Text = GL.AceGUI:Create("Label");
-                Text:SetText("Roll accepté !");
+                Text:SetText("Roll accepted!");
                 RollAcceptedNotification:AddChild(Text);
                 Text:SetJustifyH("MIDDLE");
 
@@ -180,7 +180,7 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
 
     TimerBar:SetParent(self.Window);
     TimerBar:SetPoint("BOTTOM", self.Window, "BOTTOM");
-    TimerBar.candyBarLabel:SetFont("Fonts\\ARIALN.ttf", 13, "OUTLINE");
+    TimerBar.candyBarLabel:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE");
 
     -- Make the bar turn green/yellow/red based on time left
     TimerBar:AddUpdateFunction(function (Bar)
@@ -217,17 +217,10 @@ function RollerUI:drawCountdownBar(time, itemLink, itemIcon, note, userCanUseIte
     end
 
     note = note or "";
-    local itemLinkLength = string.len(GL:getItemNameFromLink(itemLink)) + 2;
-    local noteStringLengthAllowed = 93 - itemLinkLength - string.len(note);
-
-    -- Make sure the item note does not go out of bounds
-    if (noteStringLengthAllowed < 0) then
-        noteStringLengthAllowed = 0;
-    end
-    TimerBar:SetLabel("  " .. itemLink .. " " .. string.sub(note, 0, noteStringLengthAllowed));
+    TimerBar:SetLabel("  " .. itemLink);
 
     if (not userCanUseItem) then
-        TimerBar:SetLabel("  |c00FFFFFFVous ne pouvez pas utiliser cet objet !|r");
+        TimerBar:SetLabel("  |c00FFFFFFYou can't use this item!|r");
     end
 
     TimerBar:SetIcon(itemIcon);

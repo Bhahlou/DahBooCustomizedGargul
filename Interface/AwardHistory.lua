@@ -7,6 +7,7 @@ GL.ScrollingTable = GL.ScrollingTable or LibStub("ScrollingTable");
 GL.Interface.AwardHistory = {
     isVisible = false,
     eventListenersSet = false,
+    showingItemsAwardedSince = nil,
     RefreshTimer = nil,
     ChecksumsToShow = nil,
     PreviousAnchors = {},
@@ -23,6 +24,8 @@ function AwardHistory:populateChecksumsToShow()
     self.ChecksumsToShow = {};
     local fiveHoursAgo = GetServerTime() - 18000;
     local loadItemsGTE = math.min(fiveHoursAgo, GL.loadedOn);
+
+    self.showingItemsAwardedSince = loadItemsGTE;
 
     for checksum, Entry in pairs(GL.DB.AwardHistory) do
         if (checksum and Entry.timestamp and Entry.timestamp >= loadItemsGTE) then
@@ -52,78 +55,48 @@ function AwardHistory:populateChecksumsToShow()
     end
 end
 
+--- Toggle the award history window
+---
+---@return void
+function AwardHistory:toggle()
+    if (self.isVisible) then
+        return self:close();
+    end
+
+    self:draw();
+end
+
 --- Draw the award history window
 ---
----@param AnchorTo table|nil This is the AceGUI element the history should attach itself to
 ---@return void
-function AwardHistory:draw(AnchorTo)
+function AwardHistory:draw()
     GL:debug("AwardHistory:draw");
 
-    if (type(AnchorTo) ~= "table") then
-        AnchorTo = nil;
+    if (self.isVisible) then
+        return;
     end
 
-    if (AnchorTo) then
-        if (self.isVisible) then
-            self:reAnchor(AnchorTo);
-            return;
-        end
-
-        -- Store this anchor in order to create an anchor "history"
-        tinsert(self.PreviousAnchors, AnchorTo);
-    end
+    self.isVisible = true;
 
     -- Cache the items we need to show first
     if (not self.ChecksumsToShow) then
         self:populateChecksumsToShow();
     end
 
-    self.isVisible = true;
-
     local Window;
     local WindowWidth;
 
-    if (AnchorTo) then
-        WindowWidth = math.max(AnchorTo.frame:GetWidth(), 430);
-        Window = GL.AceGUI:Create("InlineGroup");
-        Window:SetHeight(140);
-
-        Window.frame:ClearAllPoints();
-        Window.frame:SetParent(AnchorTo.frame);
-        Window.frame:SetPoint("TOP", AnchorTo.frame, "BOTTOM", 0, 12);
-        Window.frame:SetPoint("CENTER", AnchorTo.frame, "CENTER");
-        Window.frame.AnchoredTo = AnchorTo;
-        Window.frame:SetAlpha(0);
-
-        -- Remove the close button
-        local CloseButton = GL:fetchCloseButtonFromAceGUIWidget(Window);
-        if (CloseButton) then
-            CloseButton:Hide();
-        end
-
-        -- Make the frame less transparent
-        local Border = GL:fetchBorderFromAceGUIInlineGroup(Window);
-        if (Border) then
-            Border:SetBackdropColor(.1, .1, .1, .9);
-        end
-
-        -- We need to keep the default hide behavior intact, hence the post hook
-        hooksecurefunc(AnchorTo.frame, "Hide", function()
-            self:close();
-        end);
-    else
-        -- Not in use yet! Use at own risk!
-        --[[
-            /script _G.Gargul.Interface.AwardHistory:draw();
-        ]]
-        WindowWidth = 430;
-        Window = GL.AceGUI:Create("Frame");
-        Window:SetTitle("Award History");
-        Window:SetHeight(420);
-    end
-
+    WindowWidth = 430;
+    Window = GL.AceGUI:Create("Frame");
+    Window:SetTitle("Award History");
+    Window:SetStatusText("Items awarded since " .. date('%d-%m-%Y %H:%M', self.showingItemsAwardedSince));
     Window:SetLayout("FILL");
     Window:SetWidth(WindowWidth);
+    GL.Interface:restorePosition(Window, "AwardHistory");
+    GL.Interface:restoreDimensions(Window, "AwardHistory", WindowWidth, 420);
+    Window:SetCallback("OnClose", function()
+        self:close();
+    end);
 
     self.Window = Window;
 
@@ -170,6 +143,9 @@ function AwardHistory:draw(AnchorTo)
                     return;
                 end
 
+                -- Was this item disenchanted?
+                local itemWasDisenchanted = Award.awardedTo == GL.Exporter.disenchantedItemIdentifier;
+
                 local ItemRow = GL.AceGUI:Create("SimpleGroup");
                 ItemRow:SetLayout("FLOW");
                 ItemRow:SetFullWidth(true);
@@ -178,26 +154,33 @@ function AwardHistory:draw(AnchorTo)
                 -- Show player details on hover
                 local ItemsWonByRollerInTheLastFiveHours;
                 ItemRow.frame:SetScript("OnEnter", function()
+                    local linesAdded = false;
+                    GameTooltip:ClearLines();
+                    GameTooltip:SetOwner(ItemRow.frame, "ANCHOR_RIGHT");
+
                     if (not ItemsWonByRollerInTheLastFiveHours) then
                         ItemsWonByRollerInTheLastFiveHours = GL.AwardedLoot:byWinner(Award.awardedTo, fiveHoursAgo);
                     end
 
                     if (not GL:empty(ItemsWonByRollerInTheLastFiveHours)) then
-                        GameTooltip:ClearLines();
-                        GameTooltip:SetOwner(ItemRow.frame, "ANCHOR_RIGHT");
-                        GameTooltip:AddLine(string.format("Items gagnés par %s:", Award.awardedTo));
-                        GameTooltip:AddLine(" ");
+                        linesAdded = true;
+                        local header = string.format("Items won by %s:", Award.awardedTo);
+                        if (itemWasDisenchanted) then
+                            header = "Disenchanted items:"
+                        end
+
+                        GameTooltip:AddLine(header);
 
                         for _, Entry in pairs(ItemsWonByRollerInTheLastFiveHours) do
-                            local receivedString = " (reçu)";
+                            local receivedString = " (item given: yes)";
                             if (not Entry.received) then
-                                receivedString = " (pas encore reçu)";
+                                receivedString = " (item given: no)";
                             end
 
                             local OSString = "";
-                            if (Loot.OS) then
+                            if (Entry.OS) then
                                 OSString = " (+2)"
-                            elseif (Loot.MS) then
+                            elseif (Entry.MS) then
                                 OSString = " (+1)"
                             else
                                 OSString = " (+3)"
@@ -217,7 +200,47 @@ function AwardHistory:draw(AnchorTo)
 
                             GameTooltip:AddLine(line);
                         end
+                    end
 
+                    if (not GL:empty(Award.Rolls)) then
+                        local rollsPerPlayer = {};
+
+                        -- Sort the PrioListEntries based on prio (lowest to highest)
+                        table.sort(Award.Rolls, function (a, b)
+                            if (a.time and b.time) then
+                                return a.time < b.time;
+                            end
+
+                            return false;
+                        end);
+
+                        if (linesAdded) then
+                            GameTooltip:AddLine(" ");
+                        end
+
+                        GameTooltip:AddLine("Rolls");
+                        linesAdded = true;
+
+                        for _, Roll in pairs (Award.Rolls or {}) do
+                            local rollCount = "";
+                            if (not rollsPerPlayer[Roll.player]) then
+                                rollsPerPlayer[Roll.player] = 1;
+                            else
+                                rollsPerPlayer[Roll.player] = rollsPerPlayer[Roll.player] + 1;
+                                rollCount = string.format("[%s]", rollsPerPlayer[Roll.player]);
+                            end
+
+                            GameTooltip:AddLine(string.format("|c00%s%s|r: %s%s (%s)",
+                                GL:classHexColor(Roll.class),
+                                Roll.player,
+                                Roll.amount,
+                                rollCount,
+                                Roll.classification
+                            ));
+                        end
+                    end
+
+                    if (linesAdded) then
                         GameTooltip:Show();
                     end
                 end);
@@ -254,10 +277,15 @@ function AwardHistory:draw(AnchorTo)
                 ItemRow:AddChild(ItemLinkLabel);
 
                 local PlayerLabel = GL.AceGUI:Create("Label");
-                PlayerLabel:SetText(string.format("|c00%s%s|r",
-                    GL:classHexColor(GL.Player:classByName(Award.awardedTo, 0), "5f5f5f"),
-                    Award.awardedTo
-                ));
+                if (not itemWasDisenchanted) then
+                    PlayerLabel:SetText(string.format("|c00%s%s|r",
+                        GL:classHexColor(GL.Player:classByName(Award.awardedTo, 0), "5f5f5f"),
+                        Award.awardedTo
+                    ));
+                else
+                    PlayerLabel:SetText("Disenchanted!");
+                end
+
                 PlayerLabel:SetWidth(100);
                 ItemRow:AddChild(PlayerLabel);
 
@@ -273,78 +301,80 @@ function AwardHistory:draw(AnchorTo)
                 ActionButtonFrame:SetHeight(30);
                 ItemRow:AddChild(ActionButtonFrame);
 
-                local DeleteButton = GL.UI:createFrame("Button", "AwardHistoryActionButton" .. GL:uuid(), ActionButtonFrame.frame, "UIPanelButtonTemplate");
-                DeleteButton:SetSize(24, 24);
-                DeleteButton:SetPoint("TOPRIGHT", ActionButtonFrame.frame, "TOPRIGHT", 0, 0);
-                DeleteButton:SetMotionScriptsWhileDisabled(true); -- Make sure tooltip still shows even when button is disabled
+                if (not GL.User.isInGroup or GL.User.hasAssist or GL.User.isMasterLooter) then
+                    local DeleteButton = GL.UI:createFrame("Button", "AwardHistoryActionButton" .. GL:uuid(), ActionButtonFrame.frame, "UIPanelButtonTemplate");
+                    DeleteButton:SetSize(24, 24);
+                    DeleteButton:SetPoint("TOPRIGHT", ActionButtonFrame.frame, "TOPRIGHT", 0, 0);
+                    DeleteButton:SetMotionScriptsWhileDisabled(true); -- Make sure tooltip still shows even when button is disabled
 
-                local HighlightTexture = DeleteButton:CreateTexture();
-                HighlightTexture:SetTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\delete-highlighted");
-                HighlightTexture:SetPoint("CENTER", DeleteButton, "CENTER", 0, 0);
-                HighlightTexture:SetSize(24, 24);
+                    local HighlightTexture = DeleteButton:CreateTexture();
+                    HighlightTexture:SetTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\delete-highlighted");
+                    HighlightTexture:SetPoint("CENTER", DeleteButton, "CENTER", 0, 0);
+                    HighlightTexture:SetSize(24, 24);
 
-                DeleteButton:SetNormalTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\delete");
-                DeleteButton:SetHighlightTexture(HighlightTexture);
+                    DeleteButton:SetNormalTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\delete");
+                    DeleteButton:SetHighlightTexture(HighlightTexture);
 
-                DeleteButton:SetScript("OnClick", function(_, button)
-                    if (button == 'LeftButton') then
-                        local BRString = "";
-                        if (GL:higherThanZero(Award.BRCost)) then
-                            BRString = " " .. tostring(Award.BRCost) .. " boosted roll points will be refunded!";
-                        end
+                    DeleteButton:SetScript("OnClick", function(_, button)
+                        if (button == 'LeftButton') then
+                            local BRString = "";
+                            if (GL:higherThanZero(Award.BRCost)) then
+                                BRString = " " .. tostring(Award.BRCost) .. " boosted roll points will be refunded!";
+                            end
 
-                        GL.Interface.Dialogs.PopupDialog:open({
-                            question = string.format(
-                                "Etes-vous sûr de vouloir annuler l'attribution de %s à %s ?%s",
-                                Award.itemLink,
-                                Award.awardedTo,
-                                BRString
-                            ),
-                            OnYes = function ()
-                                GL.AwardedLoot:deleteWinner(Award.checksum);
-                            end,
-                        });
-                    end
-                end);
-
-                local EditButton = GL.UI:createFrame("Button", "AwardHistoryActionButton" .. GL:uuid(), ActionButtonFrame.frame, "UIPanelButtonTemplate");
-                EditButton:SetSize(24, 24);
-                EditButton:SetPoint("TOPRIGHT", DeleteButton, "TOPLEFT", -3, 0);
-
-                HighlightTexture = EditButton:CreateTexture();
-                HighlightTexture:SetTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\edit-highlighted");
-                HighlightTexture:SetPoint("CENTER", EditButton, "CENTER", 0, 0);
-                HighlightTexture:SetSize(24, 24);
-
-                EditButton:SetNormalTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\edit");
-                EditButton:SetHighlightTexture(HighlightTexture);
-                EditButton:SetDisabledTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\edit-disabled");
-
-                EditButton:SetScript("OnClick", function(_, button)
-                    if (button == 'LeftButton') then
-                        -- Show the player selector
-                        local question = string.format("A qui devrait aller %s à la place ?", Award.itemLink);
-                        GL.Interface.PlayerSelector:draw(question, GL.User:groupMemberNames(), function (playerName)
                             GL.Interface.Dialogs.PopupDialog:open({
-                                question = string.format("Attribuer %s à |cff%s%s|r ?",
-                                    Award.itemLink,
-                                    GL:classHexColor(GL.Player:classByName(playerName)),
-                                    playerName
+                                question = string.format(
+                                        "Are you sure you want to undo %s awarded to %s?%s",
+                                        Award.itemLink,
+                                        Award.awardedTo,
+                                        BRString
                                 ),
                                 OnYes = function ()
-                                    if (not playerName or type(playerName) ~= "string") then
-                                        return;
-                                    end
-
-                                    playerName = GL:capitalize(string.trim(string.lower(GL:stripRealm(playerName))));
-                                    GL.AwardedLoot:editWinner(Award.checksum, playerName);
-
-                                    GL.Interface.PlayerSelector:close();
+                                    GL.AwardedLoot:deleteWinner(Award.checksum);
                                 end,
                             });
-                        end);
-                    end
-                end);
+                        end
+                    end);
+
+                    local EditButton = GL.UI:createFrame("Button", "AwardHistoryActionButton" .. GL:uuid(), ActionButtonFrame.frame, "UIPanelButtonTemplate");
+                    EditButton:SetSize(24, 24);
+                    EditButton:SetPoint("TOPRIGHT", DeleteButton, "TOPLEFT", -3, 0);
+
+                    HighlightTexture = EditButton:CreateTexture();
+                    HighlightTexture:SetTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\edit-highlighted");
+                    HighlightTexture:SetPoint("CENTER", EditButton, "CENTER", 0, 0);
+                    HighlightTexture:SetSize(24, 24);
+
+                    EditButton:SetNormalTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\edit");
+                    EditButton:SetHighlightTexture(HighlightTexture);
+                    EditButton:SetDisabledTexture("Interface\\AddOns\\Gargul\\Assets\\Buttons\\edit-disabled");
+
+                    EditButton:SetScript("OnClick", function(_, button)
+                        if (button == 'LeftButton') then
+                            -- Show the player selector
+                            local question = string.format("Who should %s go to instead?", Award.itemLink);
+                            GL.Interface.PlayerSelector:draw(question, GL.User:groupMemberNames(), function (playerName)
+                                GL.Interface.Dialogs.PopupDialog:open({
+                                    question = string.format("Award %s to |cff%s%s|r?",
+                                            Award.itemLink,
+                                            GL:classHexColor(GL.Player:classByName(playerName)),
+                                            playerName
+                                    ),
+                                    OnYes = function ()
+                                        if (not playerName or type(playerName) ~= "string") then
+                                            return;
+                                        end
+
+                                        playerName = GL:capitalize(string.trim(string.lower(GL:stripRealm(playerName))));
+                                        GL.AwardedLoot:editWinner(Award.checksum, playerName);
+
+                                        GL.Interface.PlayerSelector:close();
+                                    end,
+                                });
+                            end);
+                        end
+                    end);
+                end
             end)();
         end
 
@@ -364,16 +394,13 @@ function AwardHistory:draw(AnchorTo)
 
         GL.Ace:CancelTimer(self.RefreshTimer);
         self.RefreshTimer = GL.Ace:ScheduleTimer(function ()
-            self:refresh(AnchorTo);
+            self:refresh();
         end, .3);
     end);
 end
 
---- Close the current AwardHistory instance and by default reattach it to its last known location
----
----@param reattach boolean|nil
 ---@return void
-function AwardHistory:close(reattach)
+function AwardHistory:close()
     GL:debug("AwardHistory:close");
 
     if (not self.isVisible) then
@@ -386,6 +413,8 @@ function AwardHistory:close(reattach)
         and self.Window.frame
         and self.Window.frame.Hide
     ) then
+        GL.Interface:storePosition(self.Window, "AwardHistory");
+        GL.Interface:storeDimensions(self.Window, "AwardHistory");
         self.Window.frame:Hide();
     end
 
@@ -394,44 +423,8 @@ function AwardHistory:close(reattach)
     GL.Events:unregister({
         "AwardHistoryItemAwardedListener",
         "AwardHistoryItemUnAwardedListener",
+        "AwardHistoryItemEditedListener",
     });
-
-    if (reattach == nil or reattach) then
-        for index = #self.PreviousAnchors, 1, -1 do
-            local anchorIsValid = false;
-            local Anchor = self.PreviousAnchors[index];
-
-            if (Anchor
-                and type(Anchor) == "table"
-                and Anchor.frame
-                and Anchor.frame:IsVisible()
-            ) then
-                anchorIsValid = true;
-            end
-
-            self.PreviousAnchors[index] = nil;
-            table.remove(self.PreviousAnchors, index);
-
-            if (anchorIsValid) then
-                GL.Ace:ScheduleTimer(function ()
-                    self:draw(Anchor);
-                end, 1);
-                break;
-            end
-        end
-    end
-end
-
---- Reanchor the award history instance to a new AceGUI element
----
----@parm AnchorTo table
----@param AnchorTo table|nil
----@return void
-function AwardHistory:reAnchor(AnchorTo)
-    GL:debug("AwardHistory:reAnchor");
-
-    self:close(false);
-    self:draw(AnchorTo);
 end
 
 --- Refresh
@@ -440,6 +433,10 @@ end
 ---@return void
 function AwardHistory:refresh(AnchorTo)
     GL:debug("AwardHistory:refresh");
+
+    if (not self.isVisible) then
+        return;
+    end
 
     self:close();
     self:draw(AnchorTo);

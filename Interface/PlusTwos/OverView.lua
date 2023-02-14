@@ -29,7 +29,7 @@ function Overview:draw()
     Window:SetCallback("OnClose", function()
         self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
     Window:SetPoint(GL.Interface:getPosition("PlusTwosOverview"));
 
     local ScrollFrameParent = AceGUI:Create("SimpleGroup");
@@ -126,7 +126,7 @@ function Overview:addPlayerPlusTwoEntries(Parent)
         PlusTwoStatus:SetWidth(30);
         PlusTwoStatus:SetJustifyH("CENTER");
         Row:AddChild(PlusTwoStatus);
-        GL.Interface:setItem(self, "PlusTwosOf_" .. Entry.name, PlusTwoStatus);
+        GL.Interface:set(self, "PlusTwosOf_" .. Entry.name, PlusTwoStatus);
 
         local AddButton = AceGUI:Create("Button");
         AddButton:SetText(">");
@@ -156,7 +156,7 @@ function Overview:close()
         return;
     end
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (Window) then
         Window:Hide();
@@ -180,7 +180,7 @@ function Overview:update()
 
     for _, Player in pairs(GL.User:groupMembers()) do
         local normalizedName = GL:normalizedName(Player.name);
-        local PlusTwoLabel = GL.Interface:getItem(self, "Label.PlusTwosOf_" .. normalizedName);
+        local PlusTwoLabel = GL.Interface:get(self, "Label.PlusTwosOf_" .. normalizedName);
 
         if (PlusTwoLabel) then
             PlusTwoLabel:SetText(GL.PlusTwos:get(normalizedName));

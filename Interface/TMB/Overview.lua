@@ -35,7 +35,7 @@ function Overview:draw()
     Window:SetCallback("OnClose", function()
        self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     Window:SetPoint(GL.Interface:getPosition("TMBOverview"));
 
@@ -52,6 +52,8 @@ function Overview:draw()
     local source = "TMB";
     if (GL.TMB:wasImportedFromDFT()) then
         source = "DFT";
+    elseif (GL.TMB:wasImportedFromCPR()) then
+        source = "CPR";
     end
 
     local VerticalSpacer = GL.AceGUI:Create("SimpleGroup");
@@ -157,7 +159,7 @@ function Overview:draw()
     end);
     ShareButton:SetDisabled(true);
     Window:AddChild(ShareButton);
-    GL.Interface:setItem(self, "Share", ShareButton);
+    GL.Interface:set(self, "Share", ShareButton);
 
     local SettingsButton = AceGUI:Create("Button");
     SettingsButton:SetText("Settings");
@@ -183,7 +185,7 @@ function Overview:draw()
     BroadcastProgressLabel:SetWidth(200);
     BroadcastProgressLabel:SetFontObject(_G["GameFontNormal"]);
     Window:AddChild(BroadcastProgressLabel);
-    GL.Interface:setItem(GL.TMB, "BroadcastProgress", BroadcastProgressLabel);
+    GL.Interface:set(GL.TMB, "BroadcastProgress", BroadcastProgressLabel);
 
     self:updateShareButton();
 
@@ -196,7 +198,7 @@ end
 ---
 ---@return void
 function Overview:updateShareButton()
-    local ShareButton = GL.Interface:getItem(self, "Button.Share")
+    local ShareButton = GL.Interface:get(self, "Button.Share")
 
     if (not ShareButton) then
         return;
@@ -218,7 +220,7 @@ end
 function Overview:close()
     GL:debug("Overview:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window
@@ -235,7 +237,7 @@ function Overview:close()
     Window:Hide();
     self.isVisible = false;
 
-    local ShareButton = GL.Interface:getItem(self, "Frame.ShareButton");
+    local ShareButton = GL.Interface:get(self, "Frame.ShareButton");
     if (ShareButton) then
         ShareButton:Hide();
     end
