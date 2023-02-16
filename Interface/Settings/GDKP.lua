@@ -50,6 +50,20 @@ function GDKP:draw(Parent)
             setting = "GDKP.showBidWindow",
         },
         {
+            label = "Show the GDKP bid queue that allows you to prebid on queued items",
+            setting = "GDKP.enableBidderQueue",
+            callback = function()
+                local BidderQueue = GL.Interface.GDKP.BidderQueue;
+
+                if (not GL.Settings:get("GDKP.enableBidderQueue")) then
+                    BidderQueue:close();
+                else
+                    BidderQueue:open();
+                    BidderQueue:refreshTable();
+                end
+            end,
+        },
+        {
             label = "Show GDKP data on item tooltips",
             setting = "GDKP.showHistoryOnTooltip",
         },
@@ -60,6 +74,36 @@ function GDKP:draw(Parent)
     Spacer:SetFullWidth(true);
     Spacer:SetHeight(20);
     Parent:AddChild(Spacer);
+
+    local BidderScale = GL.AceGUI:Create("Slider");
+    BidderScale:SetLabel("Magnification scale of the bidder window");
+    BidderScale.label:SetTextColor(1, .95686, .40784);
+    BidderScale:SetFullWidth(true);
+    BidderScale:SetValue(GL.Settings:get("GDKP.bidderScale"));
+    BidderScale:SetSliderValues(.8, 1.8, .1);
+    BidderScale:SetCallback("OnValueChanged", function(Slider)
+        local value = tonumber(Slider:GetValue());
+
+        if (not value) then
+            return;
+        end
+
+        GL.Settings:set("GDKP.bidderScale", value);
+
+        -- Change the existing bidder window if it's active!
+        if (GL.Interface.GDKP.Bidder.Window
+                and type(GL.Interface.GDKP.Bidder.Window.SetScale == "function")
+        ) then
+            GL.Interface.GDKP.Bidder.Window:SetScale(value);
+        end
+    end);
+    Parent:AddChild(BidderScale);
+
+    local HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
+    HorizontalSpacer:SetLayout("FILL");
+    HorizontalSpacer:SetFullWidth(true);
+    HorizontalSpacer:SetHeight(20);
+    Parent:AddChild(HorizontalSpacer);
 
     local PlaySoundWhenOutbidLabel = GL.AceGUI:Create("Label");
     PlaySoundWhenOutbidLabel:SetText("|c00FFF569Choose a sound that plays when you're outbid|r");
@@ -73,7 +117,7 @@ function GDKP:draw(Parent)
     OutbidSoundDropdown:SetValue(SoundsByName[GL.Settings:get("GDKP.outbidSound")]);
     OutbidSoundDropdown:SetList(Sounds);
     OutbidSoundDropdown:SetText(GL.Settings:get("GDKP.outbidSound"));
-    OutbidSoundDropdown:SetFullWidth(true);
+    OutbidSoundDropdown:SetWidth(250);
     OutbidSoundDropdown:SetCallback("OnValueChanged", function()
         local value = OutbidSoundDropdown:GetValue();
         local sound = LibStub("LibSharedMedia-3.0"):Fetch("sound", Sounds[value]);
@@ -90,6 +134,179 @@ function GDKP:draw(Parent)
 
     Overview:drawCheckboxes({
         {
+            label = "Accept bids lower than minimum",
+            description = "Accept bids that don't meet the minimum, useful for identifying off spec bids",
+            setting = "GDKP.acceptBidsLowerThanMinimum",
+        },
+        {
+            label = "Allow invalid bids to trigger anti-snipe",
+            description = "Bids that are too low will still trigger the anti-snipe timer",
+            setting = "GDKP.invalidBidsTriggerAntiSnipe",
+        },
+        {
+            label = "Auto award items",
+            description = "Auto award an item to the highest bidder when the timer runs out (clicking \"Stop\" during an auction will not trigger this)",
+            setting = "GDKP.autoAwardViaAuctioneer",
+        },
+    }, Parent);
+
+    Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
+    local QueuedAuctionNoBidsActionLabel = GL.AceGUI:Create("Label");
+    QueuedAuctionNoBidsActionLabel:SetText("|c00FFF569Default action when no one bids on a queued auction|r");
+    QueuedAuctionNoBidsActionLabel:SetFullWidth(true);
+    Parent:AddChild(QueuedAuctionNoBidsActionLabel);
+
+    local Actions = GL.Data.Constants.GDKP.QueuedAuctionNoBidsActions;
+
+    local QueuedAuctionNoBidsActionDropdown = GL.AceGUI:Create("Dropdown");
+    QueuedAuctionNoBidsActionDropdown:SetValue(GL.Settings:get("GDKP.queuedAuctionNoBidsAction"));
+    QueuedAuctionNoBidsActionDropdown:SetList(Actions);
+    QueuedAuctionNoBidsActionDropdown:SetText(GL.Settings:get("GDKP.queuedAuctionNoBidsAction"));
+    QueuedAuctionNoBidsActionDropdown:SetWidth(250);
+    QueuedAuctionNoBidsActionDropdown:SetCallback("OnValueChanged", function()
+        local value = QueuedAuctionNoBidsActionDropdown:GetValue();
+
+        if (GL.Data.Constants.GDKP.QueuedAuctionNoBidsActions[value]) then
+            GL.Settings:set("GDKP.queuedAuctionNoBidsAction", value);
+        end
+    end);
+    Parent:AddChild(QueuedAuctionNoBidsActionDropdown);
+
+
+    Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
+    local AuctionBidLeeway = GL.AceGUI:Create("Slider");
+    AuctionBidLeeway:SetLabel("Accept bids till how long after auction an auction ends?");
+    AuctionBidLeeway.label:SetTextColor(1, .95686, .40784);
+    AuctionBidLeeway:SetFullWidth(true);
+    AuctionBidLeeway:SetValue(GL.Settings:get("GDKP.auctionEndLeeway", 2));
+    AuctionBidLeeway:SetSliderValues(1, 5, .5);
+    AuctionBidLeeway:SetCallback("OnValueChanged", function(Slider)
+        local value = tonumber(Slider:GetValue()) or 0;
+
+        if (value >= 1) then
+            GL.Settings:set("GDKP.auctionEndLeeway", value);
+        end
+    end);
+    Parent:AddChild(AuctionBidLeeway);
+
+    Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
+    local DelayInSecondsBetweenQueuedAuctions = GL.AceGUI:Create("Slider");
+    DelayInSecondsBetweenQueuedAuctions:SetLabel("Delay in seconds between queued auctions");
+    DelayInSecondsBetweenQueuedAuctions.label:SetTextColor(1, .95686, .40784);
+    DelayInSecondsBetweenQueuedAuctions:SetFullWidth(true);
+    DelayInSecondsBetweenQueuedAuctions:SetValue(GL.Settings:get("GDKP.delayBetweenQueuedAuctions", 1));
+    DelayInSecondsBetweenQueuedAuctions:SetSliderValues(1, 30, 1);
+    DelayInSecondsBetweenQueuedAuctions:SetCallback("OnValueChanged", function(Slider)
+        local value = math.floor(tonumber(Slider:GetValue()));
+
+        if (value >= 0) then
+            GL.Settings:set("GDKP.delayBetweenQueuedAuctions", value);
+        end
+    end);
+    Parent:AddChild(DelayInSecondsBetweenQueuedAuctions);
+
+    Overview:drawHeader("Queues", Parent);
+
+    Overview:drawCheckboxes({
+        {
+            label = "Completely disable queues",
+            setting = "GDKP.disableQueues",
+            callback = function (Checkbox)
+                local checked = Checkbox:GetValue();
+                GL.Settings:set("GDKP.disableQueues", checked);
+
+                if (checked) then
+                    local enableQueue = function ()
+                        GL.Settings:set("GDKP.disableQueues", true);
+                        Checkbox:SetValue(false);
+                    end;
+
+                    GL.Interface.Dialogs.PopupDialog:open({
+                        question = string.format("Are you sure? If used properly this will save you A LOT of time!"),
+                        OnYes = function ()
+                            GL.Interface.Dialogs.PopupDialog:open({
+                                question = string.format("Your raiders will no longer be able prebid without a queue!"),
+                                OnYes = function ()
+                                    GL.Interface.Dialogs.PopupDialog:open({
+                                        question = string.format("Wanting to disable queues usually points to using the add-on wrong. Are you still sure?"),
+                                        OnYes = function ()
+                                            GL.GDKP.Auctioneer:clearQueue();
+                                            C_UI.Reload();
+                                            return;
+                                        end,
+                                        OnNo = function ()
+                                            enableQueue();
+                                        end
+                                    });
+                                end,
+                                OnNo = function ()
+                                    enableQueue();
+                                end
+                            });
+                        end,
+                        OnNo = function ()
+                            enableQueue();
+                        end
+                    });
+                end
+            end
+        },
+        {
+            label = "Automatically add drops to queue",
+            setting = "GDKP.addDropsToQueue",
+        },
+        {
+            label = "Include BOEs",
+            setting = "GDKP.addBOEDropsToQueue",
+        }
+    }, Parent);
+
+    Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
+    local MinimumDropQualityLabel = GL.AceGUI:Create("Label");
+    MinimumDropQualityLabel:SetText("|c00FFF569Minimum quality of items to automatically add to queue|r");
+    MinimumDropQualityLabel:SetFullWidth(true);
+    Parent:AddChild(MinimumDropQualityLabel);
+
+    local QualityList = {};
+    local ItemQualityColors = GL.Data.Constants.ItemQualityColors;
+    for i = 0, #ItemQualityColors do
+        QualityList[i] = string.format("|c00%s%s|r", ItemQualityColors[i].hex, ItemQualityColors[i].description);
+    end
+
+    local MinimumDropQuality = GL.AceGUI:Create("Dropdown");
+    MinimumDropQuality:SetHeight(20);
+    MinimumDropQuality:SetWidth(250);
+    MinimumDropQuality:SetList(QualityList);
+    MinimumDropQuality:SetValue(GL.Settings:get("GDKP.minimumDropQuality"));
+    MinimumDropQuality:SetCallback("OnValueChanged", function()
+        GL.Settings:set("GDKP.minimumDropQuality", MinimumDropQuality:GetValue());
+    end);
+    Parent:AddChild(MinimumDropQuality);
+
+    Overview:drawHeader("Communication", Parent);
+
+    Overview:drawCheckboxes({
+        {
             label = "Announce auction start",
             setting = "GDKP.announceAuctionStart",
         },
@@ -98,7 +315,7 @@ function GDKP:draw(Parent)
             setting = "GDKP.announcePotAfterAuction",
         },
         {
-            label = "Whisper bidder if their bid is too low",
+            label = "Whisper bidder if bid is too low",
             setting = "GDKP.notifyIfBidTooLow",
         },
         {
@@ -115,22 +332,6 @@ function GDKP:draw(Parent)
             label = "Announce incoming bids in raid warning",
             description = "Announce bids in /rw instead of /ra. Requires |c00967FD2Announce incoming bids|r to be enabled!|r",
             setting = "GDKP.announceNewBidInRW",
-
-        },
-        {
-            label = "Accept bids lower than minimum",
-            description = "Accept bids that don't meet the minimum, useful for identifying off spec bids",
-            setting = "GDKP.acceptBidsLowerThanMinimum",
-        },
-        {
-            label = "Allow invalid bids to trigger anti-snipe",
-            description = "Bids that are too low will still trigger the anti-snipe timer",
-            setting = "GDKP.invalidBidsTriggerAntiSnipe",
-        },
-        {
-            label = "Auto award items",
-            description = "Auto award an item to the highest bidder when the timer runs out (clicking \"Stop\" during an auction will not trigger this)",
-            setting = "GDKP.autoAwardViaAuctioneer",
         },
     }, Parent);
 
@@ -181,121 +382,6 @@ function GDKP:draw(Parent)
     Spacer:SetFullWidth(true);
     Spacer:SetHeight(20);
     Parent:AddChild(Spacer);
-
-    local AuctionBidLeeway = GL.AceGUI:Create("Slider");
-    AuctionBidLeeway:SetLabel("Accept bids till how long after auction an auction ends?");
-    AuctionBidLeeway.label:SetTextColor(1, .95686, .40784);
-    AuctionBidLeeway:SetFullWidth(true);
-    AuctionBidLeeway:SetValue(GL.Settings:get("GDKP.auctionEndLeeway", 2));
-    AuctionBidLeeway:SetSliderValues(1, 5, .5);
-    AuctionBidLeeway:SetCallback("OnValueChanged", function(Slider)
-        local value = tonumber(Slider:GetValue()) or 0;
-
-        if (value >= 1) then
-            GL.Settings:set("GDKP.auctionEndLeeway", value);
-        end
-    end);
-    Parent:AddChild(AuctionBidLeeway);
-
-    Overview:drawHeader("Queues", Parent);
-
-    Overview:drawCheckboxes({
-        {
-            label = "Enable GDKP queues by default",
-            setting = "GDKP.enableGDKPQueuesByDefault",
-        },
-        {
-            label = "Show the GDKP bid queue that allows you to prebid on queued items",
-            setting = "GDKP.enableGDKPBidderQueue",
-            callback = function()
-                local BidderQueue = GL.Interface.GDKP.BidderQueue;
-
-                if (not GL.Settings:get("GDKP.enableGDKPBidderQueue")) then
-                    BidderQueue:close();
-                else
-                    BidderQueue:open();
-                    BidderQueue:refreshTable();
-                end
-            end,
-        },
-    }, Parent);
-
-    Spacer = GL.AceGUI:Create("SimpleGroup");
-    Spacer:SetLayout("FILL");
-    Spacer:SetFullWidth(true);
-    Spacer:SetHeight(20);
-    Parent:AddChild(Spacer);
-
-    local DelayInSecondsBetweenQueuedAuctions = GL.AceGUI:Create("Slider");
-    DelayInSecondsBetweenQueuedAuctions:SetLabel("Add a delay in seconds between queued auctions");
-    DelayInSecondsBetweenQueuedAuctions.label:SetTextColor(1, .95686, .40784);
-    DelayInSecondsBetweenQueuedAuctions:SetFullWidth(true);
-    DelayInSecondsBetweenQueuedAuctions:SetValue(GL.Settings:get("GDKP.delayBetweenQueuedAuctions", 1));
-    DelayInSecondsBetweenQueuedAuctions:SetSliderValues(1, 30, 1);
-    DelayInSecondsBetweenQueuedAuctions:SetCallback("OnValueChanged", function(Slider)
-        local value = math.floor(tonumber(Slider:GetValue()));
-
-        if (value >= 0) then
-            GL.Settings:set("GDKP.delayBetweenQueuedAuctions", value);
-        end
-    end);
-    Parent:AddChild(DelayInSecondsBetweenQueuedAuctions);
-
-    Spacer = GL.AceGUI:Create("SimpleGroup");
-    Spacer:SetLayout("FILL");
-    Spacer:SetFullWidth(true);
-    Spacer:SetHeight(20);
-    Parent:AddChild(Spacer);
-
-    local BidderQueueScale = GL.AceGUI:Create("Slider");
-    BidderQueueScale:SetLabel("Magnification scale of the queue bidding window");
-    BidderQueueScale.label:SetTextColor(1, .95686, .40784);
-    BidderQueueScale:SetFullWidth(true);
-    BidderQueueScale:SetValue(GL.Settings:get("GDKP.bidderQueueScale"));
-    BidderQueueScale:SetSliderValues(.8, 1.8, .1);
-    BidderQueueScale:SetCallback("OnValueChanged", function(Slider)
-        local value = tonumber(Slider:GetValue());
-
-        if (not value) then
-            return;
-        end
-
-        GL.Settings:set("GDKP.bidderQueueScale", value);
-
-        -- Change the existing bidder queue window if it's active!
-        local Window = GL.Interface:get(GL.Interface.GDKP.BidderQueue, "Frame.GDKPBidderQueue");
-        if (Window and Window.frame and Window.frame.SetScale) then
-            Window.frame:SetScale(value);
-        end
-    end);
-    Parent:AddChild(BidderQueueScale);
-
-    Spacer = GL.AceGUI:Create("SimpleGroup");
-    Spacer:SetLayout("FILL");
-    Spacer:SetFullWidth(true);
-    Spacer:SetHeight(20);
-    Parent:AddChild(Spacer);
-
-    local QueuedAuctionNoBidsActionLabel = GL.AceGUI:Create("Label");
-    QueuedAuctionNoBidsActionLabel:SetText("|c00FFF569Default action when no one bids on a queued auction|r");
-    QueuedAuctionNoBidsActionLabel:SetFullWidth(true);
-    Parent:AddChild(QueuedAuctionNoBidsActionLabel);
-
-    local Actions = GL.Data.Constants.GDKP.QueuedAuctionNoBidsActions;
-
-    local QueuedAuctionNoBidsActionDropdown = GL.AceGUI:Create("Dropdown");
-    QueuedAuctionNoBidsActionDropdown:SetValue(GL.Settings:get("GDKP.queuedAuctionNoBidsAction"));
-    QueuedAuctionNoBidsActionDropdown:SetList(Actions);
-    QueuedAuctionNoBidsActionDropdown:SetText(GL.Settings:get("GDKP.queuedAuctionNoBidsAction"));
-    QueuedAuctionNoBidsActionDropdown:SetFullWidth(true);
-    QueuedAuctionNoBidsActionDropdown:SetCallback("OnValueChanged", function()
-        local value = QueuedAuctionNoBidsActionDropdown:GetValue();
-
-        if (GL.Data.Constants.GDKP.QueuedAuctionNoBidsActions[value]) then
-            GL.Settings:set("GDKP.queuedAuctionNoBidsAction", value);
-        end
-    end);
-    Parent:AddChild(QueuedAuctionNoBidsActionDropdown);
 
     Overview:drawHeader("Item Prices", Parent);
 
@@ -395,36 +481,6 @@ function GDKP:draw(Parent)
 
     Overview:drawHeader("UI Style", Parent);
 
-    local HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
-    HorizontalSpacer:SetLayout("FILL");
-    HorizontalSpacer:SetFullWidth(true);
-    HorizontalSpacer:SetHeight(20);
-    Parent:AddChild(HorizontalSpacer);
-
-    local BidderScale = GL.AceGUI:Create("Slider");
-    BidderScale:SetLabel("Magnification scale of the bidder window");
-    BidderScale.label:SetTextColor(1, .95686, .40784);
-    BidderScale:SetFullWidth(true);
-    BidderScale:SetValue(GL.Settings:get("GDKP.bidderScale"));
-    BidderScale:SetSliderValues(.8, 1.8, .1);
-    BidderScale:SetCallback("OnValueChanged", function(Slider)
-        local value = tonumber(Slider:GetValue());
-
-        if (not value) then
-            return;
-        end
-
-        GL.Settings:set("GDKP.bidderScale", value);
-
-        -- Change the existing bidder window if it's active!
-        if (GL.Interface.GDKP.Bidder.Window
-            and type(GL.Interface.GDKP.Bidder.Window.SetScale == "function")
-        ) then
-            GL.Interface.GDKP.Bidder.Window:SetScale(value);
-        end
-    end);
-    Parent:AddChild(BidderScale);
-
     Spacer = GL.AceGUI:Create("SimpleGroup");
     Spacer:SetLayout("FILL");
     Spacer:SetFullWidth(true);
@@ -520,10 +576,40 @@ function GDKP:draw(Parent)
     end);
     Parent:AddChild(ResetGDKPSessionData);
 
-    Overview:drawHeader("Mutators", Parent);
+    local MutatorHeader = Overview:drawHeader("    Mutators", Parent);
+
+    local HelpIcon = GL.AceGUI:Create("Icon");
+    HelpIcon:SetWidth(12);
+    HelpIcon:SetHeight(12);
+    HelpIcon:SetImageSize(12, 12);
+    HelpIcon:SetImage("interface/friendsframe/informationicon");
+    HelpIcon.frame:SetParent(MutatorHeader.Label.frame);
+    HelpIcon.frame:SetPoint("BOTTOMLEFT", MutatorHeader.Label.frame, "BOTTOMLEFT", -2, -5);
+    HelpIcon.frame:Show();
+
+    HelpIcon:SetCallback("OnEnter", function()
+        GameTooltip:SetOwner(HelpIcon.frame, "ANCHOR_RIGHT");
+        GameTooltip:AddLine(" ");
+        GameTooltip:AddLine("You can automatically apply this mutator to raiders using\none or multiple (comma-separated) keywords in the 'Apply to' fields below:");
+        GameTooltip:AddLine(" ");
+
+        for _, placeholder in pairs (GL.GDKP.Pot.ValidAutoApplyPlaceholders) do
+            GameTooltip:AddLine(string.format("|c00967FD2%s|r", placeholder));
+        end
+
+        GameTooltip:AddLine(" ");
+        GameTooltip:AddLine("Example:");
+        GameTooltip:AddLine("|c00967FD2SELF,RL,HEALER|r");
+        GameTooltip:AddLine(" ");
+        GameTooltip:Show();
+    end);
+
+    HelpIcon:SetCallback("OnLeave", function()
+        GameTooltip:Hide();
+    end);
 
     local MutatorExplanation = GL.AceGUI:Create("Label");
-    MutatorExplanation:SetText("The mutators shown below will automatically be added to all new GDKP sessions");
+    MutatorExplanation:SetText("The mutators shown below will automatically be added to all new GDKP sessions\n\n");
     MutatorExplanation:SetFullWidth(true);
     Parent:AddChild(MutatorExplanation);
 

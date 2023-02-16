@@ -81,6 +81,8 @@ Interface/Settings/Rolling.lua
 Interface/Settings/RollTracking.lua
 Interface/Settings/SoftRes.lua
 Interface/Settings/BoostedRolls.lua
+Interface/Settings/PlusOnes.lua
+Interface/Settings/PlusTwos.lua
 Interface/Settings/Welcome.lua
 Interface/Settings/Advanced.lua
 Interface/Settings/RaidGroups.lua
