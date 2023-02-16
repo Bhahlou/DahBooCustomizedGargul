@@ -5,6 +5,9 @@ local _, GL = ...;
 GL.Data = GL.Data or {};
 
 GL.Data.Constants = {
+    defaultFrameTitle = string.format("Dah Boo Customized Gargul |c00967FD2v%s|r", GL.version),
+    discordURL = "https://discord.gg/D3mDhYPVzf",
+
     AccentedCharacterCaseMap = {
         ["á"] = "Á",
         ["à"] = "À",
@@ -37,7 +40,7 @@ GL.Data.Constants = {
     },
 
     ItemSlotTable = {
-        -- Source: http://wowwiki.wikia.com/wiki/ItemEquipLoc
+        -- Source: https://wowpedia.fandom.com/wiki/Enum.InventoryType
         INVTYPE_AMMO = { 0 },
         INVTYPE_HEAD = { 1 },
         INVTYPE_NECK = { 2 },
@@ -68,10 +71,134 @@ GL.Data.Constants = {
         INVTYPE_QUIVER = { 20, 21, 22, 23 }
     },
 
+    ItemQualityColors = {
+        [0] = {
+            description = "Poor",
+            rgb255 = "157,157,157",
+            RGB255 = { 157, 157, 157 },
+            rgb = "0.62,0.62,0.62",
+            RGB = { 0.62, 0.62, 0.62 },
+            hex = "9d9d9d"
+        },
+        [1] = {
+            description = "Common",
+            rgb255 = "255,255,255",
+            RGB255 = { 255, 255, 255 },
+            rgb = "1.00,1.00,1.00",
+            RGB = { 1.00, 1.00, 1.00 },
+            hex = "ffffff"
+        },
+        [2] = {
+            description = "Uncommon",
+            rgb255 = "30,255,0",
+            RGB255 = { 30, 255, 0 },
+            rgb = "0.12,1.00,0.00",
+            RGB = { 0.12, 1.00, 0.00 },
+            hex = "1eff00"
+        },
+        [3] = {
+            description = "Rare",
+            rgb255 = "0,112,221",
+            RGB255 = { 0, 112, 221 },
+            rgb = "0.00,0.44,0.87",
+            RGB = { 0.00, 0.44, 0.87 },
+            hex = "0070dd"
+        },
+        [4] = {
+            description = "Epic",
+            rgb255 = "163,53,238",
+            RGB255 = { 163, 53, 238 },
+            rgb = "0.64,0.21,0.93",
+            RGB = { 0.64, 0.21, 0.93 },
+            hex = "a335ee"
+        },
+        [5] = {
+            description = "Legendary",
+            rgb255 = "255,128,0",
+            RGB255 = { 255, 128, 0 },
+            rgb = "1.00,0.50,0.00",
+            RGB = { 1.00, 0.50, 0.00 },
+            hex = "ff8000"
+        },
+        [6] = {
+            description = "Artifact",
+            rgb255 = "230,204,128",
+            RGB255 = { 230, 204, 128 },
+            rgb = "0.90,0.80,0.50",
+            RGB = { 0.90, 0.80, 0.50 },
+            hex = "e6cc80"
+        },
+        [7] = {
+            description = "Heirloom",
+            rgb255 = "0,204,255",
+            RGB255 = { 0, 204, 255 },
+            rgb = "0.00,0.8,1.0",
+            RGB = { 0.00, 0.8, 1.0 },
+            hex = "00ccff"
+        },
+        [8] = {
+            description = "WoW Token",
+            rgb255 = "0,204,255",
+            RGB255 = { 0, 204, 255 },
+            rgb = "0.00,0.8,1.0",
+            RGB = { 0.00, 0.8, 1.0 },
+            hex = "00ccff"
+        },
+    },
+
+    HexColorsToItemQuality = {
+        ["9d9d9d"] = 0,
+        ["ffffff"] = 1,
+        ["1eff00"] = 2,
+        ["0070dd"] = 3,
+        ["a335ee"] = 4,
+        ["ff8000"] = 5,
+        ["e6cc80"] = 6,
+        ["00ccff"] = 7,
+    },
+
+    Vips = {
+        Contributors = {
+            "Arvada",
+            "Codzima",
+            "Curnil",
+            "Lantis",
+            "Lemmings19",
+            "Schweex",
+            "Tonio",
+        },
+        Uncommon = {
+            "CarbonFury",
+            "Silvertungh",
+            "Sneaky",
+            "Snickels",
+        },
+        Rare = {
+            "Busmonstret",
+            "Coldemort",
+            "Kelziad",
+            "Nambojambo",
+            "Scratchd",
+            "WaDaFruCK",
+        },
+        Epic = {
+            "Die_Quelle",
+            "Infinïty",
+            "Sapmagic",
+            "Vejusatko",
+        },
+        Legendary = {
+            "Cuckster",
+            "Freezythree",
+            "TiredReyun",
+        },
+    },
+
     --[[
         GLOBAL
     ]]
-    addonHexColor =  "967fd2",
+    addonHexColor =  "967FD2",
+    disabledTextColor =  "5F5F5F",
 
     success = 0,
     failure = 1,
@@ -105,6 +232,17 @@ GL.Data.Constants = {
         "LootFast2",
         "RCLootCouncil_Classic",
         "SpeedyAutoLoot",
+    },
+
+    GDKP = {
+        QueuedAuctionNoBidsActions = {
+            NOTHING = "NOTHING",
+            SKIP = "SKIP",
+            DISENCHANT = "DISENCHANT",
+        },
+        adjustMutatorIdentifier = "+.__adjust__.+",
+        baseMutatorIdentifier = "+.__base__.+",
+        potIncreaseItemID = 45978,
     },
 
     GroupLootActions = {
@@ -258,6 +396,42 @@ GL.Data.Constants = {
         warlock = 8,
         warrior = 9,
         ["death knight"] = 10,
+        ["demon hunter"] = 11,
+        evoker = 12,
+        monk = 13,
+    },
+
+    UnitClasses = {
+        WARRIOR = 1,
+        PALADIN = 2,
+        HUNTER = 3,
+        ROGUE = 4,
+        PRIEST = 5,
+        Knight = 6,
+        SHAMAN = 7,
+        MAGE = 8,
+        WARLOCK = 9,
+        MONK = 10,
+        DRUID = 11,
+        Hunter = 12,
+        EVOKER = 13,
+    },
+
+    Races = {
+        human = "Human",
+        dwarf = "Dwarf",
+        nightelf = "Night Elf",
+        gnome = "Gnome",
+        draenei = "Draenei",
+        worgen = "Worgen",
+        orc = "orc",
+        scourge = "Undead",
+        tauren = "Tauren",
+        troll = "Troll",
+        bloodelf = "Blood Elf",
+        goblin = "Goblin",
+        pandaren = "Pandaren",
+        dracthyr = "Dracthyr",
     },
 
     ClassHexColors = {
@@ -271,6 +445,11 @@ GL.Data.Constants = {
         warlock = "9482C9",
         warrior = "C79C6E",
         ["death knight"] = "C41E3A",
+        deathknight = "C41E3A",
+        ["demon hunter"] = "A330C9",
+        demonhunter = "A330C9",
+        evoker = "33937F",
+        monk = "00FF98",
     },
 
     classRGBAColors = {
@@ -283,7 +462,12 @@ GL.Data.Constants = {
         shaman = {r = 0, g = .44, b = .87, a = 1},
         warlock = {r = .57647, g = .5098, b = .788235, a = 1},
         warrior = {r = .77647, g = .607843, b = .42745, a = 1},
-        ["death knight"] = {r = .77, g = .12, b = .23},
+        ["death knight"] = {r = .77, g = .12, b = .23, a = 1},
+        deathknight = {r = .77, g = .12, b = .23, a = 1},
+        ["demon hunter"] = {r = 0.64, g = 0.19, b = 0.79, a = 1},
+        demonhunter = {r = 0.64, g = 0.19, b = 0.79, a = 1},
+        evoker = {r = 0.20, g = 0.58, b = 0.50, a = 1},
+        monk = {r = 0.00, g = 1.00, b= 0.60, a = 1},
     },
 
     classRGBColors = {
@@ -296,18 +480,12 @@ GL.Data.Constants = {
         shaman = {0, .44, .87,},
         warlock = {.57647, .5098, .788235,},
         warrior = {.77647, .607843, .42745,},
-        ["death knight"] = {.77, .12, .23},
-    },
-
-    Devs = {
-        "Player-4467-02A4245A",
-        "Player-4467-02AB765C",
-        "Player-4478-01BF6C3B",
-        "Player-4478-02127870",
-        "Player-4478-02127978",
-        "Player-4478-02E36E30",
-        "Player-5278-0153632E",
-        "Player-4441-02D751AD",
+        ["death knight"] = {r = .77, g = .12, b = .23},
+        deathknight = {r = .77, g = .12, b = .23},
+        ["demon hunter"] = {r = 0.64, g = 0.19, b = 0.79},
+        demonhunter = {r = 0.64, g = 0.19, b = 0.79},
+        evoker = {r = 0.20, g = 0.58, b = 0.50},
+        monk = {r = 0.00, g = 1.00, b= 0.60},
     },
 
     TMBTierHexColors = {
@@ -348,10 +526,19 @@ GL.Data.Constants = {
             broadcastBoostedRollsMutation = 14,
             editAwardedItem = 15,
             deleteAwardedItem = 16,
-            broadcastPlusOnes = 17,
-            broadcastTMBRaidGroupsData = 18,
-            requestTMBRaidGroupsData = 19,
-            broadcastPlusTwos = 20,
+            startGDKPAuction = 17,
+            stopGDKPAuction = 18,
+            extendGDKPAuction = 19,
+            refreshGDKPAuction = 20,
+            requestGDKPSession = 21,
+            broadcastGDKPSession = 22,
+            broadcastGDKPMutation = 23,
+            broadcastGDKPAuctionQueue = 24,
+            checkForUpdate = 25,
+            broadcastPlusOnes = 90,
+            broadcastTMBRaidGroupsData = 91,
+            requestTMBRaidGroupsData = 92,
+            broadcastPlusTwos = 93,
         },
     },
 
@@ -361,5 +548,5 @@ GL.Data.Constants = {
     ScrollingTable = {
         ascending = 1,
         descending = 2,
-    }
+    },
 };

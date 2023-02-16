@@ -8,20 +8,24 @@ local AceGUI = GL.AceGUI;
 local Constants = GL.Data.Constants; ---@type Data
 local DB = GL.DB; ---@type DB
 local ScrollingTable = GL.ScrollingTable;
-local SoftRes = GL.SoftRes; ---@type SoftRes
+local BoostedRolls = GL.BoostedRolls; ---@type BoostedRolls
 
-GL:tableSet(GL, "Interface.SoftRes.Overview", {
+GL:tableSet(GL, "Interface.BoostedRolls.Overview", {
     isVisible = false,
     selectedCharacter = nil,
+    points = 0,
+
+    ShareButton = {},
+    SettingsButton = {},
 });
 
----@class SoftResOverview
-local Overview = GL.Interface.SoftRes.Overview;
+---@class BoostedRollsOverview
+local Overview = GL.Interface.BoostedRolls.Overview;
 
---- Draw the UI elements required to show an overview of all soft-reserve data
+--- Draw the UI elements required to show an overview of all boosted rolls data
 --- This is what this frame looks like:
----     +-------+---------+
----     | Col1  |  Col2   |
+---     +-----------------+
+---     | Points          |
 ---     +-----------------+
 ---     | Button Frame    |
 ---     +-----------------+
@@ -35,264 +39,278 @@ function Overview:draw()
         return;
     end
 
-    GL.Events:register("SoftResShareButtonRosterUpdatedListener", "GROUP_ROSTER_UPDATE", function () self:updateShareButton(); end);
-
     self.isVisible = true;
+    self.selectedCharacter = nil;
+    self.points = 0;
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
     Window:SetTitle("Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(600);
-    Window:SetHeight(470);
+    Window:SetHeight(540);
     Window:EnableResize(false);
     Window.statustext:GetParent():Show(); -- Explicitely show the statustext bar
     Window:SetCallback("OnClose", function()
        self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
-    Window:SetPoint(GL.Interface:getPosition("SoftReserveOverview"));
+    Window:SetPoint(GL.Interface:getPosition("BoostedRollsOverview"));
 
-    Window:SetStatusText(string.format(
-        "Imported on |c00a79eff%s|r at |c00a79eff%s|r",
-        date('%Y-%m-%d', GL:tableGet(DB.SoftRes, "MetaData.importedAt", GetServerTime())),
-        date('%H:%M', GL:tableGet(DB.SoftRes, "MetaData.importedAt", GetServerTime()))
-    ));
+    local importedAt = GL:tableGet(DB.BoostedRolls, "MetaData.importedAt", GetServerTime());
+    local updatedAt = GL:tableGet(DB.BoostedRolls, "MetaData.updatedAt", GetServerTime());
+    if (GL:higherThanZero(importedAt)) then
+        Window:SetStatusText(string.format(
+            "Imported on |c00a79eff%s|r at |c00a79eff%s|r, Updated on |c00a79eff%s|r at |c00a79eff%s|r",
+            date('%Y-%m-%d', importedAt),
+            date('%H:%M', importedAt),
+            date('%Y-%m-%d', updatedAt),
+            date('%H:%M', updatedAt)
+        ));
+    end
 
     -- Make sure the window can be closed by pressing the escape button
-    _G["GARGUL_SOFTRES_OVERVIEW_WINDOW"] = Window.frame;
-    tinsert(UISpecialFrames, "GARGUL_SOFTRES_OVERVIEW_WINDOW");
+    _G["GARGUL_BOOSTEDROLLS_OVERVIEW_WINDOW"] = Window.frame;
+    tinsert(UISpecialFrames, "GARGUL_BOOSTEDROLLS_OVERVIEW_WINDOW");
 
     --[[
         SHARE BUTTON
     ]]
-    local ShareButton = GL.UI:createShareButton(
-        Window.frame,
-        function ()
-            GL.Interface.Dialogs.PopupDialog:open("BROADCAST_SOFTRES_CONFIRMATION");
-        end,
-        "Broadcast SoftRes Data",
-        "To broadcast you need to be in a group and need master loot, assist or lead!"
-    );
-    GL.Interface:setItem(self, "ShareButton", ShareButton);
+    local ShareButton = GL.Interface:createShareButton(Window, {
+        onClick = function() GL.Interface.Dialogs.PopupDialog:open("BROADCAST_BOOSTEDROLLS_CONFIRMATION"); end,
+        tooltip = "Broadcast Data",
+        disabledTooltip = "To broadcast you need to be in a group and need master loot, assist or lead!",
+        position = "TOPRIGHT",
+    });
+    self.ShareButton = ShareButton;
     ShareButton:Show();
 
-    -- The user doesn't have sufficient permissions to broadcast the data
-    if (not GL.SoftRes:userIsAllowedToBroadcast()) then
-        ShareButton:Disable();
-    else
-        ShareButton:Enable();
-    end
+    --[[
+        SETTINGS BUTTON
+    ]]
+    local SettingsButton = GL.UI:createSettingsButton(
+        Window.frame,
+        "BoostedRolls"
+    );
+    self.SettingsButton = SettingsButton;
+
+    local HorizontalSpacer = AceGUI:Create("SimpleGroup");
+    HorizontalSpacer:SetLayout("FILL")
+    HorizontalSpacer:SetWidth(500);
+    HorizontalSpacer:SetHeight(16);
+    Window:AddChild(HorizontalSpacer);
+
+    local DataColumn = AceGUI:Create("SimpleGroup");
+    DataColumn:SetLayout("FLOW")
+    DataColumn:SetFullWidth(true);
+    DataColumn:SetHeight(350);
+    Window:AddChild(DataColumn);
+
+    local DataColumnVerticalSpacer = AceGUI:Create("SimpleGroup");
+    DataColumnVerticalSpacer:SetLayout("FILL")
+    DataColumnVerticalSpacer:SetFullWidth(true);
+    DataColumnVerticalSpacer:SetHeight(294);
+    DataColumn:AddChild(DataColumnVerticalSpacer);
+
+    local HorizontalSpacer = AceGUI:Create("SimpleGroup");
+    HorizontalSpacer:SetLayout("FILL")
+    HorizontalSpacer:SetFullWidth(true);
+    HorizontalSpacer:SetHeight(10);
+    Window:AddChild(HorizontalSpacer);
 
     --[[
-        FIRST COLUMN (character table / hard reserve counter)
+        PLAYER FRAME
     ]]
-    local FirstColumn = AceGUI:Create("SimpleGroup");
-    FirstColumn:SetLayout("FLOW")
-    FirstColumn:SetWidth(240);
-    FirstColumn:SetHeight(350);
-    Window:AddChild(FirstColumn);
+    local step = GL.Settings:get("BoostedRolls.defaultStep", 10);
 
-    local FirstColumnVerticalSpacer = AceGUI:Create("SimpleGroup");
-    FirstColumnVerticalSpacer:SetLayout("FILL")
-    FirstColumnVerticalSpacer:SetWidth(200);
-    FirstColumnVerticalSpacer:SetHeight(294);
-    FirstColumn:AddChild(FirstColumnVerticalSpacer);
+    local PlayerFrame = AceGUI:Create("SimpleGroup");
+    PlayerFrame:SetLayout("FLOW")
+    PlayerFrame:SetFullWidth(true);
+    PlayerFrame:SetHeight(20);
+    Window:AddChild(PlayerFrame);
 
-    --[[
-        HR FRAME
-    ]]
-    local HardReserveFrame = AceGUI:Create("InlineGroup");
-    HardReserveFrame:SetLayout("FILL")
-    HardReserveFrame:SetHeight(50);
-    HardReserveFrame:SetWidth(250);
-    FirstColumn:AddChild(HardReserveFrame);
+    local PlayerNameLabel = AceGUI:Create("Label");
+    PlayerNameLabel:SetFontObject(_G["GameFontNormal"]);
+    PlayerNameLabel:SetWidth(100);
+    PlayerNameLabel:SetJustifyH("LEFT");
+    PlayerNameLabel:SetText(string.format(
+            "|cff%s%s|r",
+            GL:classHexColor(), "None"
+        ));
+    PlayerFrame:AddChild(PlayerNameLabel);
+    GL.Interface:set(self, "PlayerName", PlayerNameLabel);
 
-    --[[
-        HR LABEL
-    ]]
-    local HardReservesLabel = AceGUI:Create("InteractiveLabel");
-    HardReservesLabel:SetText("         No hard-reserve info available");
-    HardReservesLabel:SetFontObject(_G["GameFontNormalSmall"]);
-    GL.Interface:setItem(self, "HardReserves", HardReservesLabel);
-    HardReserveFrame:AddChild(HardReservesLabel);
+    local DecrementButton = AceGUI:Create("Button");
+    DecrementButton:SetText("-" .. step);
+    DecrementButton:SetWidth(60);
+    DecrementButton:SetHeight(20);
+    DecrementButton:SetCallback("OnClick", function()
+        self:updatePoints(self.points - step, true);
+    end);
+    PlayerFrame:AddChild(DecrementButton);
 
-    --[[
-        COLUMN SPACER
-    ]]
-    local ColumnSpacer = AceGUI:Create("SimpleGroup");
-    ColumnSpacer:SetLayout("FILL")
-    ColumnSpacer:SetWidth(25);
-    ColumnSpacer:SetHeight(350);
-    Window:AddChild(ColumnSpacer);
+    local BoostedRollsCurrentPoints = GL.AceGUI:Create("EditBox");
+    BoostedRollsCurrentPoints:DisableButton(true);
+    BoostedRollsCurrentPoints:SetHeight(22);
+    BoostedRollsCurrentPoints:SetWidth(106);
+    BoostedRollsCurrentPoints:SetCallback("OnTextChanged", function (widget)
+        local value = GL.BoostedRolls:toPoints(strtrim(widget:GetText()));
 
-    --[[
-        SECOND COLUMN (Character / Hard-reserve details)
-    ]]
-    local SecondColumn = AceGUI:Create("InlineGroup");
-    SecondColumn:SetLayout("FILL")
-    SecondColumn:SetWidth(300);
-    SecondColumn:SetHeight(350);
-    GL.Interface:setItem(self, "SecondColumn", SecondColumn);
-    Window:AddChild(SecondColumn);
+        if not value then
+            return;
+        end
 
-    -- This "Details" frame is necessary to
-    -- make the SecondColumn frame fixed width/height
-    local Details = AceGUI:Create("SimpleGroup");
-    Details:SetLayout("FLOW")
-    Details:SetFullWidth(true);
-    Details:SetFullHeight(true);
-    SecondColumn:AddChild(Details);
+        -- Update
+        self:updatePoints(value, false);
+    end);
+    PlayerFrame:AddChild(BoostedRollsCurrentPoints);
+    GL.Interface:set(self, "CurrentPoints", BoostedRollsCurrentPoints);
 
-    local Title = AceGUI:Create("Label");
-    Title:SetFontObject(_G["GameFontNormalLarge"]);
-    Title:SetFullWidth(true);
-    Title:SetText(" ");
-    Details:AddChild(Title);
+    local IncrementButton = AceGUI:Create("Button");
+    IncrementButton:SetText("+" .. step);
+    IncrementButton:SetWidth(60);
+    IncrementButton:SetHeight(20);
+    IncrementButton:SetCallback("OnClick", function()
+        self:updatePoints(self.points + step, true);
+    end);
+    PlayerFrame:AddChild(IncrementButton);
 
-    local Note = AceGUI:Create("Label");
-    Note:SetFontObject(_G["GameFontNormalSmall"]);
-    Note:SetFullWidth(true);
-    Note:SetText(" \n \n ");
-    -- The tripple newline is actually used for spacing, so keep it!
-    Details:AddChild(Note);
+    HorizontalSpacer = AceGUI:Create("SimpleGroup");
+    HorizontalSpacer:SetLayout("FILL")
+    HorizontalSpacer:SetWidth(15);
+    HorizontalSpacer:SetHeight(20);
+    PlayerFrame:AddChild(HorizontalSpacer);
 
-    -- Add placeholders for all the item icons and labels
-    for index = 1, SoftRes.maxNumberOfSoftReservedItems do
+    local DeleteButton = AceGUI:Create("Button");
+    DeleteButton:SetText("Delete entry");
+    DeleteButton:SetWidth(120);
+    DeleteButton:SetCallback("OnClick", function()
+        self:deleteEntry();
+    end);
+    PlayerFrame:AddChild(DeleteButton);
 
-        --[[
-            ITEM ICON
-        ]]
-        local ItemIcon = AceGUI:Create("Icon");
-        ItemIcon:SetWidth(30);
-        ItemIcon:SetHeight(30);
-        ItemIcon:SetImageSize(30, 30);
---         ItemIcon:SetImage("Interface\\Icons\\INV_Sword_39");
-        Details:AddChild(ItemIcon);
-        ItemIcon:SetCallback("OnLeave", function()
-            GameTooltip:Hide();
-        end);
+    local AliasesFrame = AceGUI:Create("SimpleGroup");
+    AliasesFrame:SetLayout("FLOW")
+    AliasesFrame:SetFullWidth(true);
+    AliasesFrame:SetHeight(20);
+    Window:AddChild(AliasesFrame);
 
-         --[[
-            ITEM ICON/LABEL SPACER
-        ]]
-        local ItemSpacer = AceGUI:Create("SimpleGroup");
-        ItemSpacer:SetLayout("FILL")
-        ItemSpacer:SetWidth(10);
-        ItemSpacer:SetHeight(30);
-        Details:AddChild(ItemSpacer);
+    local AliasesLabel = AceGUI:Create("Label");
+    AliasesLabel:SetFontObject(_G["GameFontNormalSmall"]);
+    AliasesLabel:SetWidth(46);
+    AliasesLabel:SetJustifyH("RIGHT");
+    AliasesLabel:SetText("Aliases: ");
+    AliasesFrame:AddChild(AliasesLabel);
 
-        --[[
-            ITEM LABEL
-        ]]
-        local ItemLabel = AceGUI:Create("Label");
-        ItemLabel:SetFontObject(_G["GameFontNormalSmall"]);
-        ItemLabel:SetWidth(220);
-        Details:AddChild(ItemLabel);
-        ItemLabel:SetText(" \n ");
+    local AliasesEditBox = GL.AceGUI:Create("EditBox");
+    AliasesEditBox:DisableButton(true);
+    AliasesEditBox:SetHeight(20);
+    AliasesEditBox:SetWidth(280);
+    AliasesFrame:AddChild(AliasesEditBox);
+    GL.Interface:set(self, "Aliases", AliasesEditBox);
 
-        -- Add interface items to the Overview class so we can manipulate them later
-        GL.Interface:setItem(self, "Item" .. index, ItemIcon);
-        GL.Interface:setItem(self, "Item" .. index, ItemLabel);
-    end
+    HorizontalSpacer = AceGUI:Create("SimpleGroup");
+    HorizontalSpacer:SetLayout("FILL")
+    HorizontalSpacer:SetWidth(15);
+    HorizontalSpacer:SetHeight(20);
+    AliasesFrame:AddChild(HorizontalSpacer);
+
+    local ApplyAliasesButton = AceGUI:Create("Button");
+    ApplyAliasesButton:SetText("Apply aliases");
+    ApplyAliasesButton:SetWidth(120);
+    ApplyAliasesButton:SetCallback("OnClick", function()
+        local text = GL.Interface:get(self, "EditBox.Aliases"):GetText();
+        self:updateAliases(strtrim(text));
+    end);
+    AliasesFrame:AddChild(ApplyAliasesButton);
+
+    local ProgressFrame = AceGUI:Create("SimpleGroup");
+    ProgressFrame:SetLayout("FILL")
+    ProgressFrame:SetFullWidth(true);
+    ProgressFrame:SetHeight(35);
+    Window:AddChild(ProgressFrame);
+
+    local BroadcastProgressLabel = AceGUI:Create("Label");
+    BroadcastProgressLabel:SetWidth(200);
+    BroadcastProgressLabel:SetFontObject(_G["GameFontNormal"]);
+    ProgressFrame:AddChild(BroadcastProgressLabel);
+    GL.Interface:set(GL.BoostedRolls, "BroadcastProgress", BroadcastProgressLabel);
 
     --[[
         BUTTONS FRAME
     ]]
+    --local VerticalSpacer = AceGUI:Create("SimpleGroup");
+    --VerticalSpacer:SetLayout("FILL");
+    --VerticalSpacer:SetFullWidth(true);
+    --VerticalSpacer:SetHeight(15);
+    --Window:AddChild(VerticalSpacer);
+
     local ButtonFrame = AceGUI:Create("SimpleGroup");
     ButtonFrame:SetLayout("FLOW")
     ButtonFrame:SetFullWidth(true);
     Window:AddChild(ButtonFrame);
 
-    local PostSoftReserveLinkButton = AceGUI:Create("Button");
-    PostSoftReserveLinkButton:SetText("Post SR URL");
-    PostSoftReserveLinkButton:SetWidth(104); -- Minimum is 104
-    PostSoftReserveLinkButton:SetCallback("OnClick", function()
-        SoftRes:postLink();
-    end);
-    ButtonFrame:AddChild(PostSoftReserveLinkButton);
-    PostSoftReserveLinkButton:ClearAllPoints();
-
-    local PostMissingSoftReserveInfoButton = AceGUI:Create("Button");
-    PostMissingSoftReserveInfoButton:SetText("Post missing SRs");
-    PostMissingSoftReserveInfoButton:SetWidth(130); -- Minimum is 130
-    PostMissingSoftReserveInfoButton:SetCallback("OnClick", function()
-        SoftRes:postMissingSoftReserves();
-    end);
-    ButtonFrame:AddChild(PostMissingSoftReserveInfoButton);
-
-    local PostDiscordLinkButton = AceGUI:Create("Button");
-    PostDiscordLinkButton:SetText("Post Discord URL");
-    PostDiscordLinkButton:SetWidth(134); -- Minimum is 134
-    PostDiscordLinkButton:SetCallback("OnClick", function()
-        SoftRes:postDiscordLink();
-    end);
-    ButtonFrame:AddChild(PostDiscordLinkButton);
-
-        local SettingsButton = AceGUI:Create("Button");
-    SettingsButton:SetText("Settings");
-    SettingsButton:SetWidth(84); -- Minimum is 102
-    SettingsButton:SetCallback("OnClick", function()
-        GL.Settings:draw("SoftRes");
-    end);
-    ButtonFrame:AddChild(SettingsButton);
-
     local ClearDataButton = AceGUI:Create("Button");
     ClearDataButton:SetText("Clear Data");
-    ClearDataButton:SetWidth(100); -- Minimum is 102
+    ClearDataButton:SetWidth(102);
     ClearDataButton:SetCallback("OnClick", function()
-        GL.Interface.Dialogs.PopupDialog:open("CLEAR_SOFTRES_CONFIRMATION");
+        GL.Interface.Dialogs.PopupDialog:open("CLEAR_BOOSTEDROLLS_CONFIRMATION");
     end);
     ButtonFrame:AddChild(ClearDataButton);
 
-    self:drawCharacterTable(FirstColumn.frame);
+    local ImportButton = AceGUI:Create("Button");
+    ImportButton:SetText("Import");
+    ImportButton:SetWidth(80);
+    ImportButton:SetCallback("OnClick", function()
+        self:close();
+        GL.Interface.BoostedRolls.Importer:draw();
+    end);
+    ButtonFrame:AddChild(ImportButton);
 
-    -- Add interface items to the Overview class so we can manipulate them later
-    GL.Interface:setItem(self, "Title", Title);
-    GL.Interface:setItem(self, "Note", Note);
+    local ExportButton = AceGUI:Create("Button");
+    ExportButton:SetText("Export");
+    ExportButton:SetWidth(80);
+    ExportButton:SetCallback("OnClick", function()
+        BoostedRolls:export(true);
+    end);
+    ButtonFrame:AddChild(ExportButton);
 
-    if (DB.SoftRes.MetaData.source == Constants.SoftReserveSources.weakaura) then
-        -- Show a game tooltip that explains the question mark
-        HardReservesLabel:SetCallback("OnEnter", function()
-            GameTooltip:SetOwner(HardReservesLabel.frame, "ANCHOR_TOP");
-            GameTooltip:AddLine("Hard-reserve information is not available because the softres.it information\nprovided was not generated using the 'Gargul Data Export' button.");
-            GameTooltip:Show();
-        end)
+    local AddRaidersButton = AceGUI:Create("Button");
+    AddRaidersButton:SetText("Add missing raiders");
+    AddRaidersButton:SetWidth(165);
+    AddRaidersButton:SetCallback("OnClick", function()
+        BoostedRolls:addMissingRaiders();
+        self:refreshTable();
+    end);
+    ButtonFrame:AddChild(AddRaidersButton);
 
-        HardReservesLabel:SetCallback("OnLeave", function()
-            GameTooltip:Hide();
-        end)
-    else
-        local somethingWasHardReserved = false;
+    self:drawBoostedRollDataTable(DataColumn.frame);
 
-        HardReservesLabel:SetCallback("OnEnter", function() return end);
+    self:updateShareButton();
 
-        -- Add interface items to the Overview class so we can manipulate them later
-        for _ in pairs(SoftRes.MaterializedData.HardReserveDetailsByID or {}) do
-            somethingWasHardReserved = true;
-            HardReservesLabel:SetText("     Click here to see hard-reserve info");
-            HardReservesLabel:SetCallback("OnClick", function()
-                self:showHardReserves();
-            end);
-            break;
-        end
+    GL.Events:register("BoostedRollsShareButtonRosterUpdatedListener", "GROUP_ROSTER_UPDATE", function () self:updateShareButton(); end);
+    GL.Events:register("BoostedRollsBroadcastStartedListener", "GL.BOOSTEDROLLS_BROADCAST_STARTED", function () self:updateShareButton(); end);
+    GL.Events:register("BoostedRollsBroadcastEndedListener", "GL.BOOSTEDROLLS_BROADCAST_ENDED", function () self:updateShareButton(); end);
 
-        if (not somethingWasHardReserved) then
-            HardReservesLabel:SetText("         No items are hard-reserved");
-        end
-    end
 end
 
 --- Update the share button when the group setup changes
 ---
 ---@return void
 function Overview:updateShareButton()
-    local ShareButton = GL.Interface:getItem(self, "Frame.ShareButton")
+    local ShareButton = self.ShareButton;
+
+    if (not ShareButton) then
+        return;
+    end
 
     GL.Ace:ScheduleTimer(function ()
         -- The user doesn't have sufficient permissions to broadcast the data
-        if (not GL.SoftRes:userIsAllowedToBroadcast()) then
+        -- Or a broadcast is already in process
+        if (GL.BoostedRolls.broadcastInProgress
+                or not GL.BoostedRolls:userIsAllowedToBroadcast()
+        ) then
             ShareButton:Disable();
             return;
         end
@@ -301,141 +319,8 @@ function Overview:updateShareButton()
     end, 1.5);
 end
 
---- Update the SoftRes details frame to show the information of the selected player
----
----@return void
-function Overview:refreshDetailsFrame()
-    GL:debug("SoftRes:refreshDetailsFrame");
-
-    -- Clear the details frame first
-    self:clearDetailsFrame();
-
-    if (not self.selectedCharacter) then
-        return;
-    end
-
-    local Title = GL.Interface:getItem(self, "Label.Title");
-    local Note = GL.Interface:getItem(self, "Label.Note");
-    local titleText = GL:capitalize(self.selectedCharacter);
-
-    local SoftResDetails = SoftRes:getDetailsForPlayer(GL:stripRealm(self.selectedCharacter));
-    local plusOnes = GL.PlusOnes:get(self.selectedCharacter);
-    local class = GL:tableGet(SoftResDetails, "class", SoftRes:getPlayerClass(self.selectedCharacter));
-
-    if (GL:higherThanZero(plusOnes)) then
-        titleText = string.format("%s (+%s)", titleText, plusOnes);
-    end
-
-    Title:SetText(titleText);
-    Title:SetColor(unpack(GL:classRGBColor(class)));
-
-    if (GL:empty(SoftResDetails)) then
-        Note:SetText("This player did not reserve anything!");
-        Note:SetColor(1, 0, 0);
-
-        return;
-    end
-
-    local note = GL:tableGet(SoftResDetails, "note", "This player didn't set a note");
-    local Items = GL:tableGet(SoftResDetails, "Items", {});
-    Note:SetText(note);
-
-    -- Display the items reserved by the player
-    local processedItems = 0;
-    for itemID, numberOfReservations in pairs(Items) do
-        local index = processedItems + 1;
-
-        if (processedItems >= SoftRes.maxNumberOfSoftReservedItems) then
-            break;
-        end
-
-        local idString = tostring(itemID);
-
-        -- This item has to exist in our cache because we ALWAYS populate it before opening the overview
-        local Item = GL.DB.Cache.ItemsByID[idString];
-
-        -- This should never be possible, but you never know what those weirdos are up to nowadays
-        if (not Item) then
-            GL:error("Something went wrong while parsing your SoftRes data. Please perform a fresh import from SoftRes.it");
-            return false;
-        end
-
-        local ItemIcon = GL.Interface:getItem(self, "Icon.Item" .. index);
-        local ItemLabel = GL.Interface:getItem(self, "Label.Item" .. index);
-
-        if (ItemIcon) then
-            ItemIcon:SetImage(Item.icon);
-            ItemIcon:SetCallback("OnEnter", function()
-                GameTooltip:SetOwner(ItemIcon.frame, "ANCHOR_TOP");
-                GameTooltip:SetHyperlink(Item.link);
-                GameTooltip:Show();
-            end)
-            ItemIcon.frame:Show();
-        end
-
-        if (ItemLabel) then
-            local labelString = Item.link;
-
-            -- The user reserved this item multiple times
-            if (numberOfReservations > 1) then
-                labelString = string.format("%s (%sx)", Item.link, numberOfReservations);
-            end
-
-            ItemLabel:SetText(labelString);
-            ItemLabel.frame:Show();
-        end
-
-        processedItems = processedItems + 1;
-    end
-end
-
--- Clear the details frame
-function Overview:clearDetailsFrame()
-    GL:debug("SoftRes:clearDetailsFrame");
-
-    local Title = GL.Interface:getItem(self, "Label.Title");
-    local Note = GL.Interface:getItem(self, "Label.Note");
-
-    if (Title) then
-        Title:SetColor(1, 1, 1);
-        Title:SetText("");
-    end
-
-    if (Note) then
-        Note:SetText("");
-        Note:SetColor(1, 1, 1);
-    end
-
-    for index = 1, SoftRes.maxNumberOfSoftReservedItems do
-        local ItemIcon = GL.Interface:getItem(self, "Icon.Item" .. index);
-        local ItemLabel = GL.Interface:getItem(self, "Label.Item" .. index);
-
-        if (ItemIcon) then
-            ItemIcon:SetImage("");
-            ItemIcon.frame:Hide();
-        end
-
-        if (ItemLabel) then
-            ItemLabel:SetText("");
-            ItemLabel.frame:Hide();
-        end
-    end
-
-    -- This table only exists if the player clicked on the hard-reserve info label
-    local HardReservesTable = GL.Interface:getItem(self, "Table.HardReserves");
-    if (HardReservesTable) then
-        HardReservesTable:SetData({}, true);
-        HardReservesTable:Hide();
-    end
-end
-
-function Overview:showHardReserves()
-    self:clearDetailsFrame();
-    self:drawHardReservesTable(GL.Interface:getItem(self, "Frame.SecondColumn").frame);
-end
-
-function Overview:drawCharacterTable(Parent)
-    GL:debug("SoftRes:drawCharacterTable");
+function Overview:drawBoostedRollDataTable(Parent)
+    GL:debug("Overview:drawBoostedRollDataTable");
 
     local columns = {
         {
@@ -452,8 +337,8 @@ function Overview:drawCharacterTable(Parent)
             defaultsort = Constants.ScrollingTable.ascending,
         },
         {
-            name = "Rolls",
-            width = 37,
+            name = "Points",
+            width = 45,
             align = "LEFT",
             color = {
                 r = 0.5,
@@ -464,8 +349,8 @@ function Overview:drawCharacterTable(Parent)
             colorargs = nil,
         },
         {
-            name = "#SR",
-            width = 37,
+            name = "Reserve",
+            width = 52,
             align = "LEFT",
             color = {
                 r = 0.5,
@@ -474,93 +359,103 @@ function Overview:drawCharacterTable(Parent)
                 a = 1
             },
             colorargs = nil,
-            sort = Constants.ScrollingTable.ascending,
+            sort = Constants.ScrollingTable.descending,
             sortnext = 1,
+        },
+        {
+            name = "Aliases",
+            width = 302,
+            align = "LEFT",
+            color = {
+                r = 0.5,
+                g = 0.5,
+                b = 1.0,
+                a = 1
+            },
+            colorargs = nil,
         },
     };
 
     local Table = ScrollingTable:CreateST(columns, 14, 20, nil, Parent);
     Table:EnableSelection(true);
-    Table:SetWidth(205);
+    Table:SetWidth(530);
     Table.frame:SetPoint("TOPLEFT", Parent, "TOPLEFT", 0, -18);
 
     Table:RegisterEvents({
-        OnClick = function (_, _, data, _, _, realrow)
-            -- Make sure something is actually selected, better safe than lua error
-            if (not GL:higherThanZero(realrow)
-                or type(data) ~= "table"
-                or not data[realrow]
-                or not data[realrow].cols
-                or not data[realrow].cols[1]
-            ) then
-                return;
+        OnClick = function (_, _, data, _, _, realrow, _, tbl, button)
+            if (button == "LeftButton") then
+                --- Unfortunately, the default handler is called *after* ours.
+                --- So, we need to check whether the selection is cleared ourselves!
+                local cleared = tbl:GetSelection() == realrow;
+                    
+                --- Make sure something is actually selected, better safe than lua error
+                if (cleared
+                    or not GL:higherThanZero(realrow)
+                    or type(data) ~= "table"
+                    or not data[realrow]
+                    or not data[realrow].cols
+                    or not data[realrow].cols[1]
+                ) then
+                    self.selectedCharacter = nil;
+                    self:loadPlayer();
+                    return;
+                end
+
+                -- We always select the first column of the selected row because that contains the player name
+                local selected = data[realrow].cols[1].value;
+
+                if (selected and type(selected) == "string") then
+                    self.selectedCharacter = string.lower(selected);
+                    self:loadPlayer();
+                end
             end
-
-            -- We always select the first column of the selected row because that contains the player name
-            local selected = data[realrow].cols[1].value;
-
-            if (selected and type(selected) == "string") then
-                self.selectedCharacter = string.lower(selected);
-            end
-
-            self:refreshDetailsFrame();
         end
     });
 
-    local PlayerData = {};
-    local FqnNames = {};
+    GL.Interface:set(self, "Characters", Table);
+    self:refreshTable();
+end
 
-    -- Go through everyone in the raid so that you can immediately tell who forgot to soft-reserve!
-    if (GL.User.isInGroup) then
-        for _, Player in pairs(GL.User:groupMembers()) do
-            local playerName = string.lower(Player.name);
+---@return void
+function Overview:refreshTable()
+    GL:debug("Overview:refreshTable");
 
-            if (GL.isEra and not strfind(playerName, "-")) then
-                playerName = string.format("%s-%s", playerName, GL.User.realm);
-            end
-
-            PlayerData[playerName] = {
-                class = Player.class,
-                note = "",
-                plusOnes = 0,
-                Items = {},
-            }
-
-            if (GL.isEra) then
-                GL:tableSet(FqnNames, GL:stripRealm(playerName) .. "." .. string.lower(Player.class), playerName);
-            end
-        end
+    local Table = GL.Interface:get(self, "Table.Characters");
+    if (not Table) then
+        return;
     end
 
-    -- We can't do a direct assignment because we want to edit this table in a bit
-    for playerName, Entry in pairs(SoftRes.MaterializedData.DetailsByPlayerName) do
+    local PlayerData = {};
 
-        if (GL.isEra) then
-            playerName = GL:tableGet(FqnNames, string.lower(playerName) .. "." .. Entry.class, playerName);
+    -- We can't do a direct assignment because we want to edit this table in a bit
+    for playerName, Entry in pairs(BoostedRolls.MaterializedData.DetailsByPlayerName) do
+        -- Augment with existing class data
+        local class = nil;
+        if (PlayerData[playerName]) then
+            class = PlayerData[playerName].class;
         end
 
         PlayerData[playerName] = Entry;
+
+        if (type(class) == "string") then
+            PlayerData[playerName].class = class;
+        else
+            PlayerData[playerName].class = GL.Player:classByName(playerName);
+        end
     end
 
     local TableData = {};
 
     for playerName, Entry in pairs(PlayerData) do
-        local plusOnes = GL.PlusOnes:get(playerName);
-        local numberOfSoftReservedItems = 0;
-
-        for _, numberOfReserves in pairs(Entry.Items) do
-            numberOfSoftReservedItems = numberOfSoftReservedItems + numberOfReserves;
+        local rollPoints = BoostedRolls:rollPoints(Entry.points);
+        local reserve = BoostedRolls:reserve(Entry.points);
+        local aliases = {};
+        for _, aliasName in pairs(Entry.Aliases) do
+            tinsert(aliases, GL:capitalize(aliasName));
         end
+        aliases = table.concat(aliases, ",");
 
-        local SoftReserveColor = {r=0,g=1,b=0,a=1};
-
-        if (numberOfSoftReservedItems < 1) then
-            SoftReserveColor = {r=1,g=0,b=0,a=1};
-        end
-
-        if (GL:higherThanZero(plusOnes)) then
-            plusOnes = "+" .. plusOnes;
-        end
+        local BoostedRollsColor = {r=0,g=1,b=0,a=1};
 
         tinsert(TableData, {
             cols = {
@@ -569,117 +464,143 @@ function Overview:drawCharacterTable(Parent)
                     color = GL:classRGBAColor(Entry.class),
                 },
                 {
-                    value = plusOnes,
-                    color = GL:classRGBAColor(Entry.class),
+                    value = rollPoints,
+                    color = BoostedRollsColor,
                 },
                 {
-                    value = numberOfSoftReservedItems,
-                    color = SoftReserveColor,
+                    value = reserve,
+                    color = BoostedRollsColor,
+                },
+                {
+                    value = aliases,
+                    color = {r=1,g=1,b=1,a=1},
                 },
             },
         });
     end
 
     Table:SetData(TableData);
-    GL.Interface:setItem(self, "Characters", Table);
+    Table:SortData();
 end
 
----@param Parent table
 ---@return void
-function Overview:drawHardReservesTable(Parent)
-    GL:debug("SoftRes:drawHardReservesTable");
+function Overview:deleteEntry()
+    GL:debug("Overview:deleteEntry");
 
-    local columns = {
-        {
-            name = " ",
-            width = 266,
-            align = "LEFT",
-            color = {
-                r = 0.5,
-                g = 0.5,
-                b = 1.0,
-                a = 1
-            },
-            colorargs = nil,
-        },
-    };
-
-    local Table = ScrollingTable:CreateST(columns, 16, 20, nil, Parent);
-    Table:SetWidth(266);
-    Table.frame:SetPoint("TOPLEFT", Parent, "TOPLEFT", 0, -18);
-
-    Table:RegisterEvents({
-        OnEnter = function (rowFrame, _, data, _, _, realrow)
-            local HardReservesLabel = GL.Interface:getItem(self, "Label.HardReserves");
-
-            -- Make sure that all data is available, better safe than lua error
-            if (not HardReservesLabel
-                or not GL:higherThanZero(realrow)
-                or type(data) ~= "table"
-                or not data[realrow]
-                or not data[realrow].cols
-                or not data[realrow].cols[1]
-            ) then
-                return;
-            end
-
-            -- We always select the first column of the selected row because that contains the player name
-            local selected = data[realrow].cols[1].value;
-            local itemID = GL:getItemIDFromLink(selected);
-            local IDString = tostring(itemID);
-            local hardReserveDetails = SoftRes.MaterializedData.HardReserveDetailsByID[IDString];
-
-            if (not hardReserveDetails
-                or (not hardReserveDetails.reservedFor
-                    and not hardReserveDetails.note
-                )
-            ) then
-                return;
-            end
-
-            GameTooltip:SetOwner(rowFrame, "ANCHOR_TOP");
-
-            if (not GL:empty(hardReserveDetails.reservedFor)) then
-                GameTooltip:AddLine("For: " .. hardReserveDetails.reservedFor);
-            end
-
-            if (not GL:empty(hardReserveDetails.note)) then
-                GameTooltip:AddLine("Note: " .. hardReserveDetails.note);
-            end
-
-            GameTooltip:Show();
-        end,
-
-        OnLeave = function ()
-            GameTooltip:Hide();
-        end
-    });
-
-    local TableData = {};
-    for _, Entry in pairs(DB.SoftRes.HardReserves) do
-        local idString = tostring(Entry.id);
-        local Item = GL.DB.Cache.ItemsByID[idString];
-
-        if (Item) then
-            tinsert(TableData, {
-                cols = {
-                    {
-                        value = Item.link,
-                    },
-                },
-            });
-        end
+    if (not self.selectedCharacter) then
+        GL:warning("You need to select a player first");
+        return;
     end
 
-    Table:SetData(TableData);
-    GL.Interface:setItem(self, "HardReserves", Table);
+    return GL.Interface.Dialogs.PopupDialog:open({
+        question = string.format("Delete |cff%s%s|r?",
+            GL:classHexColor(GL.Player:classByName(self.selectedCharacter)),
+            GL:capitalize(self.selectedCharacter)
+        ),
+        OnYes = function ()
+            BoostedRolls:deletePoints(self.selectedCharacter);
+            self:refreshTable();
+            self.selectedCharacter = nil;
+            self:loadPlayer();
+        end,
+    });
+end
+
+---@param points number 
+---@return void
+function Overview:updatePoints(points, updateEditBox)
+    GL:debug("Overview:updatePoints");
+
+    if (not self.selectedCharacter) then
+        GL:warning("You need to select a player first");
+        return;
+    end
+
+    self.points = points;
+
+    -- Update points locally.
+    BoostedRolls:queueUpdate(self.selectedCharacter, points);
+
+    -- Update interface.
+    if (updateEditBox) then
+        GL.Interface:get(self, "EditBox.CurrentPoints"):SetText(points);
+    end
+
+    local Table = GL.Interface:get(self, "Table.Characters");
+    if (Table) then
+        local rollPoints = BoostedRolls:rollPoints(points);
+        local reserve = BoostedRolls:reserve(points);
+        Table:GetRow(Table:GetSelection()).cols[2].value = tostring(rollPoints);
+        Table:GetRow(Table:GetSelection()).cols[3].value = tostring(reserve);
+        Table:Refresh();
+    end
+end
+
+---@param aliases string 
+---@return void
+function Overview:updateAliases(aliases)
+    GL:debug("Overview:updateAliases");
+
+    if (not self.selectedCharacter) then
+        GL:warning("You need to select a player first");
+        return;
+    end
+
+    local Segments = GL:separateValues(aliases);
+
+    --- Import segments as aliases (alts)
+    local Aliases = {};
+    for i = 1, #Segments do
+        local alias = tostring(Segments[i]);
+        alias = GL:normalizedName(alias);
+        --- Only set non-empty aliases
+        if (not GL:empty(alias)) then
+            tinsert(Aliases, alias);
+        end
+    end
+    BoostedRolls:setAliases(self.selectedCharacter, Aliases);
+    self:refreshTable();
+end
+
+---@return void
+function Overview:loadPlayer()
+    GL:debug("Overview:loadPlayer");
+
+    -- Better be safe than getting a lua error
+    local class = nil;
+    local name = "None";
+    local Aliases = {};
+    if (not self.selectedCharacter
+        or not BoostedRolls.MaterializedData.DetailsByPlayerName[self.selectedCharacter]
+    ) then
+        self.points = 0;
+    else
+        self.points = BoostedRolls:getPoints(self.selectedCharacter);
+        class = BoostedRolls.MaterializedData.DetailsByPlayerName[self.selectedCharacter].class;
+        name = GL:capitalize(GL:stripRealm(self.selectedCharacter));
+        Aliases = BoostedRolls.MaterializedData.DetailsByPlayerName[self.selectedCharacter].Aliases;
+    end
+    
+    GL.Interface:get(self, "EditBox.CurrentPoints"):SetText(self.points);
+    GL.Interface:get(self, "Label.PlayerName"):SetText(string.format(
+        "|cff%s%s|r",
+        GL:classHexColor(class), name
+    ));
+
+    --- Aliases
+    local aliases = {};
+    for _, aliasName in pairs(Aliases) do
+        tinsert(aliases, GL:capitalize(aliasName));
+    end
+    aliases = table.concat(aliases, ",");
+    GL.Interface:get(self, "EditBox.Aliases"):SetText(aliases);
 end
 
 ---@return void
 function Overview:close()
     GL:debug("Overview:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window
@@ -687,26 +608,29 @@ function Overview:close()
         return;
     end
 
-    GL.Events:unregister("SoftResShareButtonRosterUpdatedListener");
-
     -- Store the frame's last position for future play sessions
-    GL.Interface:storePosition(Window, "SoftReserveOverview");
+    GL.Interface:storePosition(Window, "BoostedRollsOverview");
 
     -- Clear the frame and its widgets
-    AceGUI:Release(Window);
+    GL.Interface:release(Window);
     self.isVisible = false;
 
-    local ShareButton = GL.Interface:getItem(self, "Frame.ShareButton");
-    if (ShareButton) then
-        ShareButton:Hide();
-    end
-
-    -- Clean up the Character table seperately
-    local CharacterTable = GL.Interface:getItem(self, "Table.Characters");
+    -- Clean up the Character table separately
+    local CharacterTable = GL.Interface:get(self, "Table.Characters");
     if (CharacterTable) then
         CharacterTable:SetData({}, true);
         CharacterTable:Hide();
     end
+
+    if (self.ShareButton) then
+        self.ShareButton:Hide();
+        self.ShareButton = nil;
+    end
+
+    if (self.SettingsButton) then
+        self.SettingsButton:Hide();
+        self.SettingsButton = nil;
+    end
 end
 
-GL:debug("Interfaces/SoftRes/Overview.lua");
+GL:debug("Interfaces/BoostedRolls/Overview.lua");

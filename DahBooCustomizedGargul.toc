@@ -2,7 +2,7 @@
 ## Title: Dah Boo Customized Gargul
 ## Author: Bhahl - Auberdine
 ## Notes: Loot addon that supports softres sr, thatsmybis tmb, auto looting, loot priorities, plus one tracking and much more
-## Version: 4.12.1
+## Version: 5.0.22
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
 
@@ -11,6 +11,9 @@ libraries.xml
 
 # Bootstrapper
 bootstrap.lua
+
+# Localizations
+Data/Localizations/en.lua
 
 # Data objects
 Data/Constants.lua
@@ -27,6 +30,10 @@ Classes/DB.lua
 Classes/Settings.lua
 Classes/Profiler.lua
 Classes/SoftRes.lua
+Classes/GDKP/GDKP.lua
+Classes/GDKP/Session.lua
+Classes/GDKP/Auction.lua
+Classes/GDKP/Pot.lua
 Classes/PlusOnes.lua
 Classes/PlusTwos.lua
 Classes/TMB.lua
@@ -64,11 +71,14 @@ Interface/Settings/PackMule.lua
 Interface/Settings/PackMuleRules.lua
 Interface/Settings/PackMuleIgnores.lua
 Interface/Settings/TMB.lua
+Interface/Settings/GDKP.lua
 Interface/Settings/LootTradeTimers.lua
 Interface/Settings/Rolling.lua
 Interface/Settings/RollTracking.lua
 Interface/Settings/SoftRes.lua
 Interface/Settings/BoostedRolls.lua
+Interface/Settings/Welcome.lua
+Interface/Settings/Advanced.lua
 Interface/Settings/RaidGroups.lua
 Interface/Settings/General.lua
 Interface/Settings/ShortcutKeys.lua
@@ -106,6 +116,10 @@ Interface/Dialogs/HyperlinkDialogWidget.lua
 Interface/Dialogs/MasterLooterDialog.lua
 Interface/ReminderToAssignLootUsingGargul.lua
 Interface/ShortcutKeysLegend.lua
+
+# Alerts
+Interface\Alerts.lua
+Interface\Alerts.xml
 
 # Test classes
 Test.lua

@@ -25,7 +25,7 @@ function Profiler:draw()
     self.isVisible = true;
 
     local Window = GL.AceGUI:Create("Frame");
-    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
+    Window:SetTitle("Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(180);
     Window:SetHeight(60);

@@ -104,7 +104,7 @@ end
 ---@param identifier string
 ---@return void
 function Events:unregister(identifier)
-    if (type(identifier) == table) then
+    if (type(identifier) == "table") then
         for _, event in pairs(identifier) do
             self:unregister(event);
         end
@@ -183,7 +183,7 @@ end
 --- Fire an event manually (assuming there's a listener for it)
 ---
 ---@param event string
----@param ... any
+---@param . any
 ---@return void
 function Events:fire(event, ...)
     self:listen(event, ...);

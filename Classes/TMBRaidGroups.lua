@@ -53,7 +53,7 @@ function TMBRaidGroups:import(TMBBoxContent)
 
     -- Make sure all the required properties are available and of the correct type    -- Make sure all the required properties are available and of the correct type
     if (GL:empty(TMBBoxContent)) then
-        GL.Interface:getItem("TMBRaidGroups.Importer", "Label.StatusMessage"):SetText("Les données de groupe de raid fournies sont invalides");
+        GL.Interface:get("TMBRaidGroups.Importer", "Label.StatusMessage"):SetText("Les données de groupe de raid fournies sont invalides");
         return false;
     end
     
@@ -93,7 +93,7 @@ function TMBRaidGroups:import(TMBBoxContent)
     
     if (GL:empty(raidGroups)) then
         local errorMessage = "Les données fournies sont invalides.";
-        GL.Interface:getItem("TMBRaidGroups.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("TMBRaidGroups.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end

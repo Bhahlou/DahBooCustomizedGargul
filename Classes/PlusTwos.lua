@@ -42,7 +42,7 @@ function PlusTwos:deduct(playerName)
         DB.PlusTwos[playerName] = 0;
     else
         -- Make sure the plusTwo doesn't end up below 0
-        DB.PlusTwos[playerName] = math.max(DB.PlusTwos[playerName] - 1, 0);
+        DB.PlusTwos[playerName] = max(DB.PlusTwos[playerName] - 1, 0);
     end
 
     self:triggerChangeEvent();
@@ -129,6 +129,7 @@ function PlusTwos:massSet(plusTwosByPlayerName)
 end
 
 --- Trigger the PLUSONES_CHANGED event
+---
 function PlusTwos:triggerChangeEvent()
     GL:debug("PlusTwos:triggerChangeEvent");
 

@@ -10,6 +10,7 @@ GL.BagInspector = {
         NumberOfItemsInspected = 0,
     },
     inspectionInProgress = false,
+    Window = nil,
 };
 
 local AceGUI = GL.AceGUI;
@@ -31,14 +32,10 @@ BagInspector.Widgets = {
 function BagInspector:inspect(items)
     GL:debug("BagInspector:inspect");
 
-    if (not GL.User.isInGroup) then
-        return GL:error("You're not in a group");
-    end
-
     -- Only raid leader/assists or master
     -- looters can use this functionality
-    if (not UnitIsGroupAssistant("player")
-        and not UnitIsGroupLeader("player")
+    if (GL.User.isInGroup
+        and not GL.User.hasAssist
         and not GL.User.isMasterLooter
     ) then
         return GL:error("You need lead, assist or master looter privileges to use this functionality");
@@ -117,7 +114,7 @@ function BagInspector:processInspectionResults(CommMessage)
     end
 
     -- We wrapped the inspection report logic in a method so
-    -- that we can fire it seperately when all items including
+    -- that we can fire it separately when all items including
     -- their item links have been successfully loaded by the API
     local displayInspectionReport = function ()
         if (numberOfResponses < 1) then
@@ -157,11 +154,13 @@ end
 function BagInspector:displayInspectionResults()
     GL:debug("BagInspector:displayInspectionResults");
 
+    if (self.Window) then
+        GL.Interface:release(self.Window);
+    end
+
     -- Create a container/parent frame
     local ResultFrame = AceGUI:Create("Frame");
     ResultFrame:SetCallback("OnClose", function(widget)
-        GL:clearScrollTable(BagInspector.Widgets.Tables.InspectionReport);
-
         GL.BagInspector.InspectionReport = {
             Items = {},
             Reports = {},
@@ -169,14 +168,14 @@ function BagInspector:displayInspectionResults()
         };
         GL.BagInspector.inspectionInProgress = false;
 
-        AceGUI:Release(widget);
+        GL.Interface:release(widget);
     end);
     ResultFrame:SetTitle("Gargul v" .. GL.version);
     ResultFrame:SetStatusText("Addon v" .. GL.version);
     ResultFrame:SetLayout("Flow");
     ResultFrame:SetWidth(600);
     ResultFrame:SetHeight(450);
-    ResultFrame.statustext:GetParent():Hide(); -- Hide the statustext bar
+    self.Window = ResultFrame;
 
     local FirstRow = AceGUI:Create("SimpleGroup");
     FirstRow:SetLayout("Flow");
@@ -270,8 +269,9 @@ function BagInspector:displayInspectionResults()
 
     -- Loop through all members of the group
     local PlayerData = {};
-    for index = 1, _G.MAX_RAID_MEMBERS do
-        local name, _, _, _, class = GetRaidRosterInfo(index);
+    for _, GroupMember in pairs(GL.User:groupMembers()) do
+        local name = GroupMember.name;
+        local class = GroupMember.class;
         local Row = {};
 
         if (name

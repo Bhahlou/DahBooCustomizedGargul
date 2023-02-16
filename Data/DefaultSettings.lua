@@ -18,6 +18,7 @@ GL.Data.DefaultSettings = {
     noSounds = false,
     profilerEnabled = false,
     showMinimapButton = true,
+    soundChannel = "SFX",
     welcomeMessage = true,
 
     DroppedLoot = {
@@ -26,19 +27,22 @@ GL.Data.DefaultSettings = {
         minimumQualityOfAnnouncedLoot = 4,
     },
     ShortcutKeys = {
-        onlyInGroup = false,
-        showLegend = true,
-        rollOff = "ALT_CLICK",
+        auction = "DISABLED",
         award = "ALT_SHIFT_CLICK",
         disenchant = "CTRL_SHIFT_CLICK",
+        doubleClickToTrade = true,
+        onlyInGroup = false,
+        rollOff = "DISABLED",
+        rollOffOrAuction = "ALT_CLICK",
+        showLegend = true,
     },
     MasterLooting = {
         alwaysUseDefaultNote = false,
         announceCountdownOnce = false,
         announceMasterLooter = false,
         autoOpenMasterLooterDialog = true,
-        announceMasterLooterMessage = "J'utilise l'addon Dah Boo Customized Gargul pour distribuer les loots. Téléchargez Gargul si vous ne voulez rien rater des rolls !",
-        defaultRollOffNote = "/roll 100 pour +1, /roll 80 pour +2, /roll 70 pour +3 ",
+        announceMasterLooterMessage = "I'm using the Gargul addon to distribute loot. Download it if you don't want to miss out on rolls!",
+        defaultRollOffNote = "/roll for MS or /roll 99 for OS",
         doCountdown = true,
         announceRollEnd = true,
         announceRollStart = true,
@@ -70,6 +74,7 @@ GL.Data.DefaultSettings = {
         announceDisenchantedItems = true,
         autoConfirmSolo = false,
         autoConfirmGroup = false,
+        autoDisableForGroupLoot = true,
         enabledForGroupLoot = false,
         enabledForMasterLoot = false,
         Rules = {},
@@ -82,9 +87,8 @@ GL.Data.DefaultSettings = {
     RollTracking = {
         trackAll = false,
         Brackets = {
-            {"+1", 1, 100, 1, false, true},
-            {"+2", 1, 80, 2, true, false},
-            {"+3", 1, 70, 5, false, false},
+            {"MS", 1, 100, 2, false, false},
+            {"OS", 1, 99, 3, true, false},
         },
     },
     SoftRes = {
@@ -108,8 +112,54 @@ GL.Data.DefaultSettings = {
         priority = 1,
         reserveThreshold = 180,
     },
+    GDKP = {
+        acceptBidsLowerThanMinimum = false, -- Change default? Check Auction.lua !!
+        addGoldToTradeWindow = true,
+        announceAuctionStart = true,
+        announceCountdownInRW = true,
+        announceNewBidInRW = true,
+        announceBidsClosed = true,
+        announceNewBid = true,
+        announcePotAfterAuction = true,
+        auctionEndLeeway = 2,
+        autoAwardViaAuctioneer = false,
+        antiSnipe = 10,
+        bidderQueueScale = 1,
+        bidderScale = 1,
+        closeAuctioneerOnAward = false,
+        closeAuctioneerOnStart = false,
+        defaultMinimumBid = 500,
+        defaultIncrement = 100,
+        delayBetweenQueuedAuctions = 1,
+        enableGDKPBidderQueue = true,
+        enableGDKPQueuesByDefault = false,
+        exportFormat = 1,
+        potExportFormat = 1,
+        customExportHeader = "Item,Player,Gold,Wowheadlink",
+        customExportFormat = "@ITEM,@WINNER,@GOLD,@WOWHEAD",
+        customPotExportHeader = "Player,Cut",
+        customPotExportFormat = "@PLAYER,@CUT",
+        invalidBidsTriggerAntiSnipe = true,
+        ledgerAuctionScale = 30,
+        minimumBid = 100,
+        minimumIncrement = 50,
+        notifyIfBidTooLow = true,
+        numberOfSecondsToCountdown = 5,
+        numberOfFiveSecondsToCountdown = 15,
+        outbidSound = "Gargul: uh-oh",
+        queuedAuctionNoBidsAction = "NOTHING",
+        showBidWindow = true,
+        showHistoryOnTooltip = true,
+        storeMinimumAndIncrementPerItem = true,
+        time = 30,
+        whisperGoldDetails = true,
+
+        -- This holds minimum bid and increment settings per item
+        SettingsPerItem = {},
+    },
     TMB = {
-        announceInfoWhenRolling = true,
+        announcePriolistInfoWhenRolling = true,
+        announceWishlistInfoWhenRolling = true,
         automaticallyShareData = false,
         hideInfoOfPeopleNotInGroup = true,
         hideWishListInfoIfPriorityIsPresent = true,
@@ -138,7 +188,7 @@ GL.Data.DefaultSettings = {
         RollOff = {
             closeOnStart = false,
             closeOnAward = false,
-            timer = 15,
+            timer = 30,
         },
         PopupDialog = {
             Position = {
@@ -151,8 +201,17 @@ GL.Data.DefaultSettings = {
         Award = {
             closeOnAward = true,
         },
-    },
-    TMBRaidGroups = {
-        useAsSortCriteria = false;
+        ReopenAuctioneerButton = {
+            offsetX = 188,
+            relativePoint = "CENTER",
+            offsetY = -5.5,
+            Position = {
+                offsetX = 188,
+                offsetY = -5.5,
+                point = "CENTER",
+                relativePoint = "CENTER",
+            },
+            point = "CENTER",
+        },
     }
 };

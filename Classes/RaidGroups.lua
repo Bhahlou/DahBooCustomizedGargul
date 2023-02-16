@@ -63,7 +63,7 @@ function RaidGroups:drawImporter()
     Window:SetCallback("OnClose", function()
         self:close();
     end);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     -- Make sure the window can be closed by pressing the escape button
     _G["GARGUL_RAID_GROUP_WINDOW"] = Window.frame;
@@ -154,7 +154,7 @@ function RaidGroups:drawImporter()
 
     local CheckAttendanceOutput = AceGUI:Create("Label");
     CheckAttendanceOutput:SetFullWidth(true);
-    CheckAttendanceOutput:SetText("");
+    CheckAttendanceOutput:SetText("\n\n\n\n\n\n\n ");
     OutputFrame:AddChild(CheckAttendanceOutput);
 
     --[[
@@ -210,7 +210,7 @@ function RaidGroups:close()
 
     self.isVisible = false;
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
     if (Window) then
         -- Store the frame's last position for future play sessions
         GL.Interface:storePosition(Window, "RollOff");
@@ -275,7 +275,7 @@ function RaidGroups:normalizeRaidHelperInput(input)
 
         local PlayerNames = {};
         for _, playerName in pairs(Players) do
-            playerName = strtrim(playerName, nil);
+            playerName = strtrim(playerName);
 
             if (playerName ~= "-") then
                 tinsert(PlayerNames, playerName);
@@ -410,10 +410,6 @@ end
 -- Check if everyone's in the raid or if the raid contains players who shouldn't be there
 function RaidGroups:checkAttendance(raidGroupCsv, OutPutLabel)
     GL:debug("RaidGroups:checkAttendance");
-
-    if (not GL.User.isInRaid) then
-        return GL:warning("You need to be in a raid!");
-    end
 
     if (GL:empty(raidGroupCsv)) then
         return GL:warning("Invalid group format provided!");

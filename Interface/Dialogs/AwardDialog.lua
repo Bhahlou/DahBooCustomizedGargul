@@ -24,7 +24,7 @@ function AwardDialog:open(Dialog)
     Frame:OnNo(Dialog.OnNo or function () end);
 
     if (Dialog.checkPlusOne) then
-        local PlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
+        local PlusOneCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
 
         if (PlusOneCheckBox) then
             PlusOneCheckBox:SetValue(true);
@@ -32,30 +32,32 @@ function AwardDialog:open(Dialog)
     end
 
     if (Dialog.checkOS) then
-        local OSCheckBox = GL.Interface:getItem(self, "CheckBox.OffSpec");
+        local OSCheckBox = GL.Interface:get(self, "CheckBox.OffSpec");
 
         if (OSCheckBox) then
             OSCheckBox:SetValue(true);
         end
     end
 
-    --- Set focus on the hidden YesButtonEnterCatcher field in order to support confirming with enter press
-    local YesButtonEnterCatcher = GL.Interface:getItem(self, "EditBox.YesButtonEnterCatcher");
-    YesButtonEnterCatcher:SetFocus();
+    if (Dialog.checkPlusOne) then
+        local PlusOneCheckBox = GL.Interface:get(self, "CheckBox.PlusOne");
+
+        if (PlusOneCheckBox) then
+            PlusOneCheckBox:SetValue(true);
+        end
+    end
 
     --- Adjust the value of the boosted roll cost editbox
-    local BoostedRollsCostEditBox = GL.Interface:getItem(self, "EditBox.Cost");
+    local BoostedRollsCostEditBox = GL.Interface:get(self, "EditBox.Cost");
 
-    if (not BoostedRollsCostEditBox) then
-        return;
+    if (BoostedRollsCostEditBox) then
+        local cost = 0;
+        if (Dialog.isBR) then
+            cost = Dialog.boostedRollCost;
+        end
+
+        BoostedRollsCostEditBox:SetText(cost);
     end
-
-    local cost = 0;
-    if (Dialog.isBR) then
-        cost = Dialog.boostedRollCost;
-    end
-
-    BoostedRollsCostEditBox:SetText(cost);
 end
 
 GL:debug("Interface/AwardDialog.lua");
