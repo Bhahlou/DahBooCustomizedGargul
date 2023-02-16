@@ -14,10 +14,7 @@ function Dialog:open(Details)
     Frame:SetWidth(320);
     Frame:SetQuestion(Details.question);
 
-    local InputField = GL.Interface:getItem(self, "EditBox.Input");
-    if (InputField) then
-        InputField:SetFocus();
-    end
+    local InputField = GL.Interface:get(self, "EditBox.Input");
 
     Frame:OnYes(function ()
         if (Details.OnYes) then
@@ -41,9 +38,17 @@ function Dialog:open(Details)
         end
     end);
 
-    if (Details.inputValue and InputField) then
+    if (not InputField) then
+        return;
+    end
+
+    if (Details.inputValue) then
         --- Adjust the value of the input if a default is given
         InputField:SetText(Details.inputValue);
+    end
+
+    if (Details.focus) then
+        InputField:SetFocus();
     end
 end
 

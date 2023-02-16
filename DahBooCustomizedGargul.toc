@@ -133,6 +133,10 @@ Interface/Dialogs/ConfirmWithSingleInputDialog.lua
 Interface/Dialogs/ConfirmWithSingleInputDialogWidget.lua
 Interface/Dialogs/IncomingBoostedRollDataDialog.lua
 Interface/Dialogs/IncomingBoostedRollDataDialogWidget.lua
+Interface/Dialogs/IncomingPlusOneDataDialog.lua
+Interface/Dialogs/IncomingPlusOneDataDialogWidget.lua
+Interface/Dialogs/IncomingPlusTwoDataDialog.lua
+Interface/Dialogs/IncomingPlusTwoDataDialogWidget.lua
 Interface/Dialogs/PopupDialog.lua
 Interface/Dialogs/PopupDialogWidget.lua
 Interface/Dialogs/HyperlinkDialog.lua

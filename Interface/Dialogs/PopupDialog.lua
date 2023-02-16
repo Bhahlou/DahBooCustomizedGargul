@@ -19,6 +19,11 @@ function PopupDialog:open(Dialog)
     Frame:SetQuestion(Dialog.question or "");
     Frame:OnYes(Dialog.OnYes or function () end);
     Frame:OnNo(Dialog.OnNo or function () end);
+    Frame:OnCancel(Dialog.OnCancel or function () end);
+
+    if (Dialog.withCancel) then
+        Frame:IncludeCancel();
+    end
 end
 
 -- Clear soft-reserve data confirmation
@@ -66,6 +71,66 @@ PopupDialog.BROADCAST_BOOSTEDROLLS_CONFIRMATION = {
     question = "Are you sure you want to broadcast your boosted roll data to everyone in your party/raid?",
     OnYes = function ()
         GL.BoostedRolls:broadcast();
+    end,
+}
+
+-- Clear plus one data confirmation
+PopupDialog.CLEAR_PLUSONES_CONFIRMATION = {
+    question = "Are you sure you want to clear all plus one data?",
+    OnYes = function ()
+        GL.Interface.PlusOnes.Overview:close();
+        GL.PlusOnes:clearPlusOnes();
+        GL.PlusOnes:draw();
+   end,
+}
+
+-- Import new plus one data confirmation
+PopupDialog.NEW_PLUSONES_IMPORT_CONFIRMATION = {
+    question = "Are you sure you want to clear your existing plus one data and import new data?",
+    OnYes = function ()
+        GL.Interface.PlusOnes.Importer:import();
+    end,
+    OnNo = function ()
+        GL.Interface.PlusOnes.Importer:close();
+        GL.PlusOnes:draw();
+    end,
+}
+
+-- Broadcast plus one data confirmation
+PopupDialog.BROADCAST_PLUSONES_CONFIRMATION = {
+    question = "Are you sure you want to broadcast your plus one data to everyone in your party/raid?",
+    OnYes = function ()
+        GL.PlusOnes:broadcast();
+    end,
+}
+
+-- Clear plus two data confirmation
+PopupDialog.CLEAR_PLUSTWOS_CONFIRMATION = {
+    question = "Are you sure you want to clear all plus two data?",
+    OnYes = function ()
+        GL.Interface.PlusTwos.Overview:close();
+        GL.PlusTwos:clearPlusTwos();
+        GL.PlusTwos:draw();
+   end,
+}
+
+-- Import new plus two data confirmation
+PopupDialog.NEW_PLUSTWOS_IMPORT_CONFIRMATION = {
+    question = "Are you sure you want to clear your existing plus two data and import new data?",
+    OnYes = function ()
+        GL.Interface.PlusTwos.Importer:import();
+    end,
+    OnNo = function ()
+        GL.Interface.PlusTwos.Importer:close();
+        GL.PlusTwos:draw();
+    end,
+}
+
+-- Broadcast plus one data confirmation
+PopupDialog.BROADCAST_PLUSTWOS_CONFIRMATION = {
+    question = "Are you sure you want to broadcast your plus two data to everyone in your party/raid?",
+    OnYes = function ()
+        GL.PlusTwos:broadcast();
     end,
 }
 
