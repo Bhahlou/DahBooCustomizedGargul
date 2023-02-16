@@ -118,7 +118,9 @@ Interface/TMB/Overview.lua
 Interface/TMBRaidGroups/Importer.lua
 Interface/TMBRaidGroups/Overview.lua
 Interface/PlusOnes/OverView.lua
+Interface/PlusOnes/Importer.lua
 Interface/PlusTwos/OverView.lua
+Interface/PlusTwos/Importer.lua
 Interface/TradeWindow/TimeLeft.lua
 Interface/PlayerSelector.lua
 Interface/Changelog.lua
