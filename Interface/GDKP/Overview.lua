@@ -29,7 +29,7 @@ local GDKPAuction = GL.GDKP.Auction;
 
 --[[ CONSTANTS ]]
 local SESSION_ROWS = 22;
-local HEIGHT_PER_SESSION_ROW = 16;
+local HEIGHT_PER_SESSION_ROW = 18;
 
 GL:tableSet(GL, "Interface.GDKP.Overview", {
     _initialized = false,
@@ -90,6 +90,7 @@ function Overview:_init()
     end);
 end
 
+---@return void
 function Overview:sessionChanged()
     GL:debug("Overview:sessionChanged");
 
@@ -371,9 +372,10 @@ function Overview:build()
     ----[[ LIST VIEW BUTTON ]]
     local ListViewButton = Interface:createButton(ScrollFrameHolder, {
         onClick = function()
-            GL.Interface.GDKP.LedgerList:toggle(self.selectedSession);
+            Window:Hide();
+            GL.Interface.GDKP.LedgerList:open(self.selectedSession);
         end,
-        tooltip = "Show a condensed view of the ledger,\nideal for screenshotting purposes!",
+        tooltip = "Show a full overview of the ledger,\nideal for screenshotting purposes!",
         normalTexture = "Interface/AddOns/Gargul/Assets/Buttons/eye",
         disabledTexture = "Interface/AddOns/Gargul/Assets/Buttons/eye-disabled",
         updateOn = { "GL.GDKP_OVERVIEW_SESSION_CHANGED", "GL.GDKP_OVERVIEW_SESSION_CHANGED", "GL.GDKP_OVERVIEW_SESSIONS_REFRESHED", "GL.GDKP_AUCTION_CHANGED" },

@@ -155,7 +155,6 @@ function Overview:draw()
         ItemIcon:SetWidth(30);
         ItemIcon:SetHeight(30);
         ItemIcon:SetImageSize(30, 30);
---         ItemIcon:SetImage("Interface\\Icons\\INV_Sword_39");
         Details:AddChild(ItemIcon);
         ItemIcon:SetCallback("OnLeave", function()
             GameTooltip:Hide();
@@ -298,7 +297,7 @@ function Overview:refreshDetailsFrame()
     local titleText = GL:capitalize(self.selectedCharacter);
 
     local SoftResDetails = SoftRes:getDetailsForPlayer(GL:stripRealm(self.selectedCharacter));
-    local plusOnes = GL.PlusOnes:get(self.selectedCharacter);
+    local plusOnes = GL.PlusOnes:getPlusOnes(self.selectedCharacter);
     local class = GL:tableGet(SoftResDetails, "class", SoftRes:getPlayerClass(self.selectedCharacter));
 
     if (GL:higherThanZero(plusOnes)) then
@@ -527,7 +526,7 @@ function Overview:drawCharacterTable(Parent)
     local TableData = {};
 
     for playerName, Entry in pairs(PlayerData) do
-        local plusOnes = GL.PlusOnes:get(playerName);
+        local plusOnes = GL.PlusOnes:getPlusOnes(playerName);
         local numberOfSoftReservedItems = 0;
 
         for _, numberOfReserves in pairs(Entry.Items) do

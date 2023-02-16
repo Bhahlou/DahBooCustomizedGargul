@@ -129,13 +129,18 @@ function GL:_init()
     self.TMB:_init();
     self.GDKP.Session:_init();
     self.BoostedRolls:_init();
+    self.PlusOnes:_init();
+    self.PlusTwos:_init();
     self.DroppedLoot:_init();
     self.GroupLoot:_init();
     self.PackMule:_init();
+    self.DroppedLootLedger:_init();
     self.TradeWindow:_init();
+    self.GDKP.Auctioneer:_init();
     self.Interface.MasterLooterDialog:_init();
     self.Interface.TradeWindow.TimeLeft:_init();
     self.Interface.GDKP.BidderQueue:_init();
+    self.Interface.GDKP.Distribute.MailCuts:_init();
 
     -- Hook native window events
     self:hookNativeWindowEvents();
@@ -163,7 +168,6 @@ function GL:_init()
 
     -- Show the changelog window
     GL.Interface.Changelog:reportChanges();
-
 end
 
 -- Register the gl slash command

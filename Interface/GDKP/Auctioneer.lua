@@ -1,48 +1,89 @@
+local L = Gargul_L;
+local LCG = LibStub("LibCustomGlowGargul-1.0");
+
 ---@type GL
 local _, GL = ...;
 
 ---@type GDKP
 local GDKP = GL.GDKP;
 
----@type GDKPAuction
-local GDKPAuction = GDKP.Auction;
+---@type GDKPPot
+local Pot = GL.GDKP.Pot;
 
 ---@type Settings
 local Settings = GL.Settings;
 
+---@type Constants
+local Constants = GL.Data.Constants;
+
 ---@type Interface
 local Interface = GL.Interface;
 
----@type GDKPSession
-local GDKPSession = GDKP.Session;
+---@type GDKPAuction
+local Auction = GDKP.Auction;
 
-local AceGUI = GL.AceGUI;
+---@type GDKPAuctioneer
+local Auctioneer = GDKP.Auctioneer;
+
 GL.ScrollingTable = GL.ScrollingTable or LibStub("ScrollingTable");
-
-GL.Interface.GDKP = GL.Interface.GDKP or {};
+Interface.GDKP = Interface.GDKP or {};
 
 ---@class GDKPAuctioneerInterface
-GL.Interface.GDKP.Auctioneer = {
+Interface.GDKP.Auctioneer = {
     isVisible = false,
-    itemBoxHoldsValidItem = false,
-    queueModeActivated = false,
 
-    Defaults = {
-        itemIcon = "Interface\\Icons\\INV_Misc_QuestionMark",
-        itemBoxText = "",
-    },
-    PlayersTable = {},
-    PopTimer = nil,
+    --[[ INPUT VALUES ]]
+    antiSnipe = nil,
+    increment = nil,
+    itemLink = nil,
+    minimumBid = nil,
+    time = nil,
+
+    reorderItems = nil, -- Overwritten later
+    queueWindowName = "Gargul.Interface.GDKP.Auctioneer.Queue",
+    windowName = "Gargul.Interface.GDKP.Auctioneer.Window",
+    auctioneerShortcutName = "Gargul.Interface.GDKP.Auctioneer.Shortcut",
+
+    BidsTable = nil,
+    ItemRows = {};
+    CountdownTimer = nil,
 };
 
 ---@type GDKPAuctioneerInterface
-local Auctioneer = GL.Interface.GDKP.Auctioneer;
+local AuctioneerUI = Interface.GDKP.Auctioneer;
 
 --[[ CONSTANTS ]]
-local QUEUE_MAX_ITEMS = 18;
+local DEFAULT_WINDOW_HEIGHT = 281;
+local DEFAULT_WINDOW_WIDTH = 350;
+local DEFAULT_PLAYER_COLUMN_WIDTH = 150;
+local DEFAULT_TABLE_ROWS = 6;
+local FONT;
+local HEIGHT_PER_TABLE_ROW = 18;
+local QUESTION_MARK_TEXTURE = "Interface/Icons/INV_Misc_QuestionMark";
 
-function Auctioneer:draw(itemLink)
-    GL:debug("Auctioneer:draw");
+local BIDS_TABLE_COLUMNS = {
+    { --[[ Player ]]
+        width = DEFAULT_PLAYER_COLUMN_WIDTH,
+        color = { r = .5, g = .5, b = 1.0, a = 1.0 },
+    },
+    { --[[ Bid ]]
+        width = 108,
+        color = { r = .5, g = .5, b = 1.0, a = 1.0 },
+        sort = GL.Data.Constants.ScrollingTable.descending,
+    },
+    { --[[ Delete ]]
+        width = 18,
+        align = "RIGHT",
+        DoCellUpdate = GL.LibStImageButtonCellUpdate,
+    },
+    { --[[ BID ID ]]
+        width = 0,
+    },
+};
+
+---@return table|nil
+function AuctioneerUI:open()
+    GL:debug("AuctioneerUI:open");
 
     if (GL.User.isInGroup
         and not GL.User.isMasterLooter
@@ -51,969 +92,1054 @@ function Auctioneer:draw(itemLink)
         return GL:warning("You need to be the master looter or have an assist / lead role!");
     end
 
-    -- Close the reopen auctioneer button if it exists
-    self:closeReopenAuctioneerButton();
+    self.isVisible = true;
+    FONT = GL.FONT;
 
-    -- First we need to check if the frame hasn't been
-    -- rendered already. If so then show it (if it's hidden)
-    -- and pass the itemLink along in case one was provided
-    local Window = Interface:get(self, "Window");
-    if (Window) then
-        if (itemLink) then
-            Auctioneer:passItemLink(itemLink);
-        end
+    local Window = _G[self.windowName] or self:build();
 
-        -- If the frame is hidden we need to show it again
-        if (not self.isVisible) then
-            self:refreshQueueTable();
-            Interface:get(self, "Frame.QueueWindow").frame:Show();
-            self:show(Window);
-        end
+    Window:Show();
+    return Window;
+end
 
-        return;
+---@return void
+function AuctioneerUI:close()
+    GL:debug("AuctioneerUI:close");
+
+    self.isVisible = false;
+    return _G[self.windowName] and _G[self.windowName]:Hide();
+end
+
+--- Build the auctioneer UI. We only do this once per runtime
+---
+---@return table
+function AuctioneerUI:build()
+    GL:debug("AuctioneerUI:build");
+
+    if (_G[self.windowName]) then
+        return _G[self.windowName];
     end
 
-    self.isVisible = true;
-    self.queueModeActivated = Settings:get("GDKP.enableGDKPQueuesByDefault");
+    --[[ THE MAIN AUCTIONEER WINDOW ]]
+    ---@type Frame
+    local Window = Interface:createWindow(self.windowName, {
+        width = DEFAULT_WINDOW_WIDTH,
+        height = DEFAULT_WINDOW_HEIGHT,
+        minWidth = 350,
+        minHeight = 239,
+        maxWidth = 500,
+        maxHeight = 700,
+    });
+    Window:Hide();
 
-    local HelpIcon;
-
-    -- Create a container/parent frame
-    Window = AceGUI:Create("Frame", "GARGUL_AUCTIONEER_WINDOW");
-    Window:SetTitle("Gargul GDKP Auction");
-    Window:SetLayout("Flow");
-    Window:SetWidth(410);
-    Window:SetHeight(416);
-    Window:EnableResize(false);
-    Window:SetCallback("OnClose", function()
-        self:close();
+    Window:HookScript("OnShow", function ()
+        self:closeAuctioneerShortcut();
     end);
-    self:show(Window);
-    Interface:set(self, "Window", Window);
-    Interface:restorePosition(Window, "Auctioneer");
 
-    --[[ QUEUE STUFF === ]]
-
-    do
-        local QueueWindow = AceGUI:Create("InlineGroup");
-        QueueWindow:SetLayout("Flow");
-        QueueWindow:SetWidth(290);
-        QueueWindow:SetHeight(300);
-        QueueWindow:SetPoint("TOPLEFT", Window.frame, "TOPRIGHT", 2, 16);
-        QueueWindow:SetPoint("BOTTOMLEFT", Window.frame, "BOTTOMLEFT", 2);
-        Interface:set(self, "QueueWindow", QueueWindow);
-        QueueWindow.frame:SetFrameStrata("FULLSCREEN_DIALOG");
-        QueueWindow.frame:SetParent(Window.frame);
-        QueueWindow.frame:Show();
-
-        local columns = {
+    --[[ ADD THE SETTINGS MENU IN THE TOP LEFT OF THE WINDOW ]]
+    Interface:addWindowOptions(Window, {
+        { text = L.TUTORIAL, notCheckable = true, func = function ()
+            GL:popupMessage(string.format(
+                L.TUTORIAL_AUCTIONEER,
+                GL.Settings:get("ShortcutKeys.rollOffOrAuction"),
+                GL.Settings:get("ShortcutKeys.award"),
+                L.AUCTION
+            ));
+            CloseMenus();
+        end },
+        {
+            text = function ()
+                return string.format("%s (|cFF%s%sg|r)",
+                    L.GDKP_SESSION,
+                    Constants.ClassHexColors.rogue,
+                    Pot:total()
+                );
+            end,
+            notCheckable = true,
+            func = function ()
+                Interface.GDKP.Overview:open();
+                CloseMenus();
+            end
+        },
+        "divider",
+        {text = L.AUCTIONS, isTitle = true, notCheckable = true },
+        {text = L.AUTO_AWARD, setting = "GDKP.autoAwardViaAuctioneer"},
+        {text = L.NO_BIDS_ACTION, notCheckable = true, SubMenu = {
             {
-                name = "",
-                width = 18,
-                DoCellUpdate = GL.LibStImageButtonCellUpdate,
+                text = L.NOTHING,
+                hideOnClick = true,
+                isRadio = true,
+                checked = function ()
+                    return Settings:get("GDKP.queuedAuctionNoBidsAction") == "NOTHING";
+                end,
+                func = function (Entry)
+                    Entry.checked = true;
+                    Settings:set("GDKP.queuedAuctionNoBidsAction", "NOTHING");
+                end,
             },
             {
-                name = "Queued Items",
-                width = 132,
+                text = L.SKIP,
+                hideOnClick = true,
+                isRadio = true,
+                checked = function ()
+                    return Settings:get("GDKP.queuedAuctionNoBidsAction") == "SKIP";
+                end,
+                func = function (Entry)
+                    Entry.checked = true;
+                    Settings:set("GDKP.queuedAuctionNoBidsAction", "SKIP");
+                end,
             },
             {
-                name = "Min",
-                width = 50,
-                DoCellUpdate = GL.LibStInputCellUpdate,
+                text = L.DISENCHANT,
+                hideOnClick = true,
+                isRadio = true,
+                checked = function ()
+                    return Settings:get("GDKP.queuedAuctionNoBidsAction") == "DISENCHANT";
+                end,
+                func = function (Entry)
+                    Entry.checked = true;
+                    Settings:set("GDKP.queuedAuctionNoBidsAction", "DISENCHANT");
+                end,
+            },
+        }},
+        {text = L.AUTO_TRADE_OPTIONS, notCheckable = true, SubMenu = {
+            {
+                text = "Enable",
+                checked = function ()
+                    return Settings:get("AwardingLoot.autoTradeAfterAwardingAnItem");
+                end,
+                func = function (Entry)
+                    Settings:set("AwardingLoot.autoTradeAfterAwardingAnItem", Entry.checked);
+                end,
             },
             {
-                name = "Inc",
-                width = 40,
-                DoCellUpdate = GL.LibStInputCellUpdate,
+                text = "Disable for disenchanted",
+                checked = function ()
+                    return not Settings:get("AwardingLoot.autoTradeDisenchanter");
+                end,
+                func = function (Entry)
+                    Settings:set("AwardingLoot.autoTradeDisenchanter", not Entry.checked);
+                end,
             },
             {
-                name = "",
-                width = 0,
-                sort = GL.Data.Constants.ScrollingTable.ascending,
+                text = "Disable in combat",
+                checked = function ()
+                    return not Settings:get("AwardingLoot.autoTradeInCombat");
+                end,
+                func = function (Entry)
+                    Settings:set("AwardingLoot.autoTradeInCombat", not Entry.checked);
+                end,
             },
-        };
+        }},
+        {text = L.COMMUNICATION, notCheckable = true, SubMenu = {
+            {
+                text = L.SETTINGS_ANNOUNCE_START,
+                checked = function ()
+                    return Settings:get("GDKP.announceAuctionStart");
+                end,
+                func = function (Entry)
+                    Settings:set("GDKP.announceAuctionStart", Entry.checked);
+                end,
+            },
+            {
+                text = L.SETTINGS_ANNOUNCE_POT_AFTER_AWARD,
+                checked = function ()
+                    return Settings:get("GDKP.announcePotAfterAuction");
+                end,
+                func = function (Entry)
+                    Settings:set("GDKP.announcePotAfterAuction", Entry.checked);
+                end,
+            },
+            {
+                text = L.SETTINGS_WHISPER_BID_TOO_LOW,
+                checked = function ()
+                    return Settings:get("GDKP.notifyIfBidTooLow");
+                end,
+                func = function (Entry)
+                    Settings:set("GDKP.notifyIfBidTooLow", Entry.checked);
+                end,
+            },
+            {
+                text = L.SETTINGS_COUNTDOWN_IN_RAID_WARNING,
+                checked = function ()
+                    return Settings:get("GDKP.announceCountdownInRW");
+                end,
+                func = function (Entry)
+                    Settings:set("GDKP.announceCountdownInRW", Entry.checked);
+                end,
+            },
+            {
+                text = L.SETTINGS_ANNOUNCE_INCOMING_BIDS,
+                checked = function ()
+                    return Settings:get("GDKP.announceNewBid");
+                end,
+                func = function (Entry)
+                    Settings:set("GDKP.announceNewBid", Entry.checked);
+                end,
+            },
+            {
+                text = L.SETTINGS_INCOMING_BIDS_IN_RAID_WARNING,
+                checked = function ()
+                    return Settings:get("GDKP.announceNewBidInRW");
+                end,
+                func = function (Entry)
+                    Settings:set("GDKP.announceNewBidInRW", Entry.checked);
+                end,
+            },
+        }},
+        "divider",
+        {text = L.QUEUE, isTitle = true, notCheckable = true },
+        {text = L.ADD_DROPS_TO_QUEUE, setting = "GDKP.addDropsToQueue", func = function(Entry, _, _, checked)
+            Settings:set("GDKP.addDropsToQueue", checked);
+            Entry.checked = checked;
+        end},
+        {text = L.INCLUDE_BOES, setting = "GDKP.addBOEDropsToQueue", func = function(Entry, _, _, checked)
+            Settings:set("GDKP.addBOEDropsToQueue", checked);
+            Entry.checked = checked;
+        end},
+        "divider",
+        {text = L.WINDOW, isTitle = true, notCheckable = true },
+        {text = L.CHANGE_SCALE, notCheckable = true, func = function ()
+            Interface:openScaler(Window);
+            CloseMenus();
+        end},
+        {text = L.MINIMIZE_ON_START, setting = "GDKP.minimizeAuctioneerOnStart"},
+        {text = L.MINIMIZE_ON_AWARD, setting = "GDKP.minimizeAuctioneerOnAward"},
+        "divider",
+        {text = L.ALL_SETTINGS, notCheckable = true, func = function ()
+            Settings:draw("GDKP");
+            CloseMenus();
+        end },
+    });
 
-        local Table = AceGUI:Create("CLMLibScrollingTable");
-        Table:SetDisplayCols(columns);
-        Table:SetDisplayRows(QUEUE_MAX_ITEMS, 18);
-        Table:EnableSelection(false);
-        Table:RegisterEvents({ ["OnClick"] = function () return true; end }); -- Override the default OnClick
-        Interface:set(self, "Queue", Table);
-        QueueWindow:AddChild(Table);
+    --[[ PREPARE THE MINIMIZED VERSION OF THE WINDOW ]]
+    Window.Minimized:SetHeight(70);
+    Window.Minimized:SetWidth(150);
 
-        local HowToAddToQueueLabel = AceGUI:Create("Label");
-        HowToAddToQueueLabel:SetText(string.format(
-            "|c00a79eff%s|r items to add them to the queue click start on the left when you're ready to go. While a queue is active you can keep adding items!",
-            Settings:get("ShortcutKeys.rollOffOrAuction")
-        ));
-        HowToAddToQueueLabel:SetWidth(Table.frame:GetWidth() - 40);
-        HowToAddToQueueLabel:SetJustifyH("MIDDLE");
-        HowToAddToQueueLabel.frame:SetParent(Table.frame);
-        HowToAddToQueueLabel.frame:SetPoint("TOP", Table.frame, "TOP", -10, -40);
-        Interface:set(self, "HowToAddToQueueLabel", HowToAddToQueueLabel);
+    ---@type Button
+    local StopButton;
 
-        local NewQueueInfoLabel = AceGUI:Create("Label");
-        NewQueueInfoLabel:SetText(string.format(
-            "You can start a new queue and queue up multiple items for auction\n\nRaiders with Gargul can immediately see these items and bid already, making runs much faster!\n\nWant to go even faster? Enable 'Auto award' and pick a default action for unwanted items in the GDKP settings menu"
-        ));
-        NewQueueInfoLabel:SetWidth(Table.frame:GetWidth() - 40);
-        NewQueueInfoLabel:SetJustifyH("MIDDLE");
-        NewQueueInfoLabel.frame:SetParent(Table.frame);
-        NewQueueInfoLabel.frame:SetPoint("TOP", Table.frame, "TOP", -10, -40);
-        NewQueueInfoLabel.frame:Show();
-        Interface:set(self, "NewQueueInfoLabel", NewQueueInfoLabel);
+    ---@type FontString
+    local CurrentPotLabel = Interface:createFontString(Window.Minimized, {
+        text = function (self)
+            self:SetText(string.format("%s: |cFF%s%sg|r",
+                L.POT,
+                Constants.ClassHexColors.rogue,
+                Pot:total()
+            ));
+        end,
+        updateOn = { "GL.GDKP_AUCTION_CHANGED", "GL.GDKP_SESSION_CHANGED" },
+    });
+    CurrentPotLabel:SetFont(GL.FONT, 12, "OUTLINE");
+    CurrentPotLabel:SetPoint("TOPLEFT", Window.Minimized, "TOPLEFT", 24, -18);
 
-        local ClearOrNewQueueButton = AceGUI:Create("Button");
-        ClearOrNewQueueButton:SetText("New Queue");
-        ClearOrNewQueueButton:SetFullWidth(true);
-        ClearOrNewQueueButton:SetHeight(20);
-        ClearOrNewQueueButton:SetDisabled(false);
-        ClearOrNewQueueButton:SetCallback("OnClick", function()
-            if (self.queueModeActivated) then
-                self.queueModeActivated = false;
-                ClearOrNewQueueButton:SetText("New Queue");
-                self:clearQueue();
-                self:refreshQueueTable();
+    ---@type Button
+    local MinimizedStopButton = Interface:dynamicPanelButton(Window.Minimized, L.STOP);
+    MinimizedStopButton:SetPoint("TOPLEFT", Window.Minimized, "TOPLEFT", 20, -34);
+    MinimizedStopButton:SetPoint("TOPRIGHT", Window.Minimized, "TOPRIGHT", -20, 0);
+    MinimizedStopButton:SetScript("OnClick", function ()
+        StopButton:Click();
+    end);
+    MinimizedStopButton:Hide();
+    Window.Minimized.StopButton = MinimizedStopButton;
 
+    ---@type Button
+    local MinimizedOpenButton = Interface:dynamicPanelButton(Window.Minimized, L.OPEN_AUCTIONEER);
+    MinimizedOpenButton:SetPoint("TOPLEFT", Window.Minimized, "TOPLEFT", 20, -34);
+    MinimizedOpenButton:SetPoint("TOPRIGHT", Window.Minimized, "TOPRIGHT", -20, 0);
+    MinimizedOpenButton:SetScript("OnClick", function ()
+        self:open();
+    end);
+    Window.Minimized.OpenButton = MinimizedOpenButton;
+
+    ---@type EditBox
+    local ItemInput;
+
+    ---@type Texture
+    local ItemImage;
+
+    do --[[ ITEM ICON / INPUT ]]
+        ---@type Frame
+        local Icon = CreateFrame("Frame",nil, Window);
+        Icon:SetSize(40, 40);
+        Icon:SetPoint("TOPLEFT", Window, "TOPLEFT", 28, -28);
+
+        Icon:SetScript("OnEnter", function()
+            if (not self.itemLink or not GL:getItemIDFromLink(self.itemLink)) then return; end
+            GameTooltip:SetOwner(Icon, "RIGHT");
+            GameTooltip:SetHyperlink(self.itemLink);
+            GameTooltip:Show();
+        end);
+
+        Icon:SetScript("OnMouseUp", function (_, mouseButtonPressed)
+            GL:handleItemClick(self.itemLink, mouseButtonPressed);
+        end);
+
+        Icon:SetScript("OnLeave", function()
+            GameTooltip:Hide();
+        end);
+
+        ItemImage = Icon:CreateTexture(nil, "BACKGROUND")
+        ItemImage:SetWidth(40)
+        ItemImage:SetHeight(40)
+        ItemImage:SetPoint("TOP", 0, 0);
+        ItemImage:SetTexture(QUESTION_MARK_TEXTURE);
+
+        ItemInput = Interface:inputBox(Window);
+        ItemInput:SetPoint("TOPLEFT", Icon, "TOPRIGHT", 18, -18);
+        ItemInput:SetPoint("RIGHT", Window, "RIGHT", -24, 0);
+    end
+
+    do --[[ CURRENT POT ]]
+        --[[ ICON ]]
+        ---@type Frame
+        local Icon = CreateFrame("Frame",nil, Window);
+        Icon:SetSize(12, 12);
+        Icon:SetPoint("BOTTOMLEFT", ItemInput, "TOPLEFT", -4, 4);
+
+        local PotImage = Icon:CreateTexture(nil, "BACKGROUND")
+        PotImage:SetWidth(12)
+        PotImage:SetHeight(12)
+        PotImage:SetPoint("TOP", 0, 0);
+        PotImage:SetTexture("Interface/AddOns/Gargul/Assets/Icons/achievement_guildperk_cashflow");
+
+        --[[ TEXT ]]
+        ---@type FontString
+        local CurrentPotLabel = Interface:createFontString(Window, {
+            text = function (self)
+                self:SetText(string.format("%s: |cFF%s%sg|r",
+                    L.POT,
+                    Constants.ClassHexColors.rogue,
+                    Pot:total()
+                ));
+            end,
+            updateOn = { "GL.GDKP_AUCTION_CHANGED", "GL.GDKP_SESSION_CHANGED" },
+        });
+        CurrentPotLabel:SetPoint("TOPLEFT", Icon, "TOPRIGHT", 4, 0);
+    end
+
+    --[[ MINIMUM BID ]]
+    ---@type FontString
+    local MinLabel = Interface:createFontString(Window, L.MIN);
+    MinLabel:SetPoint("TOPLEFT", Window, "TOPLEFT", 26, -82);
+
+    ---@type EditBox
+    local MinInput = Interface:inputBox(Window);
+    MinInput:SetWidth(42);
+    MinInput:SetPoint("TOPLEFT", MinLabel, "TOPRIGHT", 8, 6);
+    MinInput:SetScript("OnTextChanged", function ()
+        self.minimumBid = tonumber(MinInput:GetText());
+    end);
+
+    --[[ INCREMENT ]]
+    ---@type FontString
+    local IncLabel = Interface:createFontString(Window, L.INC);
+    IncLabel:SetPoint("TOPLEFT", MinLabel, "TOPRIGHT", MinInput:GetWidth() + 12, 0);
+
+    ---@type EditBox
+    local IncInput = Interface:inputBox(Window);
+    IncInput:SetWidth(36);
+    IncInput:SetPoint("TOPLEFT", IncLabel, "TOPRIGHT", 8, 6);
+    IncInput:SetScript("OnTextChanged", function ()
+        self.increment = tonumber(IncInput:GetText());
+    end);
+
+    --[[ TIME ]]
+    ---@type FontString
+    local TimeLabel = Interface:createFontString(Window, L.TIME);
+    TimeLabel:SetPoint("TOPLEFT", IncLabel, "TOPRIGHT", IncInput:GetWidth() + 12, 0);
+
+    ---@type EditBox
+    local TimeInput = Interface:inputBox(Window);
+    TimeInput:SetText(Settings:get("GDKP.time"));
+    TimeInput:SetWidth(20);
+    TimeInput:SetPoint("TOPLEFT", TimeLabel, "TOPRIGHT", 8, 6);
+    TimeInput:SetScript("OnTextChanged", function ()
+        self.time = tonumber(TimeInput:GetText());
+    end);
+
+    --[[ ANTI SNIPE ]]
+    ---@type FontString
+    local SnipeLabel = Interface:createFontString(Window, L.ANTISNIPE);
+    SnipeLabel:SetPoint("TOPLEFT", TimeLabel, "TOPRIGHT", TimeInput:GetWidth() + 12, 0);
+
+    ---@type EditBox
+    local SnipeInput = Interface:inputBox(Window);
+    SnipeInput:SetText(Settings:get("GDKP.antiSnipe"));
+    SnipeInput:SetWidth(20);
+    SnipeInput:SetPoint("TOPLEFT", SnipeLabel, "TOPRIGHT", 8, 6);
+    SnipeInput:SetScript("OnTextChanged", function ()
+        self.antiSnipe = tonumber(SnipeInput:GetText());
+    end);
+
+    do --[[ HELP ICON ]]
+        local texturePath = "interface/friendsframe/informationicon";
+
+        ---@type Frame
+        local Icon = CreateFrame("Button","Gargul.Interface.GDKP.Auctioneer.HelpIcon", Window);
+        Icon:SetSize(12, 12);
+        Icon:SetPoint("TOPLEFT", SnipeInput, "TOPRIGHT", 4, -4);
+
+        ---@type Texture
+        local image = Icon:CreateTexture(nil, "BACKGROUND")
+        image:SetWidth(12)
+        image:SetHeight(12)
+        image:SetAllPoints(Icon)
+        image:SetTexture(texturePath);
+
+        ---@type Texture
+        local highlight = Icon:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints(Icon);
+        highlight:SetTexture("Interface/PaperDollInfoFrame/UI-Character-Tab-Highlight")
+        highlight:SetTexCoord(0, 1, 0.23, 0.77);
+        highlight:SetBlendMode("ADD");
+
+        Interface:addTooltip(Icon, L.ANTISNIPE_EXPLANATION);
+    end
+
+    ---@type Frame
+    local StoppedButtonFrame;
+
+    do --[[ BUTTONS WHEN AUCTION STOPPED ]]
+        StoppedButtonFrame = CreateFrame("Frame", nil, Window);
+        StoppedButtonFrame:SetHeight(20);
+        StoppedButtonFrame:SetPoint("TOPLEFT", Window, "TOPLEFT", 0, -108);
+        StoppedButtonFrame:SetPoint("TOPRIGHT", Window, "TOPRIGHT", 0, -108);
+
+        --[[ START ]]
+        ---@type Button
+        local StartButton = Interface:dynamicPanelButton(StoppedButtonFrame, L.START);
+        StartButton:SetPoint("TOPLEFT", StoppedButtonFrame, "TOPLEFT", 26, 0);
+        StartButton:SetScript("OnClick", function ()
+            Auctioneer:start(true);
+        end);
+
+        --[[ DISENCHANT ]]
+        ---@type Button
+        local DisenchantButton = Interface:dynamicPanelButton(StoppedButtonFrame, L.DISENCHANT);
+        DisenchantButton:SetPoint("TOPLEFT", StartButton, "TOPRIGHT", 1, 0);
+        DisenchantButton:SetScript("OnClick", function ()
+            Auctioneer:disenchant(self.itemLink);
+        end);
+
+        --[[ CLEAR ]]
+        ---@type Button
+        local ClearButton = Interface:dynamicPanelButton(StoppedButtonFrame, L.CLEAR);
+        ClearButton:SetPoint("TOPLEFT", DisenchantButton, "TOPRIGHT", 1, 0);
+        ClearButton:SetScript("OnClick", function ()
+            Auctioneer:clear();
+        end);
+
+        --[[ NEXT ]]
+        ---@type Button
+        local NextButton = Interface:dynamicPanelButton(StoppedButtonFrame, L.NEXT);
+        NextButton:SetPoint("TOPLEFT", ClearButton, "TOPRIGHT", 1, 0);
+        NextButton:SetScript("OnClick", function ()
+            Auctioneer:popFromQueue(true);
+        end);
+
+        --[[ AWARD ]]
+        ---@type Button
+        local AwardButton = Interface:dynamicPanelButton(StoppedButtonFrame, L.AWARD);
+        AwardButton:SetPoint("TOPLEFT", NextButton, "TOPRIGHT", 1, 0);
+        AwardButton:SetScript("OnClick", function ()
+            Auctioneer:award();
+        end);
+    end
+
+    ---@type Frame
+    local StartedButtonFrame;
+
+    do --[[ BUTTONS WHEN AUCTION STARTED ]]
+        StartedButtonFrame = CreateFrame("Frame", nil, Window);
+        StartedButtonFrame:SetHeight(StoppedButtonFrame:GetHeight());
+        StartedButtonFrame:SetPoint("TOPLEFT", StoppedButtonFrame);
+        StartedButtonFrame:SetPoint("TOPRIGHT", StoppedButtonFrame);
+        StartedButtonFrame:Hide();
+
+        --[[ START ]]
+        ---@type Button
+        StopButton = Interface:dynamicPanelButton(StartedButtonFrame, L.STOP);
+        StopButton:SetPoint("TOPLEFT", StartedButtonFrame, "TOPLEFT", 26, 0);
+        StopButton:SetScript("OnClick", function ()
+            Auctioneer:stop();
+        end);
+
+        --[[ +10 ]]
+        ---@type Button
+        local ExtendButton = Interface:dynamicPanelButton(StartedButtonFrame, L.PLUS10);
+        ExtendButton:SetPoint("TOPLEFT", StopButton, "TOPRIGHT", 1, 0);
+        ExtendButton:SetScript("OnClick", function ()
+            if (Auctioneer:extend()) then
+                ExtendButton:SetEnabled(false);
+
+                GL.Ace:ScheduleTimer(function ()
+                    ExtendButton:SetEnabled(true);
+                end, 2);
+            end
+        end);
+
+        --[[ -10 ]]
+        ---@type Button
+        local ShortenButton = Interface:dynamicPanelButton(StartedButtonFrame, L.MINUS10);
+        ShortenButton:SetPoint("TOPLEFT", ExtendButton, "TOPRIGHT", 1, 0);
+        ShortenButton:SetScript("OnClick", function ()
+            if (Auctioneer:shorten()) then
+                ShortenButton:SetEnabled(false);
+
+                GL.Ace:ScheduleTimer(function ()
+                    ShortenButton:SetEnabled(true);
+                end, 2);
+            end
+        end);
+    end
+
+    --[[ BIDS TABLE ]]
+    local Table = self:buildBidsTable(Window);
+    Table.frame:SetPoint("TOPLEFT", StoppedButtonFrame, "BOTTOMLEFT", 20, -10);
+    self.BidsTable = Table;
+
+    --[[ QUEUE (RIGHT SIDE) WINDOW ]]
+    ---@type Frame
+    local Queue = self:buildQueue(Window);
+
+    do --[[ QUEUE TOGGLER BUTTON ]]
+        local closedCoords = { 0.03125, 0.46875, 0.0078125, 0.9921875 };
+        local openedCoords = { 0.53125, 0.96875, 0.0078125, 0.9921875 };
+
+        ---@type Button
+        local ToggleQueue = CreateFrame("Button", "Gargul.Interface.GDKP.Auctioneer.ToggleQueue", Window);
+        ToggleQueue:SetSize(14,66);
+        ToggleQueue:SetPoint("CENTER", Queue);
+        ToggleQueue:SetScript("OnClick", function ()
+            if (Settings:get("GDKP.disableQueues")) then
+                GL:warning(L.YOU_DISABLED_GDKP_QUEUES);
                 return;
             end
 
-            self.queueModeActivated = true;
-            ClearOrNewQueueButton:SetText("Clear");
-            self:refreshQueueTable();
+            if (Queue:IsVisible()) then
+                Queue:Hide();
+                ToggleQueue.texture:SetTexCoord(unpack(closedCoords));
+                Settings:set("GDKP.showQueueWindow", false);
+            else
+                Queue:Show();
+                ToggleQueue.texture:SetTexCoord(unpack(openedCoords));
+                Settings:set("GDKP.showQueueWindow", true);
+            end
+
+            ToggleQueue:SetPoint("RIGHT", Queue:IsShown() and Queue or Window, "RIGHT", -10, 0);
         end);
-        if (self.queueModeActivated) then
-            ClearOrNewQueueButton:SetText("Clear");
+
+        ToggleQueue.texture = ToggleQueue:CreateTexture();
+        ToggleQueue.texture:SetAllPoints(ToggleQueue)
+        ToggleQueue.texture:SetTexture("interface/raidframe/raidpanel-toggle");
+        ToggleQueue.texture:SetTexCoord(unpack(closedCoords));
+        ToggleQueue:SetPoint("RIGHT", Queue:IsShown() and Queue or Window, "RIGHT", -10, 0);
+
+        if (Queue:IsShown()) then
+            ToggleQueue.texture:SetTexCoord(unpack(openedCoords));
         end
-        QueueWindow:AddChild(ClearOrNewQueueButton);
+
+        ToggleQueue.highlightTexture = ToggleQueue:CreateTexture(nil, "HIGHLIGHT");
+        ToggleQueue.highlightTexture:SetPoint("TOPLEFT", ToggleQueue, "TOPLEFT", 3, -10);
+        ToggleQueue.highlightTexture:SetPoint("BOTTOMRIGHT", ToggleQueue, "BOTTOMRIGHT", 2, 10);
+        ToggleQueue.highlightTexture:SetTexture("Interface/PaperDollInfoFrame/UI-Character-Tab-Highlight");
+        ToggleQueue.highlightTexture:SetTexCoord(0, 1, 0.23, 0.77);
+        ToggleQueue.highlightTexture:SetBlendMode("ADD");
+        ToggleQueue:SetHighlightTexture(ToggleQueue.highlightTexture);
+
+        Interface:addTooltip(ToggleQueue, L.TOGGLE_QUEUE, "BOTTOMRIGHT");
     end
 
-    --[[
-        SETTINGS BUTTON
-    ]]
-    local Cogwheel = GL.UI:createSettingsButton(
-        Window.frame,
-        "GDKP"
-    );
-    Cogwheel:SetScript("OnClick", function(_, button)
-        if (button == 'LeftButton') then
-            self:close();
+    --[[ ADJUST TABLE ROWS AFTER WINDOW RESIZE ]]
+    Window:HookScript("OnSizeChanged", function (...)
+        local extraVerticalRoomForTable = Window:GetHeight() - DEFAULT_WINDOW_HEIGHT;
+        local extraHorizontalRoomForTable = Window:GetWidth() - DEFAULT_WINDOW_WIDTH;
+        local additionalRows = math.floor(extraVerticalRoomForTable / HEIGHT_PER_TABLE_ROW);
 
-            GL.Settings:draw("GDKP", function ()
-                self:draw();
-            end);
-        end
+        --[[ ADJUST ROWS ]]
+        Table:SetDisplayRows(additionalRows + DEFAULT_TABLE_ROWS, HEIGHT_PER_TABLE_ROW);
+
+        --[[ ADJUST COLUMN WIDTH ]]
+        local newPlayerColumnWidth = math.floor(extraHorizontalRoomForTable + DEFAULT_PLAYER_COLUMN_WIDTH);
+        BIDS_TABLE_COLUMNS[1].width = newPlayerColumnWidth
+        Table:SetDisplayCols(BIDS_TABLE_COLUMNS);
     end);
+    Window:GetScript("OnSizeChanged")();
 
-    --[[ ROWS ]]
+    --[[ CHANGE THE CURRENTLY ACTIVE ITEM ]]
 
-    local FirstRow = AceGUI:Create("SimpleGroup");
-    FirstRow:SetLayout("Flow");
-    FirstRow:SetFullWidth(true);
-    FirstRow:SetHeight(30);
-    Window:AddChild(FirstRow);
-
-    local SecondRow = AceGUI:Create("SimpleGroup");
-    SecondRow:SetLayout("Flow");
-    SecondRow:SetFullWidth(true);
-    SecondRow:SetHeight(20);
-    Window:AddChild(SecondRow);
-
-    local ThirdRow = AceGUI:Create("SimpleGroup");
-    ThirdRow:SetLayout("Flow");
-    ThirdRow:SetFullWidth(true);
-    ThirdRow:SetHeight(20);
-    Window:AddChild(ThirdRow);
-
-    local FifthRow = AceGUI:Create("SimpleGroup");
-    FifthRow:SetLayout("Flow");
-    FifthRow:SetFullWidth(true);
-    FifthRow:SetHeight(20);
-    Window:AddChild(FifthRow);
-
-    local FourthRow = AceGUI:Create("SimpleGroup");
-    FourthRow:SetLayout("Flow");
-    FourthRow:SetFullWidth(true);
-    FourthRow:SetHeight(20);
-    Window:AddChild(FourthRow);
-
-    --[[ AUCTION SETTINGS ]]
-
-    local MinimumBidLabel = AceGUI:Create("Label");
-    MinimumBidLabel:SetText("Minimum bid ");
-    MinimumBidLabel:SetHeight(20);
-    MinimumBidLabel:SetWidth(74); -- Minimum length 72
-    FirstRow:AddChild(MinimumBidLabel);
-
-    local MinimumBid = AceGUI:Create("EditBox");
-    MinimumBid:DisableButton(true);
-    MinimumBid:SetHeight(20);
-    MinimumBid:SetWidth(70);
-    MinimumBid:SetText(GL.Settings:get("GDKP.defaultMinimumBid"));
-    FirstRow:AddChild(MinimumBid);
-    Interface:set(self, "MinimumBid", MinimumBid);
-
-    local MinimumIncrementLabel = AceGUI:Create("Label");
-    MinimumIncrementLabel:SetText(" Bid increment ");
-    MinimumIncrementLabel:SetHeight(20);
-    MinimumIncrementLabel:SetWidth(80); -- Minimum length 74
-    FirstRow:AddChild(MinimumIncrementLabel);
-
-    local MinimumIncrement = AceGUI:Create("EditBox");
-    MinimumIncrement:DisableButton(true);
-    MinimumIncrement:SetHeight(20);
-    MinimumIncrement:SetWidth(70);
-    MinimumIncrement:SetText(GL.Settings:get("GDKP.defaultIncrement"));
-    FirstRow:AddChild(MinimumIncrement);
-    Interface:set(self, "MinimumIncrement", MinimumIncrement);
-
-    HelpIcon = AceGUI:Create("Icon");
-    HelpIcon:SetWidth(24);
-    HelpIcon:SetHeight(24);
-    HelpIcon:SetImageSize(12, 12);
-    HelpIcon:SetImage("interface/friendsframe/informationicon");
-    FirstRow:AddChild(HelpIcon);
-
-    HelpIcon:SetCallback("OnEnter", function()
-        GameTooltip:SetOwner(HelpIcon.frame, "ANCHOR_RIGHT");
-        GameTooltip:AddLine(" ");
-        GameTooltip:AddLine("Note: the increment may not be higher than the minimum bid");
-        GameTooltip:AddLine(" ");
-        GameTooltip:Show();
-    end);
-
-    HelpIcon:SetCallback("OnLeave", function()
-        GameTooltip:Hide();
-    end);
-
-    local AuctionTimeLabel = AceGUI:Create("Label");
-    AuctionTimeLabel:SetText("Auction length in seconds");
-    AuctionTimeLabel:SetHeight(20);
-    AuctionTimeLabel:SetWidth(142); -- Minimum length 74
-    SecondRow:AddChild(AuctionTimeLabel);
-
-    local AuctionTime = AceGUI:Create("EditBox");
-    AuctionTime:DisableButton(true);
-    AuctionTime:SetHeight(20);
-    AuctionTime:SetWidth(40);
-    AuctionTime:SetText(Settings:get("GDKP.time"));
-    SecondRow:AddChild(AuctionTime);
-    Interface:set(self, "Time", AuctionTime);
-
-    local AntiSnipeLabel = AceGUI:Create("Label");
-    AntiSnipeLabel:SetText(" Anti Snipe ");
-    AntiSnipeLabel:SetHeight(20);
-    AntiSnipeLabel:SetWidth(62); -- Minimum length 74
-    SecondRow:AddChild(AntiSnipeLabel);
-
-    local AntiSnipe = AceGUI:Create("EditBox");
-    AntiSnipe:DisableButton(true);
-    AntiSnipe:SetHeight(20);
-    AntiSnipe:SetWidth(40);
-    AntiSnipe:SetText(Settings:get("GDKP.antiSnipe"));
-    SecondRow:AddChild(AntiSnipe);
-    Interface:set(self, "AntiSnipe", AntiSnipe);
-
-    HelpIcon = AceGUI:Create("Icon");
-    HelpIcon:SetWidth(24);
-    HelpIcon:SetHeight(24);
-    HelpIcon:SetImageSize(12, 12);
-    HelpIcon:SetImage("interface/friendsframe/informationicon");
-    SecondRow:AddChild(HelpIcon);
-
-    HelpIcon:SetCallback("OnEnter", function()
-        GameTooltip:SetOwner(HelpIcon.frame, "ANCHOR_RIGHT");
-        GameTooltip:AddLine(" ");
-        GameTooltip:AddLine("An Anti Snipe value of 10 means that 10 seconds will be added");
-        GameTooltip:AddLine("to the auction if someone bids within the last 10 seconds");
-        GameTooltip:AddLine(" ");
-        GameTooltip:AddLine("You can leave this empty or set to 0 to disable Anti Snipe completely");
-        GameTooltip:AddLine(" ");
-        GameTooltip:Show();
-    end)
-
-    HelpIcon:SetCallback("OnLeave", function()
-        GameTooltip:Hide();
-    end)
-
-    --[[ ITEM ICON ]]
-
-    local ItemIcon = AceGUI:Create("Icon");
-    ItemIcon:SetImage(Auctioneer.Defaults.itemIcon);
-    ItemIcon:SetImageSize(30, 30);
-    ItemIcon:SetWidth(40);
-    ThirdRow:AddChild(ItemIcon);
-    Interface:set(self, "Item", ItemIcon);
-
-    --[[ ITEM TEXTBOX ]]
-    local ItemBox = AceGUI:Create("EditBox");
-    ItemBox:DisableButton(true);
-    ItemBox:SetHeight(20);
-    --ItemBox:SetWidth(120);
-    ItemBox:SetWidth(320);
-    ItemBox:SetCallback("OnTextChanged", function () Auctioneer:ItemBoxChanged() end); -- Update item info when input value changes
-    ItemBox:SetCallback("OnEnterPressed", function () Auctioneer:ItemBoxChanged() end); -- Update item info when item is dragged on top (makes no sense to use OnEnterPressed I know)
-    Interface:set(self, "Item", ItemBox);
-    ThirdRow:AddChild(ItemBox);
-
-    -- Show a gametooltip if the icon shown belongs to an item
-    ItemIcon:SetCallback("OnEnter", function()
-        if (not Auctioneer.itemBoxHoldsValidItem) then
-            return;
-        end
-
-        itemLink = ItemBox:GetText();
-        GameTooltip:SetOwner(ItemIcon.frame, "ANCHOR_TOP");
-        GameTooltip:SetHyperlink(itemLink);
-        GameTooltip:Show();
-    end)
-
-    ItemIcon:SetCallback("OnLeave", function()
-        GameTooltip:Hide();
-    end)
-
-    --[[ START/STOP BUTTON ]]
-
-    local StartButton = AceGUI:Create("Button");
-    StartButton:SetText("Start");
-    StartButton:SetWidth(72);
-    StartButton:SetHeight(20);
-    StartButton:SetCallback("OnClick", function()
-        if (not self.itemBoxHoldsValidItem) then
-            return self:popFromQueue();
-        end
-
-        if (GDKPAuction:announceStart(
-            Interface:get(self, "EditBox.Item"):GetText(),
-            Interface:get(self, "EditBox.MinimumBid"):GetText(),
-            Interface:get(self, "EditBox.MinimumIncrement"):GetText(),
-            Interface:get(self, "EditBox.Time"):GetText(),
-            Interface:get(self, "EditBox.AntiSnipe"):GetText(),
-            GDKPAuction.Current.Bids,
-            GDKPAuction.Current.TopBid
-        )) then
-            GDKPAuction.inProgress = true;
-
-            if (Settings:get("GDKP.closeAuctioneerOnStart", true)) then
-                self:close();
+    ---@param _
+    ---@param itemLink string
+    ---@param minimum number
+    ---@param increment number
+    ---@return void
+    Window.setItemByLink = function(_, itemLink, minimum, increment)
+        GL:onItemLoadDo(GL:getItemIDFromLink(itemLink), function (Details)
+            if (not Details) then
+                return;
             end
-        end;
 
-        Auctioneer:updateWidgets();
+            minimum = tonumber(minimum);
+            increment = tonumber(increment);
+
+            local PerItemSettings;
+            if (not minimum or not increment) then
+                PerItemSettings = GDKP:settingsForItemID(Details.id);
+            end
+
+            minimum = minimum or PerItemSettings.minimum;
+            increment = increment or PerItemSettings.increment;
+
+            ---@type table
+            MinInput:SetText(minimum);
+            IncInput:SetText(increment);
+
+            self.itemLink = itemLink;
+            self.minimumBid = minimum;
+            self.increment = increment;
+            ItemImage:SetTexture(Details.icon);
+            ItemInput:SetText(Details.link);
+        end);
+    end;
+
+    --[[ SHOW THE AUCTIONEER SHORTCUT WHEN CLOSING THE WINDOW DURING AN AUCTION ]]
+    Window:SetScript("OnHide", function ()
+        self.isVisible = false;
+
+        if (Auction.inProgress and Auction:startedByMe()) then
+            self:openAuctioneerShortcut();
+        end
     end);
-    FifthRow:AddChild(StartButton);
-    Interface:set(self, "Start", StartButton);
 
-    --[[ STOP BUTTON ]]
-    local StopButton = AceGUI:Create("Button");
-    StopButton:SetText("Stop");
-    StopButton:SetWidth(72);
-    StopButton:SetHeight(20);
-    StopButton:SetDisabled(true);
-    StopButton:SetCallback("OnClick", function()
-        GL.Ace:CancelTimer(self.PopTimer);
-        GDKPAuction:announceStop(true);
-    end);
-    FifthRow:AddChild(StopButton);
-    Interface:set(self, "Stop", StopButton);
+    --[[ CLEAR THE CURRENTLY ACTIVE ITEM ]]
+    Window.clearItem = function()
+        self.itemLink = nil;
+        MinInput:SetText("");
+        IncInput:SetText("");
+        ItemImage:SetTexture(QUESTION_MARK_TEXTURE);
+        ItemInput:SetText("");
+    end
 
-    --[[ ADD TIME BUTTON ]]
-    local ProlongButton = AceGUI:Create("Button");
-    ProlongButton:SetText("+ 10");
-    ProlongButton:SetWidth(72);
-    ProlongButton:SetHeight(20);
-    ProlongButton:SetDisabled(true);
-    ProlongButton:SetCallback("OnClick", function()
-        GDKPAuction:announceExtension(10);
-        ProlongButton:SetDisabled(true);
-        GL.Ace:ScheduleTimer(function ()
-            self:updateWidgets();
-        end, 3);
-    end);
-    FifthRow:AddChild(ProlongButton);
-    Interface:set(self, "Prolong", ProlongButton);
+    --[[ SWITCH BETWEEN STOP / START BUTTONS ]]
+    Window.stop = function ()
+        StoppedButtonFrame:Show();
+        StartedButtonFrame:Hide();
+    end;
 
-    --[[ CLEAR BUTTON ]]
-    local ClearButton = AceGUI:Create("Button");
-    ClearButton:SetText("Clear");
-    ClearButton:SetWidth(72);
-    ClearButton:SetHeight(20);
-    ClearButton:SetDisabled(false);
-    ClearButton:SetCallback("OnClick", function()
-        self:reset();
-        GDKPAuction:reset();
-    end);
-    FifthRow:AddChild(ClearButton);
-    Interface:set(self, "Clear", ClearButton);
+    Window.start = function ()
+        StoppedButtonFrame:Hide();
+        StartedButtonFrame:Show();
 
-    --[[ NEXT ITEM BUTTON ]]
-    local NextItemButton = AceGUI:Create("Button");
-    NextItemButton:SetText("Next");
-    NextItemButton:SetWidth(72);
-    NextItemButton:SetHeight(20);
-    NextItemButton:SetCallback("OnClick", function()
-        self:popFromQueue();
-    end);
-    FifthRow:AddChild(NextItemButton);
-    Interface:set(self, "Next", NextItemButton);
+        --[[ SHOW TIME REMAINING ON STOP BUTTON ]]
+        GL.Ace:CancelTimer(self.CountdownTimer);
+        self.CountdownTimer = GL.Ace:ScheduleRepeatingTimer(function ()
+            local secondsRemaining = Auction:timeRemaining();
 
-    --[[ AWARD BUTTON ]]
-    local AwardButton = AceGUI:Create("Button");
-    AwardButton:SetText("Award");
-    AwardButton:SetWidth(112);
-    AwardButton:SetHeight(20);
-    AwardButton:SetDisabled(true);
-    AwardButton:SetCallback("OnClick", function()
-        local PlayersTable = Interface:get(self, "Table.Players");
-        local selected = PlayersTable:GetRow(PlayersTable:GetSelection());
+            if (not secondsRemaining
+                or not Auction.inProgress
+            ) then
+                GL.Ace:CancelTimer(self.CountdownTimer);
+                StopButton:SetText(L.STOP);
+                return;
+            end
 
-        if (not selected
-            or not type(selected) == "table"
+            secondsRemaining = math.max(secondsRemaining, 0);
+            StopButton:SetText(GL:strPadRight(string.format("%s %ss", L.STOP, secondsRemaining), " ", string.len(L.STOP) + 5));
+            MinimizedStopButton:SetText(string.format("%s %ss", L.STOP, secondsRemaining));
+            MinimizedOpenButton:Hide();
+            MinimizedStopButton:Show();
+        end, .2);
+    end;
+
+    _G[self.windowName] = Window;
+    return Window;
+end
+
+---@param Window Frame
+---@return Frame
+function AuctioneerUI:buildQueue(Window)
+    GL:debug("AuctioneerUI:buildQueue");
+
+    if (_G[self.queueWindowName]) then
+        return _G[self.queueWindowName];
+    end
+
+    --[[ QUEUE WINDOW ]]
+    ---@type Frame
+    local Queue;
+
+    do
+        ---@type Frame
+        local ItemHolder
+
+        ---@type ScrollFrame
+        local ScrollFrame;
+
+        Queue = CreateFrame("Frame", self.queueWindowName, Window, "BackdropTemplate");
+        Queue:SetPoint("TOPLEFT", Window, "TOPRIGHT", -2, 0);
+        Queue:SetPoint("BOTTOMLEFT", Window, "BOTTOMRIGHT", -2, 0);
+        Queue:SetResizable(true);
+        Queue:SetBackdrop(_G.BACKDROP_DARK_DIALOG_32_32);
+        Interface:restoreDimensions(Queue, nil, 300);
+        Interface:resizeBounds(Queue, 240, 1);
+        Interface:addResizer(Queue);
+        Queue:Show();
+
+        Queue:SetScript("OnSizeChanged", function ()
+            Queue:SetWidth(math.min(600, Queue:GetWidth()));
+            Queue:ClearAllPoints();
+            Queue:SetPoint("TOPLEFT", Window, "TOPRIGHT", -2, 0);
+            Queue:SetPoint("BOTTOMLEFT", Window, "BOTTOMRIGHT", -2, 0);
+            Interface:storeDimensions(Queue);
+            ItemHolder:SetSize(ScrollFrame:GetWidth(), ( ScrollFrame:GetHeight() * 2 ));
+        end);
+
+        if (Settings:get("GDKP.disableQueues")
+            or not Settings:get("GDKP.showQueueWindow")
         ) then
-            return GL.Interface.Award:draw(ItemBox:GetText());
+            Queue:Hide();
         end
 
-        local winner = selected.cols[1].value;
-        local bid = selected.cols[2].value;
+        do --[[ HELP FRAME ]]
+            ---@type Frame
+            local HelpFrame = CreateFrame("Frame", nil, Queue);
+            HelpFrame:SetSize(50, 20);
+            HelpFrame:SetPoint("TOPLEFT", Queue, "TOPLEFT", 16, -16);
 
-        GL.Interface.Dialogs.PopupDialog:open({
-            question = string.format("Award %s to |cff%s%s|r for %s|c00FFF569g|r?",
-                GDKP.Auction.Current.itemLink,
-                GL:classHexColor(GL.Player:classByName(winner)),
-                winner,
-                bid
-            ),
-            OnYes = function ()
-                local isOS, addPlusOne;
-                local OSCheckBox = Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
-                if (OSCheckBox) then
-                    isOS = GL:toboolean(OSCheckBox:GetValue());
-                end
+            ---@type Texture
+            local highlight = HelpFrame:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints(HelpFrame);
+            highlight:SetTexture("Interface/PaperDollInfoFrame/UI-Character-Tab-Highlight")
+            highlight:SetBlendMode("ADD");
 
-                local addPlusOneCheckBox = Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
-                if (addPlusOneCheckBox) then
-                    addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
+            Interface:addTooltip(HelpFrame, { L.QUEUE .. " " .. L.INFO, string.format(
+                L.GDKP_QUEUE_EXPLANATION,
+                GL.Settings:get("ShortcutKeys.rollOffOrAuction"),
+                L.HALT
+            )}, "CURSOR");
 
-                    if (addPlusOne) then
-                        GL.PlusOnes:add(winner);
+            --[[ ICON ]]
+            local texturePath = "interface/friendsframe/informationicon";
+
+            ---@type Button
+            local Icon = CreateFrame("Button",nil, Queue);
+            Icon:SetSize(12, 12);
+            Icon:SetPoint("TOPLEFT", HelpFrame, "TOPLEFT");
+
+            ---@type Texture
+            local image = Icon:CreateTexture(nil, "BACKGROUND")
+            image:SetWidth(12)
+            image:SetHeight(12)
+            image:SetAllPoints(Icon)
+            image:SetTexture(texturePath);
+
+            --[[ INFO ]]
+            ---@type FontString
+            local InfoLabel = Interface:createFontString(HelpFrame, L.INFO);
+            InfoLabel:SetPoint("TOPLEFT", HelpFrame, "TOPLEFT", 13, -1);
+        end
+
+        --[[ MINIMUM BID ]]
+        ---@type FontString
+        local MinLabel = Interface:createFontString(Queue, L.MINIMUM);
+        MinLabel:SetPoint("TOPRIGHT", Queue, "TOPRIGHT", -118, -18);
+
+        --[[ INCREMENT ]]
+        ---@type FontString
+        local IncLabel = Interface:createFontString(Queue, L.INCREMENT);
+        IncLabel:SetPoint("TOPLEFT", MinLabel, "TOPRIGHT", 6, 0);
+
+        --[[ SCROLLFRAME BOILERPLATE ]]
+        ScrollFrame = CreateFrame("ScrollFrame", nil, Queue, "UIPanelScrollFrameTemplate")
+        ScrollFrame:SetPoint("TOPLEFT", Queue, "TOPLEFT", 16, -32);
+        ScrollFrame:SetPoint("BOTTOMRIGHT", Queue, "BOTTOMRIGHT", -44, 44);
+
+        ItemHolder = CreateFrame("Frame");
+        ScrollFrame:SetScrollChild(ItemHolder);
+        ItemHolder:SetSize(ScrollFrame:GetWidth(), ( ScrollFrame:GetHeight() * 2 ));
+        ItemHolder:SetPoint("TOPLEFT", ScrollFrame, "TOPLEFT");
+        ItemHolder:SetPoint("BOTTOMRIGHT", ScrollFrame, "BOTTOMRIGHT");
+
+        ---@type Frame
+        local Items = CreateFrame("Frame", nil, ItemHolder);
+        Items:SetAllPoints(ItemHolder);
+
+        ---@type Frame
+        local DeleteButton;
+
+        do --[[ DELETE BUTTON ]]
+            DeleteButton = CreateFrame("Button", nil, ItemHolder, "UIPanelButtonTemplate");
+            DeleteButton:SetSize(18, 18);
+
+            ---@type Texture
+            local NormalTexture = DeleteButton.normalTexture or DeleteButton:CreateTexture();
+            NormalTexture:SetTexture("Interface/AddOns/Gargul/Assets/Buttons/delete");
+            NormalTexture:SetAllPoints(DeleteButton);
+            DeleteButton:SetNormalTexture(NormalTexture);
+
+            ---@type Texture
+            local HighlightTexture = DeleteButton:CreateTexture();
+            HighlightTexture:SetTexture("Interface/AddOns/Gargul/Assets/Buttons/delete");
+            NormalTexture:SetAllPoints(DeleteButton);
+            DeleteButton:SetHighlightTexture(HighlightTexture);
+
+            Interface:addTooltip(DeleteButton, L.DELETE, "TOP");
+        end
+
+        --[[ REORDER QUEUE ENTRIES ]]
+        self.reorderItems = function()
+            for key, ItemRow in pairs(self.ItemRows or {}) do
+                if (not ItemRow or not ItemRow._itemLink or not Auction.Queue[ItemRow._identifier]) then
+                    if (ItemRow and ItemRow.GetChildren) then
+                        Interface:release(ItemRow);
                     end
+
+                    self.ItemRows[key] = nil;
                 end
+            end
 
-                local awardChecksum = GL.AwardedLoot:addWinner(winner, GDKPAuction.Current.itemLink, nil, nil, isOS, nil, bid, nil);
+            local SortedQueue = GL:tableValues(Auction.Queue);
+            table.sort(SortedQueue, function (a, b)
+                return a.order < b.order;
+            end);
 
-                if (not GDKPAuction:storeCurrent(winner, bid, awardChecksum)) then
+            for _, QueuedItem in pairs(SortedQueue or {}) do
+                local key = QueuedItem.identifier;
+                local ItemRow = self.ItemRows[key];
+
+                if (ItemRow and ItemRow._itemLink) then
+                    ItemRow:ClearAllPoints();
+                    ItemRow:Show();
+                    ItemRow:SetPoint("TOPLEFT", ItemHolder, "TOPLEFT", 0, ((QueuedItem.order - 1) * 20) * -1);
+                    ItemRow:SetPoint("TOPRIGHT", ItemHolder, "TOPRIGHT", not GL.elvUILoaded and 0 or -4, 0);
+                    self.ItemRows[key] = ItemRow;
+                else
+                    self.ItemRows[key] = nil;
+                end
+            end
+        end
+
+        --[[ ADD AN ITEM TO THE QUEUE WINDOW ]]
+        local rowHeight = 20;
+        Queue.addItemByLink = function (_, link, identifier)
+            GL:onItemLoadDo(GL:getItemIDFromLink(link), function (Details)
+                if (not Details or self.ItemRows[identifier]) then
                     return;
                 end
 
-                self:reset(); -- Reset the UI
-                GDKPAuction:reset(); -- Reset the actual auction object
-                self:closeReopenAuctioneerButton();
+                local bindOnPickup = GL:inTable({LE_ITEM_BIND_ON_ACQUIRE, LE_ITEM_BIND_QUEST}, Details.bindType);
 
-                self:popFromQueue();
+                ---@type Frame
+                local ItemRow = CreateFrame("Frame", nil, ItemHolder);
 
-                if (Settings:get("GDKP.closeAuctioneerOnAward")) then
-                    self:close();
+                ---@type table
+                local PerItemSettings = GDKP:settingsForItemID(Details.id);
+                ItemRow:SetHeight(rowHeight);
+                ItemRow._itemLink = link;
+                ItemRow._identifier = identifier;
+
+                ItemRow:SetPoint("TOPLEFT", ItemHolder, "TOPLEFT", 0, (GL:count(self.ItemRows) * 20) * -1);
+                ItemRow:SetPoint("TOPRIGHT", ItemHolder, "TOPRIGHT", not GL.elvUILoaded and 0 or -4, 0);
+
+                --[[ TOGGLE DELETE ON HOVER ]]
+                ItemRow:SetScript("OnEnter", function ()
+                    DeleteButton:SetFrameLevel(ItemRow:GetFrameLevel() + 1);
+                    DeleteButton:ClearAllPoints();
+                    DeleteButton:SetPoint("TOPRIGHT", ItemRow, "TOPRIGHT", -2, 0);
+                    DeleteButton:Show();
+
+                    DeleteButton:SetScript("OnClick", function ()
+                        DeleteButton:SetParent(ItemHolder);
+                        DeleteButton:Hide();
+                        Auction:removeFromQueue(ItemRow._identifier);
+                        self:reorderItems();
+                    end);
+                end);
+
+                ItemRow:SetScript("OnLeave", function ()
+                    if (not Interface:mouseIsOnFrame(DeleteButton)) then
+                        DeleteButton:Hide();
+                    end
+                end);
+
+                ItemRow:SetScript("OnMouseUp", function (_, mouseButtonPressed)
+                    GL:handleItemClick(link, mouseButtonPressed, function ()
+                        -- Remove the item from the queue if it was awarded/disenchanted
+                        Auction:removeFromQueue(ItemRow._identifier);
+                        self:deleteRowFromQueue(ItemRow);
+                    end);
+                end);
+
+                local uiScale, mouseX, mouseY;
+                ItemRow:SetScript("OnMouseDown", function ()
+                    uiScale, mouseX, mouseY = UIParent:GetEffectiveScale(), GetCursorPosition();
+                end);
+
+                ItemRow:SetMovable(true);
+                ItemRow:EnableMouse(true);
+                ItemRow:RegisterForDrag("LeftButton");
+                local indexWithGlow, RowWithGlow, MoveTimer, newPosition, originalPosition;
+                ItemRow:SetScript("OnDragStart", function()
+                    local numberOfRows = GL:count(self.ItemRows);
+                    originalPosition = Auction.Queue[ItemRow._identifier].order;
+                    local itemRowHeight = ItemRow:GetHeight();
+                    ItemRow:StartMoving();
+
+                    MoveTimer = GL.Ace:ScheduleRepeatingTimer(function ()
+                        local _, newMouseY = GetCursorPosition();
+
+                        newPosition = math.ceil(originalPosition - ((newMouseY - mouseY) / (itemRowHeight * uiScale)));
+                        newPosition = math.max(1, newPosition);
+                        newPosition = math.min(numberOfRows, newPosition);
+                        if (newPosition == indexWithGlow
+                            or newPosition == originalPosition
+                        ) then
+                            return;
+                        end
+
+                        if (RowWithGlow) then
+                            LCG.PixelGlow_Stop(RowWithGlow);
+                        end
+
+                        RowWithGlow = Auction:QueuedItemByPosition(newPosition);
+                        if (RowWithGlow) then
+                            indexWithGlow = newPosition;
+                            RowWithGlow = self.ItemRows[RowWithGlow.identifier];
+
+                            LCG.PixelGlow_Start(RowWithGlow, {1,1,1,1}, 20, .05, 5, 3);
+                        end
+                    end, .1);
+                end);
+                ItemRow:SetScript("OnDragStop", function()
+                    GL.Ace:CancelTimer(MoveTimer);
+                    ItemRow:Hide();
+
+                    if (RowWithGlow) then
+                        LCG.PixelGlow_Stop(RowWithGlow);
+                    end
+
+                    if (tonumber(newPosition)) then
+                        local MoveTo = Auction:QueuedItemByPosition(newPosition);
+
+                        if (MoveTo) then
+                            Auction:reorderQueueItem(ItemRow._identifier, MoveTo.identifier);
+                        end
+                    end
+
+                    self:reorderItems();
+                end);
+
+                --[[ ITEM ICON ]]
+                ---@type Frame
+                local Icon = CreateFrame("Frame",nil, ItemRow);
+                Icon:SetPoint("TOPLEFT", ItemRow, 0, -2);
+                Icon:SetSize(rowHeight - 4, rowHeight - 4);
+
+                Icon:SetScript("OnMouseUp", function (_, mouseButtonPressed)
+                    -- Remove the item from the queue if it was awarded/disenchanted
+                    Auction:removeFromQueue(ItemRow._identifier);
+                    self:deleteRowFromQueue(ItemRow);
+                end);
+
+                Interface:addTooltip(Icon, Details.link);
+
+                --[[ ICON HIGHLIGHT ]]
+                GL:highlightItem(Icon, Details.link);
+
+                ItemRow.Icon = Icon;
+
+                ---@type Texture
+                local Image = Icon:CreateTexture(nil, "BACKGROUND")
+                Image:SetAllPoints(Icon);
+                Image:SetTexture(Details.icon);
+
+                --[[ INCREMENT ]]
+                ---@type EditBox
+                local IncInput = Interface:inputBox(ItemRow);
+                IncInput:SetText(PerItemSettings.increment);
+                IncInput:SetWidth(36);
+                IncInput:SetPoint("TOPRIGHT", ItemRow, "TOPRIGHT", -24, 0);
+                ItemRow.IncInput = IncInput;
+
+                --[[ MINIMUM ]]
+                ---@type EditBox
+                local MinInput = Interface:inputBox(ItemRow);
+                MinInput:SetText(PerItemSettings.minimum);
+                MinInput:SetWidth(42);
+                MinInput:SetPoint("TOPRIGHT", IncInput, "TOPLEFT", -8, 0);
+                ItemRow.MinInput = MinInput;
+
+                --[[ ITEM LINK ]]
+                local BOEString = "";
+                if (not bindOnPickup) then
+                    BOEString = "BOE ";
                 end
-            end,
-        });
-    end);
-    FourthRow:AddChild(AwardButton);
-    Interface:set(self, "Award", AwardButton);
 
-    --[[ DISENCHANT BUTTON ]]
-    local DisenchantButton = AceGUI:Create("Button");
-    DisenchantButton:SetText("Disenchant");
-    DisenchantButton:SetWidth(112);
-    DisenchantButton:SetHeight(20);
-    DisenchantButton:SetDisabled(true);
-    DisenchantButton:SetCallback("OnClick", function()
-        itemLink = Interface:get(self, "EditBox.Item"):GetText();
-        GL.PackMule:disenchant(itemLink, true);
+                ---@type FontString
+                local Name = Interface:createFontString(ItemRow, BOEString .. Details.link);
+                Name:SetPoint("CENTER", Icon);
+                Name:SetPoint("LEFT", Icon, "RIGHT", 4, 0);
+                Name:SetPoint("RIGHT", MinInput, "LEFT", -6, 0);
+                Name:SetHeight(20);
 
-        if (Settings:get("GDKP.closeAuctioneerOnAward")) then
-            self:close();
+                ItemRow.order = GL:tableGet(Auction.Queue, identifier .. ".order", GL:count(Auction.Queue) + 1);
+
+                self.ItemRows[identifier] = ItemRow;
+                self:reorderItems();
+            end);
+        end;
+
+        --[[ HALT/RESUME QUEUE BUTTON ]]
+        ---@type Button
+        local EnableQueue = Interface:dynamicPanelButton(Queue, L.HALT);
+        EnableQueue:SetPoint("BOTTOMLEFT", Queue, "BOTTOMLEFT", 20, 16);
+        EnableQueue:SetPoint("RIGHT", Queue, "CENTER", -2, 0);
+
+        if (Settings:get("GDKP.queueIsHalted")) then
+            EnableQueue:SetText(L.RESUME);
         end
 
-        self:popFromQueue();
-    end);
-    FourthRow:AddChild(DisenchantButton);
-    Interface:set(self, "Disenchant", DisenchantButton);
+        EnableQueue:SetScript("OnClick", function ()
+            Auctioneer:toggleQueueStatus();
 
-    --[[ REMOVE LAST BID BUTTON ]]
-    local DeleteLastBid = AceGUI:Create("Button");
-    DeleteLastBid:SetText("Remove last bid");
-    DeleteLastBid:SetWidth(136);
-    DeleteLastBid:SetHeight(20);
-    DeleteLastBid:SetDisabled(true);
-    DeleteLastBid:SetCallback("OnClick", function()
-        tremove(GDKPAuction.Current.Bids); -- We don't want to store this
-        local PreviousBid = tremove(GDKPAuction.Current.Bids);
-
-        tinsert(GDKPAuction.Current.Bids, PreviousBid);
-        GDKPAuction.Current.TopBid = PreviousBid;
-        self:refreshBidsTable();
-    end);
-    FourthRow:AddChild(DeleteLastBid);
-    Interface:set(self, "DeleteLastBid", DeleteLastBid);
-
-    --[[ FOURTH ROW ]]
-
-    self:drawPlayersTable(Window.frame);
-
-    --[[ FIFTH ROW (AUTO CLOSE CHECKBOX) ]]
-
-    local FifthRow = AceGUI:Create("SimpleGroup");
-    FifthRow:SetLayout("Flow");
-    FifthRow:SetFullWidth(true);
-    FifthRow:SetHeight(20);
-    Window:AddChild(FifthRow);
-
-    --[[
-        TABLE SETTINGS BUTTON
-    ]]
-    local PlayersTableFrame = AceGUI:Create("SimpleGroup");
-    PlayersTableFrame:SetLayout("Fill");
-    PlayersTableFrame:SetFullWidth(true);
-    PlayersTableFrame:SetHeight(160);
-    FifthRow:AddChild(PlayersTableFrame);
-
-    local CloseOnStart = AceGUI:Create("CheckBox");
-    CloseOnStart:SetLabel("Close on start");
-    CloseOnStart:SetValue(Settings:get("GDKP.closeAuctioneerOnStart"));
-    CloseOnStart:SetCallback("OnValueChanged", function (widget)
-        Settings:set("GDKP.closeAuctioneerOnStart", GL:toboolean(widget:GetValue()));
-    end);
-    CloseOnStart:SetWidth(110);
-    FifthRow:AddChild(CloseOnStart);
-
-    local CloseOnAward = AceGUI:Create("CheckBox");
-    CloseOnAward:SetLabel("Close on award");
-    CloseOnAward:SetValue(Settings:get("GDKP.closeAuctioneerOnAward"));
-    CloseOnAward:SetCallback("OnValueChanged", function (widget)
-        Settings:set("GDKP.closeAuctioneerOnAward", GL:toboolean(widget:GetValue()));
-    end);
-    CloseOnAward:SetWidth(116);
-    FifthRow:AddChild(CloseOnAward);
-
-    local AutoAward = AceGUI:Create("CheckBox");
-    AutoAward:SetLabel("Auto award");
-    AutoAward:SetValue(Settings:get("GDKP.autoAwardViaAuctioneer"));
-    AutoAward:SetCallback("OnValueChanged", function (widget)
-        Settings:set("GDKP.autoAwardViaAuctioneer", GL:toboolean(widget:GetValue()));
-    end);
-    AutoAward:SetWidth(116);
-    FifthRow:AddChild(AutoAward);
-
-    if (itemLink
-        and type(itemLink) == "string"
-    ) then
-        Auctioneer:passItemLink(itemLink);
-    end
-end
-
---- We run this method when an auction ran out "naturally", aka wasn't stopped by the auctioneer
-function Auctioneer:timeRanOut()
-    GL:debug("Auctioneer:timeRanOut");
-
-    if (not Settings:get("GDKP.autoAwardViaAuctioneer")
-        or GDKPAuction.inProgress
-    ) then
-        return;
-    end
-
-    local delayBetweenQueuedAuctions = tonumber(Settings:get("GDKP.delayBetweenQueuedAuctions")) or 0;
-
-    if (not GL:tableGet(GDKPAuction.Current, "TopBid.Bidder.name")) then
-        local actionWhenNoBidsArePresent = Settings:get("GDKP.queuedAuctionNoBidsAction");
-
-        if (actionWhenNoBidsArePresent ~= GL.Data.Constants.GDKP.QueuedAuctionNoBidsActions.NOTHING) then
-            if (actionWhenNoBidsArePresent == "DISENCHANT") then
-                GL.PackMule:disenchant(GDKPAuction.Current.itemLink, true);
-            end
-
-            self:reset(); -- Reset the UI
-            GDKPAuction:reset(); -- Reset the actual auction object
-            self:closeReopenAuctioneerButton();
-
-            GL.Ace:CancelTimer(self.PopTimer);
-            if (delayBetweenQueuedAuctions > 0) then
-                self.PopTimer = GL.Ace:ScheduleTimer(function ()
-                    self:popFromQueue();
-                end, delayBetweenQueuedAuctions);
+            if (Settings:get("GDKP.queueIsHalted")) then
+                EnableQueue:SetText(L.RESUME);
             else
-                self:popFromQueue();
+                EnableQueue:SetText(L.HALT);
+            end
+        end);
+
+        --[[ CLEAR QUEUE ]]
+        ---@type Button
+        local ClearQueue = Interface:dynamicPanelButton(Queue, L.CLEAR);
+        ClearQueue:SetPoint("BOTTOMRIGHT", Queue, "BOTTOMRIGHT", -20, 16);
+        ClearQueue:SetPoint("LEFT", Queue, "CENTER", 2, 0);
+        ClearQueue:SetScript("OnClick", function ()
+            Auctioneer:clearQueue();
+
+            for key, ItemRow in pairs(self.ItemRows or {}) do
+                Interface:release(ItemRow);
+                self.ItemRows[key] = nil;
             end
 
-            return;
-        end
-
-        if (not self.isVisible) then
-            GL.Interface.Alerts:fire("GargulNotification", {
-                message = string.format("|c00BE3333No bids!|r"),
-            });
-        end
-
-        return;
+            self.ItemRows = {};
+        end);
     end
 
-    local bid = GDKPAuction.Current.TopBid.bid;
-    local minimumBid = GDKPAuction.Current.minimumBid;
-
-    -- We don't auto-award unless the bid is equal to or higher than the minimum bid
-    if (bid < minimumBid) then
-        return;
-    end
-
-    local winner = GDKPAuction.Current.TopBid.Bidder.name;
-    local awardChecksum = GL.AwardedLoot:addWinner(winner, GDKPAuction.Current.itemLink, nil, nil, nil, nil, bid, nil);
-    if (not GDKPAuction:storeCurrent(winner, bid, awardChecksum)) then
-        return;
-    end
-
-    self:reset(); -- Reset the UI
-    GDKPAuction:reset(); -- Reset the actual auction object
-    self:closeReopenAuctioneerButton();
-
-    GL.Ace:CancelTimer(self.PopTimer);
-    if (delayBetweenQueuedAuctions > 0) then
-        self.PopTimer = GL.Ace:ScheduleTimer(function ()
-            self:popFromQueue();
-        end, delayBetweenQueuedAuctions);
-    else
-        self:popFromQueue();
-    end
+    return Queue;
 end
 
---[[
-/script _G.Gargul.Interface.GDKP.Auctioneer:popFromQueue()
-]]
-function Auctioneer:popFromQueue()
-    GL:debug("Auctioneer:popFromQueue");
+---@param Window Frame
+---@return table
+function AuctioneerUI:buildBidsTable(Window)
+    GL:debug("AuctioneerUI:buildBidsTable");
 
-    if (not self.queueModeActivated) then
-        return;
-    end
-
-    local NextInLine = nil;
-
-    for _, QueuedItem in pairs(GDKPAuction.Queue or {}) do
-        (function ()
-            -- Looks like the item was removed in the meantime. Race condition?
-            if (not tonumber(QueuedItem.addedAt) or (
-                NextInLine and not tonumber(NextInLine.addedAt)
-            )) then
-                return;
-            end
-
-            if (not NextInLine or NextInLine.addedAt > QueuedItem.addedAt) then
-                NextInLine = QueuedItem;
-            end
-        end)();
-    end
-
-    if (not NextInLine
-        or not NextInLine.addedAt
-        or not GDKPAuction.Queue[tostring(NextInLine.addedAt)]
-    ) then
-        return;
-    end
-
-    GDKPAuction:removeFromQueue(NextInLine.addedAt);
-    self:refreshQueueTable();
-
-    local windowWasClosed = not self.isVisible;
-    self:passItemLink(NextInLine.itemLink, true);
-    Interface:get(self, "EditBox.MinimumBid"):SetText(NextInLine.minimumBid);
-    Interface:get(self, "EditBox.MinimumIncrement"):SetText(NextInLine.increment);
-    Interface:get(self, "Button.Start"):Fire("OnClick");
-
-    if (windowWasClosed) then
-        self:close();
-    end
-end
-
-function Auctioneer:addToQueue(itemLink)
-    GL:debug("Auctioneer:addToQueue");
-
-    if (not self.queueModeActivated) then
-        return;
-    end
-
-    if (GL:count(GDKPAuction.Queue) >= QUEUE_MAX_ITEMS) then
-        GL.Interface.Alerts:fire("GargulNotification", {
-            message = string.format("|c00BE3333Max reached!|r"),
-        });
-
-        return;
-    end
-
-    GDKPAuction:addToQueue(itemLink);
-
-    self:refreshQueueTable();
-end
-
----@return void
-function Auctioneer:clearQueue()
-    GL:debug("Auctioneer:clearQueue");
-
-    GDKPAuction:clearQueue();
-
-    local Table = Interface:get(self, "Table.Queue");
-    if (Table) then
-        Table:SetData({}, true);
-    end
-end
-
----@return void
-function Auctioneer:refreshQueueTable()
-    GL:debug("Auctioneer:refreshQueueTable");
-
-    local Table = Interface:get(self, "Table.Queue");
-
-    if (not Table) then
-        return;
-    end
-
-    local TableData = {};
-    for key, QueuedItem in pairs(GDKPAuction.Queue or {}) do
-        (function()
-            if (not QueuedItem or not QueuedItem.itemLink) then
-                return;
-            end
-
-            tinsert(TableData, {
-                cols = {
-                    {
-                        value = "Interface/AddOns/Gargul/Assets/Buttons/delete", _OnClick = function ()
-                        GDKPAuction:removeFromQueue(key);
-                        self:refreshQueueTable();
-                    end,
-                    },
-                    {
-                        value = " " .. QueuedItem.itemLink },
-                    {
-                        _OnTextChanged = function (Input)
-                            GDKPAuction.Queue[key] = GDKPAuction.Queue[key] or {};
-                            GDKPAuction.Queue[key].minimumBid = tonumber(Input:GetText()) or 500;
-                        end,
-                        _default = QueuedItem.minimumBid
-                    },
-                    {
-                        _OnTextChanged = function (Input)
-                            GDKPAuction.Queue[key] = GDKPAuction.Queue[key] or {};
-                            GDKPAuction.Queue[key].increment = tonumber(Input:GetText()) or 500;
-                        end,
-                        _default = QueuedItem.increment
-                    },
-                    {
-                        value = key,
-                    }
-                },
-            });
-        end)();
-    end
-
-    Table:SetData({}, true);
-    if (self.queueModeActivated) then
-        Interface:get(self, "Label.NewQueueInfoLabel").frame:Hide();
-        Interface:get(self, "Label.HowToAddToQueueLabel").frame:Hide();
-
-        if (not GL:empty(TableData)) then
-            if (Table) then
-                Table:SetData(TableData);
-            end
-        else
-            self:clearQueue();
-            Interface:get(self, "Label.HowToAddToQueueLabel").frame:Show();
-        end
-    else
-        Interface:get(self, "Label.NewQueueInfoLabel").frame:Show();
-        Interface:get(self, "Label.HowToAddToQueueLabel").frame:Hide();
-    end
-end
-
----@param Window table
----@return boolean
-function Auctioneer:show(Window)
-    GL:debug("Auctioneer:show");
-
-    local ActiveSession = GDKPSession:getActive();
-    if (not ActiveSession) then
-        GL:error("No active GDKP session, you have to create one first in /gl gdkp");
-        return false;
-    end
-
-    Window:SetStatusText(string.format(
-        "Session: |c00a79eff%s|r (%s)",
-        ActiveSession.title,
-        date('%Y-%m-%d', ActiveSession.createdAt)
-    ));
-
-    self.isVisible = true;
-    Window:Show();
-
-    return true;
-end
-
----@return void
-function Auctioneer:close()
-    GL:debug("Auctioneer:close");
-
-    self.isVisible = false;
-
-    -- When the master looter closes the auctioneer window with an auction
-    -- still in progress we show the reopen auctioneer button
-    if (GDKPAuction.inProgress) then
-        self:drawReopenAuctioneerButton();
-    end
-
-    local Window = Interface:get(self, "Window");
-    if (Window) then
-        -- Store the frame's last position for future play sessions
-        Interface:storePosition(Window, "Auctioneer");
-        Window:Hide();
-        Interface:get(self, "Frame.QueueWindow").frame:Hide();
-    end
-end
-
----@return void
-function Auctioneer:closeReopenAuctioneerButton()
-    -- Close the reopen auctioneer button if it exists
-    local OpenAuctioneerButton = Interface:get(self, "Frame.OpenAuctioneerButton");
-
-    if (OpenAuctioneerButton) then
-        OpenAuctioneerButton:Hide();
-    end
-end
-
---- This button allows the master looter to easily reopen the
---- auctioneer window when it's closed with a roll in progress
---- This is very common in hectic situations where the master looter has to participate in combat f.e.
----@return void
-function Auctioneer:drawReopenAuctioneerButton()
-    GL:debug("Auctioneer:drawReopenAuctioneerButton");
-
-    -- Only draw the button if the master looter window is closed
-    local Window = Interface:get(self, "Window");
-    if (Window and Window:IsShown()) then
-        return;
-    end
-
-    local Button = Interface:get(self, "Frame.OpenAuctioneerButton");
-
-    if (Button) then
-        Button:SetNormalTexture(GDKP.Auction.Current.itemIcon or "Interface\\Icons\\INV_Misc_QuestionMark");
-        Button:Show();
-        return;
-    end
-
-    local texture = GDKP.Auction.Current.itemIcon or "Interface\\Icons\\INV_Misc_QuestionMark";
-    Button = CreateFrame("Button", "GargulReopenAuctioneerButton", UIParent, Frame);
-    Button:SetSize(42, 42);
-    Button:SetNormalTexture(texture);
-    Button:SetText("text");
-    Button:SetPoint(Interface:getPosition("ReopenAuctioneerButton"));
-
-    Button:SetMovable(true);
-    Button:EnableMouse(true);
-    Button:SetClampedToScreen(true);
-    Button:SetFrameStrata("FULLSCREEN_DIALOG");
-    Button:RegisterForDrag("LeftButton");
-    Button:SetScript("OnDragStart", Button.StartMoving);
-    Button:SetScript("OnDragStop", function()
-        Button:StopMovingOrSizing();
-
-        -- Store the frame's last position for future play sessions
-        Interface:storePosition(Button, "ReopenAuctioneerButton");
-    end);
-
-    local ButtonBackground = Button:CreateTexture(nil, "BACKGROUND");
-    ButtonBackground:SetAllPoints(Button);
-    ButtonBackground:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark");
-    ButtonBackground:SetTexCoord(0, 1, 0.23, 0.77);
-    ButtonBackground:SetBlendMode("ADD");
-    Button.ButtonBackground = ButtonBackground;
-
-    local ButtonHighlight = Button:CreateTexture(nil, "HIGHLIGHT");
-    ButtonHighlight:SetAllPoints(Button);
-    ButtonHighlight:SetTexture("Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight");
-    ButtonHighlight:SetTexCoord(0, 1, 0.23, 0.77);
-    ButtonHighlight:SetBlendMode("ADD");
-    Button.ButtonHighlight = ButtonHighlight;
-
-    Button:SetScript("OnMouseUp", function (_, button)
-        if (button == "LeftButton") then
-            self:draw();
-        end
-    end);
-
-    Button:SetScript("OnEnter", function()
-        GameTooltip:SetOwner(Button, "ANCHOR_TOP");
-        GameTooltip:SetText("Open auctioneer window");
-        GameTooltip:Show();
-    end);
-
-    Button:SetScript("OnLeave", function()
-        GameTooltip:Hide();
-    end);
-
-    Interface:set(self, "OpenAuctioneerButton", Button);
-end
-
-function Auctioneer:drawPlayersTable(parent)
-    GL:debug("Auctioneer:drawPlayersTable");
-
-    -- Combined width of all colums should be 340
-    local columns = {
-        --[[ Player name ]]
-        {
-            name = "Player",
-            width = 180,
-            align = "LEFT",
-            color = {
-                r = 0.5,
-                g = 0.5,
-                b = 1.0,
-                a = 1.0
-            },
-            colorargs = nil,
-        },
-        --[[ Bid ]]
-        {
-            name = "Bid",
-            width = 141,
-            align = "LEFT",
-            color = {
-                r = 0.5,
-                g = 0.5,
-                b = 1.0,
-                a = 1.0
-            },
-            colorargs = nil,
-            defaultsort = GL.Data.Constants.ScrollingTable.descending,
-        },
-        --[[ PRIORITY (NOT VISIBLE, FOR SORTING ONLY! ]]
-        {
-            name = "",
-            width = 1,
-            align = "LEFT",
-            color = {
-                r = 0,
-                g = 0,
-                b = 0,
-                a = 0
-            },
-            colorargs = nil,
-            sort = GL.Data.Constants.ScrollingTable.ascending,
-            sortnext = 2,
-        },
-    };
-
-    local Table = GL.ScrollingTable:CreateST(columns, 8, 15, nil, parent);
+    local Table = GL.ScrollingTable:CreateST(BIDS_TABLE_COLUMNS, DEFAULT_TABLE_ROWS, HEIGHT_PER_TABLE_ROW, nil, Window);
     Table:EnableSelection(true);
+    Table.head:Hide(); -- Remove the table header
 
     Table:RegisterEvents({
-        -- Show a tooltip that contains the items that the roller already won so far
+        --[[ RECENTLY WON BY BIDDER TOOLTIP ]]
         OnEnter = function (rowFrame, _, data, _, _, realrow)
             -- Make sure something is actually highlighted, better safe than lua error
             if (not GL:higherThanZero(realrow)
@@ -1025,222 +1151,152 @@ function Auctioneer:drawPlayersTable(parent)
                 return;
             end
 
-            local roller = data[realrow].cols[1].value;
-
-            -- If the roller has a roll number suffixed to his name
-            -- e.g. "playerName [2]" then make sure to remove that number
-            local openingBracketPosition = string.find(roller, " %[");
-            if (openingBracketPosition) then
-                roller = string.sub(roller, 1, openingBracketPosition - 1);
-            end
-
-            local ItemsWonByRollerInTheLast8Hours = GL.AwardedLoot:byWinner(roller, GetServerTime() - (8 * 60 * 60));
+            local bidder = data[realrow].cols[1].value;
+            local ItemsWonByRollerInTheLast8Hours = GL.AwardedLoot:byWinner(bidder, GetServerTime() - (8 * 60 * 60));
 
             if (GL:empty(ItemsWonByRollerInTheLast8Hours)) then
                 return;
             end
 
-            GameTooltip:ClearLines();
-            GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT");
-            GameTooltip:AddLine(string.format("Items won by %s:", roller));
-            GameTooltip:AddLine(" ");
-
-            for _, itemLink in pairs(ItemsWonByRollerInTheLast8Hours) do
-                GameTooltip:AddLine(itemLink);
-            end
-
-            GameTooltip:Show();
-        end,
-        OnLeave = function ()
-            GameTooltip:Hide();
+            Interface:addTooltip(rowFrame, {
+                string.format("Items won by %s:", bidder),
+                " ",
+                ItemsWonByRollerInTheLast8Hours,
+            });
         end,
     });
 
-    Table.frame:SetPoint("BOTTOM", parent, "BOTTOM", 0, 76);
-    Interface:set(self, "Players", Table);
+    return Table;
 end
 
-function Auctioneer:refreshBidsTable()
-    GL:debug("RollOff:refreshBidsTable");
+---@param buildWhenMissing boolean
+---@return table|nil
+function AuctioneerUI:getBidsTable(buildWhenMissing)
+    GL:debug("AuctioneerUI:getBidsTable");
 
-    local BidTableData = {};
-    local Bids = GDKP.Auction.Current.Bids;
-    local BidsTable = Interface:get(self, "Table.Players");
+    if (not self.BidsTable and buildWhenMissing) then
+        self:build();
+    end
 
-    if (not BidsTable) then
+    return self.BidsTable;
+end
+
+---@return Frame
+function AuctioneerUI:getWindow()
+    GL:debug("AuctioneerUI:getWindow");
+
+    return _G[self.windowName];
+end
+
+---@param buildWhenMissing boolean
+---@return Frame|nil
+function AuctioneerUI:getQueueWindow(buildWhenMissing)
+    GL:debug("AuctioneerUI:getQueueWindow");
+
+    local Window = _G[self.queueWindowName];
+
+    if (not Window and buildWhenMissing) then
+        Window = self:build();
+        self:close();
+    end
+
+    return _G[self.queueWindowName];
+end
+
+---@return Frame
+function AuctioneerUI:openAuctioneerShortcut()
+    GL:debug("AuctioneerUI:openAuctioneerShortcut");
+
+    if (self.isVisible) then
         return;
     end
 
-    local row = 0;
-    for _, Entry in pairs(Bids) do
-        row = row + 1;
-        local bidder = Entry.Bidder.name;
-        local class = Entry.Bidder.class;
-        local priority = 1;
+    local Shortcut = _G[self.auctioneerShortcutName] or self:buildAuctioneerShortcut();
+    Shortcut:SetNormalTexture(Auction.Current.itemIcon);
+    Shortcut:Show();
 
-        local Row = {
-            cols = {
-                {
-                    value = bidder,
-                    color = GL:classRGBAColor(class),
-                },
-                {
-                    value = Entry.bid,
-                    color = GL:classRGBAColor(class),
-                },
-                {
-                    value = priority,
-                },
-            },
-        };
-        tinsert(BidTableData, Row);
-    end
-
-    BidsTable:SetData(BidTableData);
-    BidsTable:SortData();
-
-    if (row > 0) then
-        BidsTable:SetSelection(row);
-    end
+    return Shortcut;
 end
 
--- The item box contents changed
-function Auctioneer:ItemBoxChanged()
-    GL:debug("Auctioneer:ItemBoxChanged");
+---@return Frame
+function AuctioneerUI:closeAuctioneerShortcut()
+    GL:debug("AuctioneerUI:closeAuctioneerShortcut");
 
-    local itemLink = Interface:get(self, "EditBox.Item"):GetText();
+    local Shortcut = _G[self.auctioneerShortcutName];
 
-    Auctioneer:passItemLink(itemLink);
+    if (Shortcut) then
+        Shortcut:Hide();
+    end
+
+    return Shortcut;
 end
 
-function Auctioneer:passItemLink(itemLink, setAsActiveItem)
-    GL:debug("Auctioneer:passItemLink");
+---@return Frame
+function AuctioneerUI:buildAuctioneerShortcut()
+    GL:debug("AuctioneerUI:buildAuctioneerShortcut");
 
-    setAsActiveItem = GL:toboolean(setAsActiveItem);
-
-    if (not setAsActiveItem and self.queueModeActivated) then
-        return self:addToQueue(itemLink);
+    if (_G[self.auctioneerShortcutName]) then
+        return _G[self.auctioneerShortcutName];
     end
 
-    if (not Interface:get(self, "Window")) then
-        return;
-    end
+    local Button = CreateFrame("Button", self.auctioneerShortcutName, UIParent);
+    Button:SetSize(42, 42);
+    Button:SetNormalTexture(Auction.Current.itemIcon);
+    Button:SetText("text");
+    Interface:restorePosition(Button);
 
-    if (GDKPAuction.inProgress) then
-        return GL:warning("An auction is currently in progress");
-    end
+    Button:SetMovable(true);
+    Button:EnableMouse(true);
+    Button:SetClampedToScreen(true);
+    Button:SetFrameStrata("FULLSCREEN_DIALOG");
+    Button:RegisterForDrag("LeftButton");
+    Button:SetScript("OnDragStart", Button.StartMoving);
+    Button:SetScript("OnDragStop", function()
+        Button:StopMovingOrSizing();
 
-    local itemID = tonumber(GL:getItemIDFromLink(itemLink)) or 0;
+        -- Store the frame's last position for future play sessions
+        Interface:storePosition(Button);
+    end);
 
-    if (itemID < 1) then
-        return GL:warning("Invalid item provided");
-    end
+    local ButtonHighlight = Button:CreateTexture(nil, "HIGHLIGHT");
+    ButtonHighlight:SetAllPoints(Button);
+    ButtonHighlight:SetTexture("Interface/PaperDollInfoFrame/UI-Character-Tab-Highlight");
+    ButtonHighlight:SetTexCoord(0, 1, 0.23, 0.77);
+    ButtonHighlight:SetBlendMode("ADD");
+    Button.ButtonHighlight = ButtonHighlight;
 
-    local PerItemSettings = GDKP:settingsForItemID(GL:getItemIDFromLink(itemLink));
-    Interface:get(self, "EditBox.MinimumBid"):SetText(PerItemSettings.minimum);
-    Interface:get(self, "EditBox.MinimumIncrement"):SetText(PerItemSettings.increment);
+    Button:SetScript("OnMouseUp", function (_, button)
+        if (button == "LeftButton") then
+            self:open();
+            Button:Hide();
+        end
+    end);
 
-    Interface:get(self, "EditBox.Item"):SetText(itemLink);
+    GL.Interface:addTooltip(Button, "Open auctioneer window", "ANCHOR_TOP");
 
-    return Auctioneer:update();
+    return Button;
 end
 
---- Update the auctioneer based on the value of the ItemBox input
-function Auctioneer:update()
-    GL:debug("Auctioneer:update");
+---@param Row Frame
+---@return void
+function AuctioneerUI:deleteRowFromQueue(Row)
+    LCG.PixelGlow_Stop(Row);
+    LCG.PixelGlow_Stop(Row.Icon);
+    Row:Hide();
+    Row._itemLink = nil;
+    Row._identifier = nil;
+    Interface:release(Row);
+    Row = nil;
 
-    local IconWidget = Interface:get(self, "Icon.Item");
-    local itemLink = Interface:get(self, "EditBox.Item"):GetText();
-
-    -- If the item link is not valid then
-    --   Show the default question mark icon
-    --   Remove the item priority string
-    if (not itemLink or itemLink == "") then
-        GL:debug("Auctioneer:update. Item link is invalid");
-
-        Auctioneer.itemBoxHoldsValidItem = false;
-        IconWidget:SetImage(Auctioneer.Defaults.itemIcon);
-
-        Auctioneer:updateWidgets();
-        return;
-    end
-
-    -- The item's icon is in the 10th position
-    local icon = select(10, GetItemInfo(itemLink));
-
-    if (icon) then
-        Interface:get(self, "Table.Players"):ClearSelection();
-
-        IconWidget:SetImage(icon);
-        Auctioneer.itemBoxHoldsValidItem = true;
-    else
-        Auctioneer.itemBoxHoldsValidItem = false;
-        IconWidget:SetImage(Auctioneer.Defaults.itemIcon);
-    end
-
-    Auctioneer:updateWidgets();
+    self:reorderItems();
 end
 
--- Reset the roll off UI to its defaults
-function Auctioneer:reset()
-    GL:debug("Auctioneer:reset");
-
-    Interface:get(self, "Icon.Item"):SetImage(Auctioneer.Defaults.itemIcon);
-    Interface:get(self, "EditBox.Item"):SetText(Auctioneer.Defaults.itemText);
-    Auctioneer.itemBoxHoldsValidItem = false;
-
-    Interface:get(self, "Table.Players"):ClearSelection();
-    Interface:get(self, "Table.Players"):SetData({}, true);
-
-    Auctioneer:updateWidgets();
-end
-
--- Update the widgets based on the current state of the roll off
-function Auctioneer:updateWidgets()
-    GL:debug("Auctioneer:updateWidgets");
-
-    local Next = Interface:get(self, "Button.Next");
-    local Stop = Interface:get(self, "Button.Stop");
-    local DeleteLastBid = Interface:get(self, "Button.DeleteLastBid");
-    local Item = Interface:get(self, "EditBox.Item");
-    local Award = Interface:get(self, "Button.Award");
-    local Disenchant = Interface:get(self, "Button.Disenchant");
-    local Prolong = Interface:get(self, "Button.Prolong");
-    local Clear = Interface:get(self, "Button.Clear");
-
-    if (not Auctioneer.itemBoxHoldsValidItem
-        and not (self.queueModeActivated and not GL:empty(GDKPAuction.Queue))
-    ) then
-        Next:SetDisabled(false);
-        Stop:SetDisabled(true);
-        DeleteLastBid:SetDisabled(true);
-        Prolong:SetDisabled(true);
-        Item:SetDisabled(false);
-        Award:SetDisabled(true);
-        Disenchant:SetDisabled(true);
-
-        return;
-    end
-
-    if (not GDKPAuction.inProgress) then
-        Next:SetDisabled(false);
-        Stop:SetDisabled(true);
-        DeleteLastBid:SetDisabled(false);
-        Prolong:SetDisabled(true);
-        Item:SetDisabled(false);
-        Award:SetDisabled(false);
-        Disenchant:SetDisabled(false);
-        Clear:SetDisabled(false);
-
-    else
-        Next:SetDisabled(true);
-        Stop:SetDisabled(false);
-        DeleteLastBid:SetDisabled(true);
-        Prolong:SetDisabled(false);
-        Item:SetDisabled(true);
-        Award:SetDisabled(true);
-        Disenchant:SetDisabled(true);
-        Clear:SetDisabled(true);
+---@return void
+function AuctioneerUI:refreshIconGlows()
+    for _, ItemRow in pairs(self.ItemRows or {}) do
+        if (ItemRow and ItemRow._itemLink) then
+            GL:highlightItem(ItemRow, ItemRow._itemLink);
+        end
     end
 end
 
