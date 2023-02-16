@@ -767,7 +767,7 @@ function MasterLooterUI:drawPlayersTable(parent)
             },
             colorargs = nil,
         },
-        
+
     };
 
     local Table = ScrollingTable:CreateST(columns, 8, 15, nil, parent);

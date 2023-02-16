@@ -1,3 +1,5 @@
+local L = Gargul_L;
+
 ---@type GL
 local _, GL = ...;
 
@@ -113,6 +115,13 @@ function RollOff:announceStart(itemLink, time, note)
 
     GL.Settings:set("UI.RollOff.timer", time);
 
+    return true;
+end
+
+---@param itemLink string
+---@param time number
+---@param note string|nil
+function RollOff:postStartMessage(itemLink, time, note)
     -- The user doesn't want to announce anything in chat
     if (not GL.Settings:get("MasterLooting.announceRollStart")) then
         return true;
@@ -245,8 +254,6 @@ function RollOff:announceStart(itemLink, time, note)
             "GROUP"
         );
     end
-
-    return true;
 end
 
 --- Anounce to everyone in the raid that a roll off has ended
@@ -342,11 +349,12 @@ function RollOff:start(CommMessage)
         if (GL.Settings:get("Rolling.showRollOffWindow")
             or self:startedByMe()
         ) then
-            GL.RollerUI:show(time, Details.link, Details.icon, content.note, SupportedRolls);
-
-            if (CommMessage.Sender.isSelf) then
+            if (self:startedByMe()) then
+                self:postStartMessage(Details.link, time, content.note);
                 GL.MasterLooterUI:drawReopenMasterLooterUIButton();
             end
+
+            GL.RollerUI:show(time, Details.link, Details.icon, content.note, SupportedRolls);
         end
 
         -- Make sure the rolloff stops when time is up
@@ -498,8 +506,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
 
     itemLink = GL:tableGet(self.CurrentRollOff, "itemLink", itemLink);
 
-    local isOS = false;
-    local addPlusOne = false;
+    local isOS, addPlusOne = false;
     local BRCost = nil;
 
     if (boostedRoll) then
@@ -525,7 +532,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     isOS = GL:toboolean(OSCheckBox:GetValue());
 
                     if (isOS) then
-                        GL.PlusTwos:add(roller);
+                        GL.PlusTwos:addPlusTwos(roller);
                     end
                 end
 
@@ -534,7 +541,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
 
                     if (addPlusOne) then
-                        GL.PlusOnes:add(roller);
+                        GL.PlusOnes:addPlusOnes(roller);
                     end
                 end
 
@@ -582,7 +589,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     isOS = GL:toboolean(OSCheckBox:GetValue());
 
                     if (isOS) then
-                        GL.PlusTwos:add(roller);
+                        GL.PlusTwos:addPlusTwos(roller);
                     end
                 end
 
@@ -591,7 +598,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
                     addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
 
                     if (addPlusOne) then
-                        GL.PlusOnes:add(roller);
+                        GL.PlusOnes:addPlusOnes(roller);
                     end
                 end
 
@@ -877,8 +884,8 @@ function RollOff:refreshRollsTable()
         end
 
         local class = Roll.class;
-        local plusOnes = GL.PlusOnes:get(playerName);
-        local plusTwos = GL.PlusTwos:get(playerName);
+        local plusOnes = GL.PlusOnes:getPlusOnes(playerName);
+        local plusTwos = GL.PlusTwos:getPlusTwos(playerName);
 
         if (GL:higherThanZero(plusOnes)) then
             plusOnes = plusOnes;

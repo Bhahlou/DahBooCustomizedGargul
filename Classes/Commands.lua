@@ -6,6 +6,7 @@ local Settings = GL.Settings;
 ---@class Commands
 GL.Commands = GL.Commands or {
     CommandDescriptions = {
+        auction = "Open the Auctioneer UI where you can auction off items for a GDKP session (requires an active GDKP session!)",
         awardondate = "In case you need to award something retroactively you can use this command: /gl awardOnDate [winnerName] [yy-mm-dd] [itemLink]",
         award = "Open the award window. Optionally accepts an ItemLink as an argument: /gl award [itemLink?]",
         awardhistory = "Open the award history window which shows recently awarded items and their rolls",
@@ -42,6 +43,7 @@ GL.Commands = GL.Commands or {
         ["+2"] = "plustwos",
         a = "award",
         ah = "awardhistory",
+        au = "auction",
         aod = "awardondate",
         bi = "bid",
         boosted = "boostedrolls",
@@ -83,6 +85,9 @@ GL.Commands = GL.Commands or {
     },
 
     Dictionary = {
+        -- Open the window for auctioning off items
+        auction = function(...) GL.Interface.GDKP.Auctioneer:open(); end,
+
         -- Open the window for rolling off items
         rolloff = function(...) GL.MasterLooterUI:draw(...); end,
 
@@ -147,10 +152,10 @@ GL.Commands = GL.Commands or {
         setdisenchanter = function (...) GL.PackMule:setDisenchanter(...); end,
 
         -- Clear all plus ones
-        clearplusones = function() GL.PlusOnes:clear(); end,
-
-        -- Clear all plus twos 
-        clearplustwos = function() GL.PlusTwos:clear(); end,
+        clearplusones = function() GL.PlusOnes:clearPlusOnes(); end,
+        
+        -- Clear all plus twos
+        clearplustwos = function() GL.PlusTwos:clearPlusTwos(); end,
 
         -- Export the current raid roster to csv
         raidcsv = function ()
@@ -186,7 +191,7 @@ GL.Commands = GL.Commands or {
         lootpriority = function() GL.LootPriority:drawImporter(); end,
 
         -- Import data from our website into the addon
-        import = function() GL.Interface.Importer:draw(); end,
+        import = function() GL.Interface.Importer:open(); end,
 
         -- Export data from the addon to use on our website
         export = function() GL.Exporter:draw(); end,

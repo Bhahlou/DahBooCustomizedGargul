@@ -19,6 +19,7 @@ Data/Localizations/en.lua
 Data/Constants.lua
 Data/DefaultSettings.lua
 Data/ItemLinks.lua
+Data/ArtTextureID.lua
 
 # Class objects
 Classes/Helpers.lua
@@ -59,6 +60,7 @@ Classes/BoostedRolls.lua
 Classes/Comm.lua
 Classes/CommMessage.lua
 Classes/RaidGroups.lua
+Classes/DroppedLootLedger.lua
 
 # Interface objects
 Interface/AceGUIWidget-LibScrollingTable.lua
