@@ -29,7 +29,7 @@ function PlusTwos:draw(Parent)
         {
             label = "Whisper command",
             description = string.format(
-                "Players can whisper '|cff%s!plustwo [<name>]|r' or '|cff%s!po [<name>]|r' or '|cff%s!+1 [<name>]|r' to the master looter to get the current plus one for this name in response. If no name is given, their own name is assumed instead.",
+                "Players can whisper '|cff%s!plustwo [<name>]|r' or '|cff%s!pT [<name>]|r' or '|cff%s!+2 [<name>]|r' to the master looter to get the current plus two for this name in response. If no name is given, their own name is assumed instead.",
                 GL:classHexColor("rogue"),
                 GL:classHexColor("rogue"),
                 GL:classHexColor("rogue")
