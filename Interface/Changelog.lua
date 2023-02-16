@@ -12,10 +12,35 @@ GL.Interface.Changelog = {
 
     History = {
         {
-            version = "5.0.19",
-            date = "January 21st, 2022",
+            version = "5.3.0",
+            date = "February 8th, 2023",
             Changes = {
-                "Hi everyone! Phase 2 has brought with it a lot of WoW API updates. Many add-ons have not been updated yet and using them can affect other addons, like Gargul. If something's not working, then please join the Gargul discord and read the pinned messages to hopefully figure out what add-on or action is the causing issues.",
+                "Mailing GDKP cuts has arrived! Lock a GDKP session for payout and walk to a mailbox! There are many safety features in place to account for insufficient funds, mail cap reached, etc. Go check it out!",
+                "The GDKP ledger overview has received a complete rework, open your GDKP session (|c00a79eff/gdkp|r) and click the eye-shaped icon at the top of the ledger!",
+                "Gargul now listens in on reserves placed via LootReserve. Do you like LootReserve and would you like to add Gargul's soft-res features (like highlighting, auto looting etc.) on top of that? We got your covered!",
+            },
+        },
+        {
+            version = "5.2.0",
+            date = "February 4th, 2023",
+            Changes = {
+                "|c00BE3333Important:|r This update changes the raid leader's experience in GDKP sessions and queues. Please familiarize yourself with it before setting foot in a raid. Get started using |c00a79eff/gl gdkp|r or |c00a79eff/gdkp|r",
+                "Use TMB and would like to run with group loot? You can now enable the 'Award based on drops' setting in |c00a79eff/gl|r > |c00a79effTMB and DFT|r to automatically track items won via group loot for exporting to TMB/DFT",
+                "There's a 'Bonus Features' section in |c00a79eff/gl|r now, go check it out!",
+            },
+        },
+        {
+            version = "5.1.1",
+            date = "January 31st, 2023",
+            Changes = {
+                "PlusOnes can now be imported, exported and shared with everyone in the raid. Check it out with |c00a79eff/gl po|r. Many thanks to rdobkins for making this happen!"
+            },
+        },
+        {
+            version = "5.0.19",
+            date = "January 21st, 2023",
+            Changes = {
+                "Hi everyone! Phase 2 has brought with it a lot of WoW API updates. Many add-ons have not been updated yet and using them can affect other addons, like Gargul. If something's not working, then please join the Gargul discord and read the pinned messages to hopefully figure out what add-on or action is causing issues.",
                 "Show a reminder that GDKP is active after logging in",
                 "Added SR, WL, PL and TMB placeholders to the awarded loot export, check them out in |c00a79eff/gl export|r",
                 "Fixed auto-trading for Classic Era",
@@ -24,7 +49,7 @@ GL.Interface.Changelog = {
         },
         {
             version = "5.0.13",
-            date = "January 11th, 2022",
+            date = "January 11th, 2023",
             Changes = {
                 "Added gold spent and bid to the GDKP distribution export",
                 "Restructured the GDKP countdown settings, check them out via |c00a79eff/gl|r > GDKP"

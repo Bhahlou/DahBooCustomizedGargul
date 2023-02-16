@@ -68,6 +68,7 @@ Interface/Interface.lua
 Interface/Award.lua
 Interface/AwardHistory.lua
 Interface/Importer.lua
+Interface/BonusFeatures.lua
 Interface/Settings/Overview.lua
 Interface/Settings/DroppedLoot.lua
 Interface/Settings/TradeAnnouncements.lua

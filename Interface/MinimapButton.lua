@@ -40,7 +40,7 @@ function MinimapButton:_init()
             tooltip:AddLine("|cffffffffRight-click:|r Import data");
             tooltip:AddLine("|cffffffffShift+click:|r SoftRes");
             tooltip:AddLine("|cffffffffShift+Right-click:|r Export data");
-            tooltip:AddLine("|cffffffffSlash Command:|r /dbcgl or /dbgargul");
+            tooltip:AddLine("|cffffffffSlash Command:|r /dbcgl or /dbcgargul");
         end,
     });
 
