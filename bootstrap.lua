@@ -125,18 +125,22 @@ function GL:_init()
     self.User:_init();
     self.AwardedLoot:_init();
     self.SoftRes:_init();
-    --self.GDKP.Auction:_init();
+    self.GDKP.Auction:_init();
     self.TMB:_init();
-    --self.GDKP.Session:_init();
+    self.GDKP.Session:_init();
     self.BoostedRolls:_init();
+    self.PlusOnes:_init();
+    self.PlusTwos:_init();
     self.DroppedLoot:_init();
     self.GroupLoot:_init();
     self.PackMule:_init();
+    self.DroppedLootLedger:_init();
     self.TradeWindow:_init();
+    self.GDKP.Auctioneer:_init();
     self.Interface.MasterLooterDialog:_init();
     self.Interface.TradeWindow.TimeLeft:_init();
-    --self.Interface.GDKP.BidderQueue:_init();
-    self.TMBRaidGroups:_init();
+    self.Interface.GDKP.BidderQueue:_init();
+    self.Interface.GDKP.Distribute.MailCuts:_init();
 
     -- Hook native window events
     self:hookNativeWindowEvents();
@@ -164,7 +168,6 @@ function GL:_init()
 
     -- Show the changelog window
     GL.Interface.Changelog:reportChanges();
-
 end
 
 -- Register the dbcgl slash command
@@ -336,9 +339,9 @@ function GL:hookTooltipSetItemEvents()
                 tinsert(Lines, line);
             end
 
-            --for _, line in pairs(GL.GDKP.Session:tooltipLines(itemLink) or {}) do
-                --tinsert(Lines, line);
-            --end
+            for _, line in pairs(GL.GDKP.Session:tooltipLines(itemLink) or {}) do
+                tinsert(Lines, line);
+            end
         end
 
         self.lastTooltipItemLink = itemLink;

@@ -1,8 +1,8 @@
-## Interface: 30400
-## Title: Dah Boo Customized Gargul
+## Interface: 30401
+## Title: Dah Boo Customized Gargul |c00967FD2v5.3.2|r
 ## Author: Bhahl - Auberdine
-## Notes: Loot addon that supports softres sr, thatsmybis tmb, auto looting, loot priorities, plus one tracking and much more
-## Version: 5.0.22
+## Notes: Loot addon that supports GDKP, softres sr, thatsmybis tmb, auto looting, plus one tracking and much more
+## Version: 5.3.2
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
 
@@ -142,11 +142,11 @@ Interface/Dialogs/IncomingPlusOneDataDialog.lua
 Interface/Dialogs/IncomingPlusOneDataDialogWidget.lua
 Interface/Dialogs/IncomingPlusTwoDataDialog.lua
 Interface/Dialogs/IncomingPlusTwoDataDialogWidget.lua
-Interface/Dialogs/PopupDialog.lua
-Interface/Dialogs/PopupDialogWidget.lua
 Interface/Dialogs/HyperlinkDialog.lua
 Interface/Dialogs/HyperlinkDialogWidget.lua
 Interface/Dialogs/MasterLooterDialog.lua
+Interface/Dialogs/PopupDialog.lua
+Interface/Dialogs/PopupDialogWidget.lua
 Interface/ReminderToAssignLootUsingGargul.lua
 Interface/ShortcutKeysLegend.lua
 

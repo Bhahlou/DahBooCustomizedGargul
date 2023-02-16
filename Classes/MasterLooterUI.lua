@@ -324,7 +324,7 @@ function MasterLooterUI:draw(itemLink)
 
                     local RollType = (function()
                         for _, RollType in pairs(GL.Settings:get("RollTracking.Brackets", {})) do
-                            if (RollType[1] == selected.cols[4].value) then
+                            if (RollType[1] == selected.cols[5].value) then
                                 return RollType;
                             end
                         end
