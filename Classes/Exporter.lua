@@ -208,6 +208,7 @@ function Exporter:getLootEntries()
 
         if (
             (not concernsDisenchantedItem or GL.Settings:get("ExportingLoot.includeDisenchantedItems"))
+            and (AwardEntry.OS or AwardEntry.MS)
             and (not AwardEntry.OS or not AwardEntry.MS or GL.Settings:get("ExportingLoot.includeOffspecItems"))
             and (not self.dateSelected or dateString == self.dateSelected)
             and not GL:empty(AwardEntry.timestamp)
