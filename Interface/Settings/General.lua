@@ -1,132 +1,79 @@
 ---@type GL
 local _, GL = ...;
 
-local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
+---@type SettingsOverview
+local Overview = GL.Interface.Settings.Overview;
 
 ---@class GeneralSettings
-GL.Interface.Settings.General = {
-    description = "Dah Boo Customized Gargul est une version remaniée de l'addon utilitaire Gargul, qui améliore la qualité de vie des raideurs, du responsable du butin et du raid leader. Il est désigné pour fonctionner avec TMB (thatsmybis.com) pour créer une expérience de raid sans problèmes.\n\nVérifiez les diverses sections sur la gauche de cette fenêtre ou visitez notre Wiki/Discord pour démarrer !",
-};
-local General = GL.Interface.Settings.General; ---@type GeneralSettings
+GL.Interface.Settings.General = {};
+
+---@type GeneralSettings
+local General = GL.Interface.Settings.General;
 
 ---@return void
 function General:draw(Parent)
     GL:debug("GeneralSettings:draw");
 
-    local MoreInfoLabel = GL.AceGUI:Create("Label");
-    MoreInfoLabel:SetText("Pour un support personnel ou pour vous investir, vérifiez aussi notre discord:\n");
-    MoreInfoLabel:SetFontObject(_G["GameFontNormal"]);
-    MoreInfoLabel:SetFullWidth(true);
-    Parent:AddChild(MoreInfoLabel);
-
-    local DiscordURL = GL.AceGUI:Create("EditBox");
-    DiscordURL:DisableButton(true);
-    DiscordURL:SetHeight(20);
-    DiscordURL:SetFullWidth(true);
-    DiscordURL:SetText("https://discord.gg/3BYJzqeSJ9");
-    Parent:AddChild(DiscordURL);
-
-    local HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
-    HorizontalSpacer:SetLayout("FILL");
-    HorizontalSpacer:SetFullWidth(true);
-    HorizontalSpacer:SetHeight(10);
-    Parent:AddChild(HorizontalSpacer);
-
-    local CurrentHotkeysLabel = GL.AceGUI:Create("Label");
-    CurrentHotkeysLabel:SetText(string.format(
-        "Roll : |c00a79eff%s|r. Attribution : |c00a79eff%s|r. Dez : |c00a79eff%s|r",
-        GL.Settings:get("ShortcutKeys.rollOff"),
-        GL.Settings:get("ShortcutKeys.award"),
-        GL.Settings:get("ShortcutKeys.disenchant")
-    ));
-    CurrentHotkeysLabel:SetFontObject(_G["GameFontNormal"]);
-    CurrentHotkeysLabel:SetFullWidth(true);
-    CurrentHotkeysLabel:SetJustifyH("MIDDLE");
-    Parent:AddChild(CurrentHotkeysLabel);
-
-    HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
-    HorizontalSpacer:SetLayout("FILL");
-    HorizontalSpacer:SetFullWidth(true);
-    HorizontalSpacer:SetHeight(10);
-    Parent:AddChild(HorizontalSpacer);
-
-    local OpenSoftRes = GL.AceGUI:Create("Button");
-    OpenSoftRes:SetText("SoftRes");
-    OpenSoftRes:SetCallback("OnClick", function()
-        GL.Settings:close();
-        GL.Commands:call("softreserves");
-    end);
-    OpenSoftRes:SetWidth(172);
-    Parent:AddChild(OpenSoftRes);
-
-    local OpenTMB = GL.AceGUI:Create("Button");
-    OpenTMB:SetText("TMB ou DFT");
-    OpenTMB:SetCallback("OnClick", function()
-        GL.Settings:close();
-        GL.Commands:call("tmb");
-    end);
-    OpenTMB:SetWidth(172);
-    Parent:AddChild(OpenTMB);
-
-    local OpenPackMule = GL.AceGUI:Create("Button");
-    OpenPackMule:SetText("Autolooting");
-    OpenPackMule:SetCallback("OnClick", function()
-        GL.Settings:draw("PackMule");
-    end);
-    OpenPackMule:SetWidth(172);
-    Parent:AddChild(OpenPackMule);
-
-    HorizontalSpacer = GL.AceGUI:Create("SimpleGroup");
-    HorizontalSpacer:SetLayout("FILL");
-    HorizontalSpacer:SetFullWidth(true);
-    HorizontalSpacer:SetHeight(10);
-    Parent:AddChild(HorizontalSpacer);
-
-    local Checkboxes = {
+    Overview:drawCheckboxes({
         {
-            label = "Message de bienvenue",
+            label = "Welcome message",
+            description = "Show a message when booting Gargul",
             setting = "welcomeMessage",
         },
         {
-            label = "Icône minicarte",
+            label = "Minimap Icon",
             setting = "showMinimapButton",
             callback = function()
                 GL.MinimapButton:drawOrHide();
             end,
         },
         {
-            label = "Pas de sons",
-            setting = "noSounds",
-        },
-        {
-            label = "Pas de messages",
-            setting = "noMessages",
-        },
-        {
-            label = "Afficher journal de modifications",
-            description = "Active ou désactive le journal de modifications qui affiche le détail des changements après la mise à jour de Dah Boo Customized Gargul",
+            label = "Show changelog",
+            description = "Enable or disable the changelog which displays important update details after updating Gargul",
             setting = "changeLog",
         },
         {
-            label = "Experimental : mode debug",
-            description = "Activer ceci activera le mode debug, qui affiche les infos de debug dans votre fenêtre de chat. Ceci est prévu uniquement pour les développeurs travaillant activement sur l'addon Dah Boo Customized Gargul",
-            setting = "debugModeEnabled",
+            label = "No messages",
+            description = "This will prevent Gargul from posting any messages, ANYWHERE",
+            setting = "noMessages",
         },
         {
-            label = "Experimental: addon usage",
-            description = "Affiche l'utilisation de la mémoire par l'addon. Attention : peut causer des chutes de FPS !",
-            setting = "profilerEnabled",
-            callback = function ()
-                if (GL.Settings:get("profilerEnabled")) then
-                    GL.Profiler:draw();
-                else
-                    GL.Profiler:close();
-                end
-            end,
+            label = "No sounds",
+            setting = "noSounds",
         },
+    }, Parent);
+
+    local Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
+    local MinimumQualityLabel = GL.AceGUI:Create("Label");
+    MinimumQualityLabel:SetColor(1, .95686, .40784);
+    MinimumQualityLabel:SetText("On which channel should Gargul output its sounds (default SFX)");
+    MinimumQualityLabel:SetHeight(20);
+    MinimumQualityLabel:SetFullWidth(true);
+    Parent:AddChild(MinimumQualityLabel);
+
+    local SoundChannels = {
+        Master = "Master",
+        Music = "Music",
+        SFX = "SFX",
+        Ambience = "Ambience",
+        Dialog = "Dialog",
     };
 
-    Overview:drawCheckboxes(Checkboxes, Parent);
+    local SoundChannelDropdown = GL.AceGUI:Create("Dropdown");
+    SoundChannelDropdown:SetValue(GL.Settings:get("soundChannel"));
+    SoundChannelDropdown:SetList(SoundChannels);
+    SoundChannelDropdown:SetText(GL.Settings:get("soundChannel"));
+    SoundChannelDropdown:SetWidth(250);
+    SoundChannelDropdown:SetCallback("OnValueChanged", function()
+        local channel = SoundChannelDropdown:GetValue();
+        GL.Settings:set("soundChannel", channel);
+    end);
+    Parent:AddChild(SoundChannelDropdown);
 end
 
 GL:debug("Interface/Settings/General.lua");

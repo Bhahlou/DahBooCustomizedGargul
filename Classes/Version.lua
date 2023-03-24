@@ -1,20 +1,34 @@
 local _, GL = ...;
 
+---@class Version
 GL.Version = GL.Version or {
+    _initialized = false,
+
+    checkingForUpdate = false,
+    current = GL.version,
+    latest = GL.version,
+    lastUpdateCheckReplyAt = 0,
+    releases = {},
+    isOutOfDate = false,
+    firstBoot = false,
+    latestPriorVersionBooted = nil,
+    lastNotBackwardsCompatibleNotice = 0,
+    lastUpdateNotice = 0,
+    versionDifference = 0,
+
+    GroupMembers = {},
     RecurringCheckTimer = nil,
+    UpdateCheckTimer = nil;
 };
 
+---@type Version
 local Version = GL.Version;
+
+---@type Data
 local CommActions = GL.Data.Constants.Comm.Actions;
 
-Version._initialized = false;
-Version.current = GL.version;
-Version.latest = GL.version;
-Version.releases = {};
-Version.isOutOfDate = false;
-Version.firstBoot = false;
-
-Version.GroupMembers = {};
+--[[ CONSTANTS ]]
+local THIRTY_MINUTES = 1800;
 
 ---@return void
 function Version:_init()
@@ -40,7 +54,20 @@ function Version:_init()
                 GL.Data.Constants.addonHexColor,
                 GL.Data.Constants.addonHexColor,
                 self.current
-            ))
+            ));
+        end
+    end
+
+    -- Check which version we last loaded before this one
+    self.latestPriorVersionBooted = nil;
+    for version in pairs(GL.DB.LoadDetails or {}) do
+        local major = string.sub(version, 1, 1);
+        major = tonumber(major);
+
+        if (major) then
+            if (not self.latestPriorVersionBooted or self:leftIsOlderThanRight(self.latestPriorVersionBooted, version)) then
+                self.latestPriorVersionBooted = version;
+            end
         end
     end
 
@@ -48,7 +75,120 @@ function Version:_init()
     GL.DB.LoadDetails.lastLoadedOn = now;
     GL.DB.LoadDetails[self.current] = now;
 
+    --[[ CHECK FOR GARGUL UPDATES ]]
+
+    -- 30 seconds after logging in we will check if Gargul is up to date
+    -- If it is, we'll check periodically (once every 30 minutes) if it is
+    -- On top of that we also check on every ready check event
+    GL.Ace:ScheduleTimer(function ()
+        if (self.isOutOfDate) then
+            return;
+        end
+
+        self:checkForUpdate();
+
+        self.UpdateCheckTimer = GL.Ace:ScheduleRepeatingTimer(function ()
+            GL:debug("Run Version.UpdateCheckTimer");
+
+            if (self.isOutOfDate) then
+                GL:debug("Cancel Version.UpdateCheckTimer");
+
+                GL.Ace:CancelTimer(self.UpdateCheckTimer);
+                return;
+            end
+
+            self:checkForUpdate();
+        end, THIRTY_MINUTES);
+    end, 30);
+
+    -- Check our version whenever there's a ready check
+    GL.Events:register("VersionReadyCheck", "READY_CHECK", function ()
+        if (self.isOutOfDate) then
+            GL.Events:unregister("VersionReadyCheck");
+            return;
+        end
+
+        self:checkForUpdate(true);
+    end);
+
     self._initialized = true;
+end
+
+--- Check with GROUP and GUILD members whether we need to update our add-ons or not
+---
+--- We check GROUP first, wait 15 seconds for responses, then check GUILD* if no one had a newer version yet
+--- * GUILD checking will only occur when the player is not in combat
+---
+---@param byReadyCheck boolean
+---@return void
+function Version:checkForUpdate(byReadyCheck)
+    GL:debug("Version:checkForUpdate");
+
+    if (self.checkingForUpdate -- We're already checking
+        or self.isOutOfDate -- We already know we're out of date
+
+        -- We're not in a group or guild and have nowhere to check
+        or (not GL.User.isInGroup
+            and not GL.User.Guild.name
+        )
+    ) then
+        return;
+    end
+
+    self.checkingForUpdate = true;
+
+    if (GL.User.isInGroup) then
+        GL.CommMessage.new(
+            CommActions.checkForUpdate,
+            nil,
+            "GROUP"
+        ):send();
+    end
+
+    GL.Ace:ScheduleTimer(function ()
+        if (self.isOutOfDate
+            or UnitAffectingCombat("player") -- We don't check guild in combat, can't risk hiccups
+            or byReadyCheck -- We don't check the guild after a ready check: we're about to FIGHT!
+        ) then
+            self.checkingForUpdate = false;
+
+            return;
+        end
+
+        GL.CommMessage.new(
+            CommActions.checkForUpdate,
+            nil,
+            "GUILD"
+        ):send();
+
+        GL.Ace:ScheduleTimer(function ()
+            self.checkingForUpdate = false;
+        end, 15);
+    end, 15);
+end
+
+---@param Message CommMessage
+---@return void
+function Version:replyToUpdateCheck(Message)
+    GL:debug("Version:replyToUpdateCheck");
+
+    if (Message.Sender.isSelf) then
+        return;
+    end
+
+    -- We don't handle too many of these messages
+    local serverTime = GetServerTime();
+    if (serverTime - self.lastUpdateCheckReplyAt < 20) then
+        return;
+    end
+
+    self.lastUpdateCheckReplyAt = serverTime;
+
+    if (Message.version
+        and not Version:leftIsNewerThanOrEqualToRight(Message.version, Version.latest)
+    ) then
+        Message:respond(Version.latest);
+    end
 end
 
 --- Add a given version string to our knowledgebase
@@ -56,14 +196,18 @@ end
 --- check whether we need to update our own addon
 ---
 ---@param versionString string
+---@param quietly boolean
 ---@return void
-function Version:addRelease(versionString)
+function Version:addRelease(versionString, quietly)
     GL:debug("Version:addRelease");
 
     if (type(versionString) ~= "string"
         or not string.match(versionString, "%d+%.%d+%.%d+")
     ) then
-        GL:warning("Invalid version string provided in Version:addRelease");
+        if (not quietly) then
+            GL:warning("Invalid version string provided in Version:addRelease");
+        end
+
         return;
     end
 
@@ -84,14 +228,75 @@ end
 function Version:checkIfNewerRelease(versionString)
     GL:debug("Version:checkIfNewerRelease");
 
-    if (not self:leftIsOlderThanRight(self.latest, versionString)) then
+    local outDated, versionDifference = self:leftIsOlderThanRight(self.latest, versionString);
+    if (not outDated) then
         return;
     end
 
     self.latest = versionString;
 
     if (self.latest ~= self.current) then
+        versionDifference = tonumber(versionDifference);
         self.isOutOfDate = true;
+
+        if (versionDifference and versionDifference > self.versionDifference) then
+            self.versionDifference = versionDifference;
+        end
+
+        self:notifyOfUpdate();
+    end
+end
+
+--- Gargul is out of date in a manner that makes it incompatible with new(er) versions
+---
+---@return void
+function Version:notBackwardsCompatibleNotice()
+    GL:debug("Version:notBackwardsCompatibleNotice");
+
+    local serverTime = GetServerTime();
+
+    if (serverTime - self.lastNotBackwardsCompatibleNotice >= 30) then
+        self.lastNotBackwardsCompatibleNotice = serverTime;
+        GL:error("Gargul is out of date and won't work properly until you update!");
+    end
+end
+
+---@return void
+function Version:notifyOfUpdate()
+    GL:debug("Version:notifyOfUpdate");
+
+    if (self.lastNotBackwardsCompatibleNotice > 0) then -- The user is already chewed out by the incompatibility notifier
+        return;
+    end
+
+    -- Only show the update alert once per session
+    if (self.lastUpdateNotice > 0) then
+        return;
+    end
+
+    self.lastUpdateNotice = GetServerTime();
+
+    local notifyOfUpdate = function ()
+        GL:warning("A new version of |c00a79effGargul|r is available. Make sure to update!");
+
+        -- Only show if the user didn't update for at least two trivial or one minor/major version
+        if (self.versionDifference < 2) then
+            return;
+        end
+
+        GL.Interface.Alerts:fire("GargulNotification", {
+            message = string.format("|c00BE3333Update Gargul!|r"),
+        });
+    end
+
+    -- Make sure to not annoy Sjniekel when in combat
+    if (UnitAffectingCombat("player")) then
+        GL.Events:register("VersionOutOfCombatListener", "PLAYER_REGEN_ENABLED", function ()
+            GL.Events:unregister("VersionOutOfCombatListener");
+            notifyOfUpdate();
+        end);
+    else
+        notifyOfUpdate();
     end
 end
 
@@ -121,7 +326,9 @@ end
 ---
 ---@param left string
 ---@param right string
----@return boolean
+---@return boolean, number
+---
+--- /script DevTools_Dump({_G.Gargul.Version:leftIsOlderThanRight("5.3.0", "5.3.3")});
 function Version:leftIsOlderThanRight(left, right)
     GL:debug("Version:leftIsOlderThanRight");
 
@@ -133,24 +340,24 @@ function Version:leftIsOlderThanRight(left, right)
     end
 
     if (rightMajor < leftMajor) then
-        return false; -- Major of addon is higher
+        return false, (leftMajor - rightMajor) * 100; -- Major of addon is higher
     elseif (rightMajor > leftMajor) then
-        return true; -- Major of versionstring is higher
+        return true, (rightMajor - leftMajor) * 100; -- Major of versionstring is higher
     end
 
     if (rightMinor < leftMinor) then
-        return false; -- Minor of addon is higher
+        return false, (leftMinor - rightMinor) * 10; -- Minor of addon is higher
     elseif (rightMinor > leftMinor) then
-        return true; -- Minor of versionstring is higher
+        return true, (rightMinor - leftMinor) * 10; -- Minor of versionstring is higher
     end
 
     if (rightTrivial < leftTrivial) then
-        return false; -- Trivial of addon is higher
+        return false, leftTrivial - rightTrivial; -- Trivial of addon is higher
     elseif (rightTrivial > leftTrivial) then
-        return true; -- Trivial of versionstring is higher
+        return true, rightTrivial - leftTrivial; -- Trivial of versionstring is higher
     end
 
-    return false;
+    return false, 0;
 end
 
 --- Check if our current app version is higher than the given one
@@ -161,7 +368,10 @@ end
 function Version:leftIsNewerThanOrEqualToRight(left, right)
     GL:debug("Version:leftIsNewerThanOrEqualToRight");
 
-    return not self:leftIsOlderThanRight(left, right);
+    local older, versionDifference = self:leftIsOlderThanRight(left, right);
+    local newerOrEqual = not older;
+
+    return newerOrEqual, versionDifference;
 end
 
 --- Inspect quietly, meaning there will be no visual feedback
@@ -170,7 +380,9 @@ end
 ---
 ---@return void
 function Version:inspectQuietly()
-    if (not GL.User.isInGroup) then
+    if (self.isOutOfDate
+        or not GL.User.isInGroup
+    ) then
         return;
     end
 

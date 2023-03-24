@@ -43,7 +43,7 @@ function ShortcutKeysLegend:draw()
         end
     end);
     Window.frame:SetParent(Parent);
-    GL.Interface:setItem(self, "Window", Window);
+    GL.Interface:set(self, "Window", Window);
 
     if (ElvLootFrame) then
         Window:SetPoint("TOPLEFT", Parent, "TOPRIGHT", 0, 17);
@@ -59,7 +59,7 @@ function ShortcutKeysLegend:draw()
     DescriptionLabel:SetFontObject(_G["GameFontNormalSmall"]);
     DescriptionLabel:SetText(string.format(
         "Gargul Item Hotkeys\n\nRoll out: |c00a79eff%s|r\nAward: |c00a79eff%s|r\nDisenchant: |c00a79eff%s|r\n\n\n-- Right-click to disable this window --",
-        GL.Settings:get("ShortcutKeys.rollOff"),
+        GL.Settings:get("ShortcutKeys.rollOffOrAuction"),
         GL.Settings:get("ShortcutKeys.award"),
         GL.Settings:get("ShortcutKeys.disenchant")
     ));
@@ -72,7 +72,7 @@ end
 function ShortcutKeysLegend:close()
     GL:debug("ShortcutKeysLegend:close");
 
-    local Window = GL.Interface:getItem(self, "Window");
+    local Window = GL.Interface:get(self, "Window");
 
     if (not self.isVisible
         or not Window

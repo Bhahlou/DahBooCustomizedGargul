@@ -187,6 +187,7 @@ local function constructor()
 
     local VerticalSpacer;
     local HorizontalSpacer;
+    local YesButton;
 
     -- Dialog
     local Dialog = AceGUI:Create("Label");
@@ -220,7 +221,7 @@ local function constructor()
     PlusOneCheckBox:SetHeight(20);
     PlusOneCheckBox:SetWidth(24);
     OptionsFrame:AddChild(PlusOneCheckBox);
-    GL.Interface:setItem(GL.Interface.Dialogs.AwardDialog, "PlusOne", PlusOneCheckBox);
+    GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "PlusOne", PlusOneCheckBox);
 
     -- Plus one label
     local PlusOneLabel = AceGUI:Create("InteractiveLabel");
@@ -234,16 +235,16 @@ local function constructor()
 
     OptionsFrame:AddChild(PlusOneLabel);
 
-    -- Plus one checkbox
+    -- Off Spec checkbox
     local OffSpecCheckBox = AceGUI:Create("CheckBox");
     OffSpecCheckBox:SetLabel("");
     OffSpecCheckBox:SetDescription("");
     OffSpecCheckBox:SetHeight(20);
     OffSpecCheckBox:SetWidth(24);
     OptionsFrame:AddChild(OffSpecCheckBox);
-    GL.Interface:setItem(GL.Interface.Dialogs.AwardDialog, "OffSpec", OffSpecCheckBox);
+    GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "OffSpec", OffSpecCheckBox);
 
-    -- Plus one label
+    -- Off Spec label
     local OffSpecLabel = AceGUI:Create("InteractiveLabel");
     OffSpecLabel:SetFontObject(_G["GameFontNormal"]);
     OffSpecLabel:SetWidth(30);
@@ -255,13 +256,13 @@ local function constructor()
 
     OptionsFrame:AddChild(OffSpecLabel);
 
-    HorizontalSpacer = AceGUI:Create("SimpleGroup");
-    HorizontalSpacer:SetLayout("FILL");
-    HorizontalSpacer:SetFullWidth(true);
-    HorizontalSpacer:SetHeight(8);
-    OptionsFrame:AddChild(HorizontalSpacer);
-
     if (GL.BoostedRolls:enabled()) then
+        HorizontalSpacer = AceGUI:Create("SimpleGroup");
+        HorizontalSpacer:SetLayout("FILL");
+        HorizontalSpacer:SetFullWidth(true);
+        HorizontalSpacer:SetHeight(8);
+        OptionsFrame:AddChild(HorizontalSpacer);
+
         VerticalSpacer = AceGUI:Create("SimpleGroup");
         VerticalSpacer:SetLayout("FILL");
         VerticalSpacer:SetWidth(52);
@@ -283,7 +284,44 @@ local function constructor()
         BoostedRollsCostEditBox:SetText(GL.Settings:get("BoostedRolls.defaultCost", 0));
         BoostedRollsCostEditBox:SetLabel("");
         OptionsFrame:AddChild(BoostedRollsCostEditBox);
-        GL.Interface:setItem(GL.Interface.Dialogs.AwardDialog, "Cost", BoostedRollsCostEditBox);
+        GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "Cost", BoostedRollsCostEditBox);
+    end
+
+    if (GL.GDKP.Session:activeSessionID()
+        and not GL.GDKP.Session:getActive().lockedAt
+    ) then
+        HorizontalSpacer = AceGUI:Create("SimpleGroup");
+        HorizontalSpacer:SetLayout("FILL");
+        HorizontalSpacer:SetFullWidth(true);
+        HorizontalSpacer:SetHeight(8);
+        OptionsFrame:AddChild(HorizontalSpacer);
+
+        VerticalSpacer = AceGUI:Create("SimpleGroup");
+        VerticalSpacer:SetLayout("FILL");
+        VerticalSpacer:SetWidth(52);
+        VerticalSpacer:SetHeight(10);
+        OptionsFrame:AddChild(VerticalSpacer);
+
+        -- Boosted Roll cost label
+        local PriceLabel = AceGUI:Create("Label");
+        PriceLabel:SetFontObject(_G["GameFontNormal"]);
+        PriceLabel:SetWidth(120);
+        PriceLabel:SetText("GDKP Price:");
+        OptionsFrame:AddChild(PriceLabel);
+
+        -- Boosted Roll cost
+        local GDKPPriceEditBox = GL.AceGUI:Create("EditBox");
+        GDKPPriceEditBox:DisableButton(true);
+        GDKPPriceEditBox:SetHeight(20);
+        GDKPPriceEditBox:SetWidth(60);
+        GDKPPriceEditBox:SetText("");
+        GDKPPriceEditBox:SetLabel("");
+        GDKPPriceEditBox:SetFocus();
+        OptionsFrame:AddChild(GDKPPriceEditBox);
+        GDKPPriceEditBox:SetCallback("OnEnterPressed", function ()
+            YesButton:Fire("OnClick");
+        end); -- Update item info when input value changes
+        GL.Interface:set(GL.Interface.Dialogs.AwardDialog, "GDKPPrice", GDKPPriceEditBox);
     end
 
     HorizontalSpacer = AceGUI:Create("SimpleGroup");
@@ -299,8 +337,8 @@ local function constructor()
     PopupDialogInstance:AddChild(VerticalSpacer);
 
     -- Yes
-    local YesButton = AceGUI:Create("Button");
-    YesButton:SetText("Oui");
+    YesButton = AceGUI:Create("Button");
+    YesButton:SetText("Yes");
     YesButton:SetHeight(20);
     YesButton:SetWidth(120);
     YesButton:SetCallback("OnClick", function()
@@ -310,19 +348,6 @@ local function constructor()
     end);
     PopupDialogInstance:AddChild(YesButton);
 
-    local YesButtonEnterCatcher = AceGUI:Create("EditBox");
-    YesButtonEnterCatcher:DisableButton(true);
-    YesButtonEnterCatcher:SetWidth(.1);
-    YesButtonEnterCatcher:SetHeight(.1);
-    YesButtonEnterCatcher.frame:SetAlpha(0);
-    PopupDialogInstance:AddChild(YesButtonEnterCatcher);
-    YesButtonEnterCatcher:SetCallback("OnEnterPressed", function ()
-        if (type(Widget.yesCallback) == "function") then
-            Widget.yesCallback();
-        end
-    end);
-    GL.Interface:setItem(GL.Interface.Dialogs.AwardDialog, "YesButtonEnterCatcher", YesButtonEnterCatcher);
-
     VerticalSpacer = AceGUI:Create("SimpleGroup");
     VerticalSpacer:SetLayout("FILL");
     VerticalSpacer:SetWidth(12);
@@ -331,7 +356,7 @@ local function constructor()
 
     -- No
     local NoButton = AceGUI:Create("Button");
-    NoButton:SetText("Non");
+    NoButton:SetText("No");
     NoButton:SetHeight(20);
     NoButton:SetWidth(120);
     NoButton:SetCallback("OnClick", function()

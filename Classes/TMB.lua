@@ -3,6 +3,16 @@ local _, GL = ...;
 
 GL.AceGUI = GL.AceGUI or LibStub("AceGUI-3.0");
 
+---@type Data
+local Constants = GL.Data.Constants;
+local CommActions = Constants.Comm.Actions;
+
+---@type Settings
+local Settings = GL.Settings;
+
+---@type Events
+local Events = GL.Events;
+
 ---@class TMB
 GL.TMB = {
     _initialized = false,
@@ -14,10 +24,6 @@ GL.TMB = {
 };
 local TMB = GL.TMB; ---@type TMB
 
-local Constants = GL.Data.Constants; ---@type Data
-local CommActions = Constants.Comm.Actions;
-local Settings = GL.Settings; ---@type Settings
-
 ---@return boolean
 function TMB:_init()
     GL:debug("TMB:_init");
@@ -26,8 +32,33 @@ function TMB:_init()
         return false;
     end
 
-    GL.Events:register("TMBUserJoinedGroupListener", "GL.USER_JOINED_GROUP", function () self:requestData(); end);
+    Events:register("TMBUserJoinedGroupListener", "GL.USER_JOINED_GROUP", function () self:requestData(); end);
 
+    Events:register("TMBItemReceived", "GL.ITEM_RECEIVED", function (_, Details)
+        -- We don't want to automatically award loot
+        if (not Settings:get("AwardingLoot.awardOnReceive")) then
+            return;
+        end
+
+        -- This item is of too low quality, we don't care
+        local quality = tonumber(Details.quality);
+        if (not quality
+            or quality < Settings:get("AwardingLoot.awardOnReceiveMinimumQuality")
+        ) then
+            return;
+        end
+
+        -- This isn't an item we should award
+        if (GL:inTable(Constants.ItemsThatShouldntBeAnnounced, Details.itemID)) then
+            return;
+        end
+
+        local autoAward = Settings:get("AwardingLoot.autoTradeAfterAwardingAnItem");
+        Settings:set("AwardingLoot.autoTradeAfterAwardingAnItem", false, true);
+        GL.AwardedLoot:addWinner(Details.playerName, Details.itemLink, false);
+        Settings:set("AwardingLoot.autoTradeAfterAwardingAnItem", autoAward, true);
+    end);
+    
     self._initialized = true;
     return true;
 end
@@ -107,7 +138,7 @@ function TMB:byItemIDAndPlayer(itemID, player)
 
     -- An invalid item id or name was provided
     itemID = tonumber(itemID);
-    player = string.lower(strtrim(player, nil));
+    player = string.lower(strtrim(player));
     if (not GL:higherThanZero(itemID)
         or GL:empty(player)
     ) then
@@ -231,7 +262,7 @@ end
 ---@param itemLink string
 ---@return table
 function TMB:tooltipLines(itemLink)
-    GL:debug("TMB:appendTMBItemInfoToTooltip");
+    GL:debug("TMB:tooltipLines");
 
     -- If we're not in a group there's no point in showing anything! (unless the non-raider setting is active)
     if ((not GL.User.isInGroup and GL.Settings:get("TMB.hideInfoOfPeopleNotInGroup"))
@@ -308,7 +339,7 @@ function TMB:tooltipLines(itemLink)
         local isOffSpec = string.find(Entry.character, "%(OS%)");
         local prioOffset = 0;
         local sortingOrder = prio;
-        local color = GL:classHexColor(GL.Player:classByName(playerName:gsub("%(os%)", "")));
+        local color = GL:classHexColor(GL.Player:classByName(playerName:gsub("%(os%)", ""), 0), GL.Data.Constants.disabledTextColor);
 
         -- We add 100 to the prio (first key) of the object
         -- This object is used for sorting later and is not visible to the player
@@ -345,6 +376,8 @@ function TMB:tooltipLines(itemLink)
         local source = "TMB";
         if (self:wasImportedFromDFT()) then
             source = "DFT";
+        elseif (self:wasImportedFromCPR()) then
+            source = "CPR";
         elseif (self:wasImportedFromCSV()) then
             source = "Item";
         end
@@ -362,7 +395,7 @@ function TMB:tooltipLines(itemLink)
 
             tinsert(Lines, string.format(
                 "|cFF%s%s|r",
-                GL:classHexColor(GL.Player:classByName(Entry[2])),
+                GL:classHexColor(GL.Player:classByName(Entry[2], 0), GL.Data.Constants.disabledTextColor),
                 GL:capitalize(Entry[2]):gsub("%(os%)", " (OS)")
             ));
 
@@ -401,7 +434,7 @@ function TMB:tooltipLines(itemLink)
 
             tinsert(Lines, string.format(
                 "|cFF%s%s|r",
-                GL:classHexColor(GL.Player:classByName(Entry[2])),
+                GL:classHexColor(GL.Player:classByName(Entry[2], 0), GL.Data.Constants.disabledTextColor),
                 GL:capitalize(Entry[2]):gsub("%(os%)", " (OS)")
             ));
 
@@ -419,12 +452,12 @@ end
 --- based on the current TMB data
 ---
 ---@return void
-function TMB:draw(showDFT)
+function TMB:draw(source)
     GL:debug("TMB:draw");
 
     -- No data available, show importer
     if (not self:available()) then
-        GL.Interface.TMB.Importer:draw(showDFT);
+        GL.Interface.TMB.Importer:draw(source);
         return;
     end
 
@@ -437,7 +470,7 @@ end
 function TMB:clear()
     GL.DB.TMB = {};
 
-    GL.Events:fire("GL.TMB_CLEARED");
+    Events:fire("GL.TMB_CLEARED");
 end
 
 --- Check whether the current TMB data was imported from DFT
@@ -445,6 +478,13 @@ end
 ---@return boolean
 function TMB:wasImportedFromDFT()
     return self:available() and GL:toboolean(GL.DB.TMB.MetaData.importedFromDFT);
+end
+
+--- Check whether the current TMB data was imported from CPR
+---
+---@return boolean
+function TMB:wasImportedFromCPR()
+    return self:available() and GL:toboolean(GL.DB.TMB.MetaData.importedFromCPR);
 end
 
 --- Check whether the current TMB data was imported from CSV
@@ -459,13 +499,13 @@ end
 ---@param data string
 ---@param triedToDecompress boolean
 ---@return boolean
-function TMB:import(data, triedToDecompress)
+function TMB:import(data, triedToDecompress, source)
     GL:debug("TMB:import");
 
     local jsonDecodeSucceeded;
     local WebsiteData;
     local function displayGenericException()
-        GL.Interface:getItem("TMB.Importer", "Label.StatusMessage"):SetText("Invalid TMB data provided, make sure to click the 'Download' button in the Gargul section and paste the contents here as-is!");
+        GL.Interface:get("TMB.Importer", "Label.StatusMessage"):SetText("Invalid TMB data provided, make sure to click the 'Download' button in the Gargul section and paste the contents here as-is!");
     end
 
     if (type(data) ~= "string"
@@ -476,7 +516,7 @@ function TMB:import(data, triedToDecompress)
     end
 
     -- Make sure to get rid of any leadin/trailing whitespaces
-    data = strtrim(data, nil);
+    data = strtrim(data);
 
     -- Fetch the first line
     local firstLine = data:match("[^\n]+");
@@ -493,7 +533,7 @@ function TMB:import(data, triedToDecompress)
         WebsiteData = data;
 
         if (not data) then
-            return GL.Interface:getItem("TMB.Importer", "Label.StatusMessage"):SetText("Invalid CSV provided, the format is: 6948,player1,player2");
+            return GL.Interface:get("TMB.Importer", "Label.StatusMessage"):SetText("Invalid CSV provided, the format is: 6948,player1,player2");
         end
 
     -- We might have the dft format on hands, let's check it out!
@@ -503,7 +543,7 @@ function TMB:import(data, triedToDecompress)
         WebsiteData = data;
 
         if (not data) then
-            return GL.Interface:getItem("TMB.Importer", "Label.StatusMessage"):SetText("Invalid TMB or DFT data provided, make sure to paste the export contents here as-is!");
+            return GL.Interface:get("TMB.Importer", "Label.StatusMessage"):SetText("Invalid TMB or DFT data provided, make sure to paste the export contents here as-is!");
         end
     end
 
@@ -512,7 +552,7 @@ function TMB:import(data, triedToDecompress)
         and not GL:strStartsWith(data, "{\"wishlists\":")
     ) then
         data = TMB:decompress(data);
-        return TMB:import(data, true);
+        return TMB:import(data, true, source);
     end
 
     -- In case of a DFT format, data will already be a table
@@ -524,7 +564,7 @@ function TMB:import(data, triedToDecompress)
             or not WebsiteData
             or type(WebsiteData) ~= "table"
         ) then
-            GL.Interface:getItem("TMB.Importer", "Label.StatusMessage"):SetText("Invalid DFT data provided, Export your DFT data as per the sheet's instructions and paste the contents here as-is!");
+            GL.Interface:get("TMB.Importer", "Label.StatusMessage"):SetText("Invalid DFT data provided, Export your DFT data as per the sheet's instructions and paste the contents here as-is!");
             return false;
         end
     end
@@ -638,11 +678,12 @@ function TMB:import(data, triedToDecompress)
     GL.DB.TMB.MetaData = {
         importedFromDFT = GL:toboolean(WebsiteData.importedFromDFT),
         importedFromCSV = GL:toboolean(WebsiteData.importedFromCSV),
+        importedFromCPR = source == "cpr",
         importedAt = GetServerTime(),
         hash = GL:uuid() .. GetServerTime(),
     };
 
-    GL.Events:fire("GL.TMB_IMPORTED");
+    Events:fire("GL.TMB_IMPORTED");
     GL.Interface.TMB.Importer:close();
     self:draw();
 
@@ -658,7 +699,64 @@ function TMB:import(data, triedToDecompress)
         self:broadcast();
     end
 
+    -- Report players without any TMB entries
+    local PlayersWithoutTMBDetails = self:playersWithoutTMBDetails();
+    if (not GL:empty(PlayersWithoutTMBDetails)) then
+        local MissingPlayers = {};
+        for _, name in pairs(PlayersWithoutTMBDetails) do
+            tinsert(MissingPlayers, {GL:capitalize(name), GL:classHexColor(GL.Player:classByName(name))});
+        end
+
+        GL:warning(string.format("The following players have no %s entries:", self:source()));
+        GL:multiColoredMessage(MissingPlayers, ", ");
+    end
+
     return true;
+end
+
+--- Where did our current TMB data come from?
+---@return string
+function TMB:source()
+    if (GL.TMB:wasImportedFromDFT()) then
+        return "DFT";
+    end
+
+    if (GL.TMB:wasImportedFromCPR()) then
+        return "CPR";
+    end
+
+    if (GL.TMB:wasImportedFromCSV()) then
+        return "Item";
+    end
+
+    return "TMB";
+end
+
+--- Return the names of all players that don't have any TMB details
+---
+---@return table
+function TMB:playersWithoutTMBDetails()
+    GL:debug("TMB:playersWithoutTMBDetails");
+
+    local PlayersWithDetails = {};
+    for _, Item in pairs(GL.DB:get("TMB.Items", {})) do
+        for _, Entry in pairs(Item or {}) do
+            if (Entry.character) then
+                PlayersWithDetails[Entry.character] = true;
+            end
+        end
+    end
+
+    local PlayersWithoutTMBDetails = {};
+    for _, name in pairs(GL.User:groupMemberNames() or {}) do
+        name = string.lower(GL:stripRealm(name));
+
+        if (not PlayersWithDetails[name]) then
+            tinsert(PlayersWithoutTMBDetails, name);
+        end
+    end
+
+    return PlayersWithoutTMBDetails;
 end
 
 --- Attempt to transform the DFT format to a TMB format
@@ -714,7 +812,7 @@ function TMB:DFTFormatToTMB(data)
                     return;
                 end
 
-                line = strtrim(line, nil);
+                line = strtrim(line);
                 line = string.sub(line, 12, string.len(line));
                 line = line:gsub("|r: :", "");
                 line = line:gsub("|r: ", "");
@@ -887,7 +985,7 @@ function TMB:decompress(data)
     -- Something went wrong while base64 decoding the payload
     if (not base64DecodeSucceeded) then
         local errorMessage = "Unable to base64 decode the data. Make sure you copy/paste it as-is from thatsmybis.com without changing anything!";
-        GL.Interface:getItem("TMB.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("TMB.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return "";
     end
@@ -899,7 +997,7 @@ function TMB:decompress(data)
     -- Something went wrong while zlib decoding the payload
     if (not zlibDecodeSucceeded) then
         local errorMessage = "Unable to zlib decode the data. Make sure you copy/paste it as-is from thatsmybis.com without changing anything!";
-        GL.Interface:getItem("TMB.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("TMB.Importer", "Label.StatusMessage"):SetText(errorMessage);
         return "";
     end
 
@@ -935,12 +1033,12 @@ function TMB:broadcast()
     end
 
     self.broadcastInProgress = true;
-    GL.Events:fire("GL.TMB_BROADCAST_STARTED");
+    Events:fire("GL.TMB_BROADCAST_STARTED");
 
     local Broadcast = function ()
         GL:message("Broadcasting TMB data...");
 
-        local Label = GL.Interface:getItem(GL.TMB, "Label.BroadcastProgress");
+        local Label = GL.Interface:get(GL.TMB, "Label.BroadcastProgress");
 
         if (Label) then
             Label:SetText("Broadcasting...");
@@ -953,9 +1051,9 @@ function TMB:broadcast()
         ):send(function ()
             GL:success("TMB broadcast finished");
             self.broadcastInProgress = false;
-            GL.Events:fire("GL.TMB_BROADCAST_ENDED");
+            Events:fire("GL.TMB_BROADCAST_ENDED");
 
-            Label = GL.Interface:getItem(GL.TMB, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.TMB, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText("Broadcast finished!");
             end
@@ -963,7 +1061,7 @@ function TMB:broadcast()
             -- Make sure to broadcast the loot priorities as well
             GL.LootPriority:broadcast();
         end, function (sent, total)
-            Label = GL.Interface:getItem(GL.TMB, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.TMB, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText(string.format("Sent %s of %s bytes", sent, total));
             end
@@ -975,8 +1073,8 @@ function TMB:broadcast()
     if (UnitAffectingCombat("player")) then
         GL:message("You are currently in combat, delaying TMB broadcast");
 
-        GL.Events:register("TMBOutOfCombatListener", "PLAYER_REGEN_ENABLED", function ()
-            GL.Events:unregister("TMBOutOfCombatListener");
+        Events:register("TMBOutOfCombatListener", "PLAYER_REGEN_ENABLED", function ()
+            Events:unregister("TMBOutOfCombatListener");
             Broadcast();
         end);
     else
@@ -993,7 +1091,7 @@ function TMB:receiveBroadcast(CommMessage)
     GL:debug("TMB:receiveBroadcast");
 
     -- No need to update our tables if we broadcasted them ourselves
-    if (CommMessage.Sender.id == GL.User.id) then
+    if (CommMessage.Sender.isSelf) then
         GL:debug("TMB:receiveBroadcast received by self, skip");
         return true;
     end

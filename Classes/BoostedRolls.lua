@@ -90,7 +90,7 @@ end
 ---@param playerName string
 ---@return void
 function BoostedRolls:markPlayerAsTrusted(playerName)
-    playerName = strtrim(playerName, nil);
+    playerName = strtrim(playerName);
 
     if (GL:empty(playerName)
         or self:playerIsTrusted(playerName)
@@ -110,7 +110,7 @@ end
 ---@param playerName string
 ---@return void
 function BoostedRolls:removePlayerFromTrusted(playerName)
-    playerName = strtrim(playerName, nil);
+    playerName = strtrim(playerName);
 
     -- No point removing the player if he's not trusted in the first place
     if (GL:empty(playerName)
@@ -531,7 +531,7 @@ function BoostedRolls:import(data, openOverview, MetaData)
 
     -- Make sure all the required properties are available and of the correct type
     if (GL:empty(data)) then
-        GL.Interface:getItem("BoostedRolls.Importer", "Label.StatusMessage"):SetText("Invalid boosted roll data provided");
+        GL.Interface:get("BoostedRolls.Importer", "Label.StatusMessage"):SetText("Invalid boosted roll data provided");
         return false;
     end
 
@@ -569,7 +569,7 @@ function BoostedRolls:import(data, openOverview, MetaData)
 
     if (GL:empty(Points)) then
         local errorMessage = "Invalid data provided. Make sure that the contents follows the required format and no header row is included.";
-        GL.Interface:getItem("BoostedRolls.Importer", "Label.StatusMessage"):SetText(errorMessage);
+        GL.Interface:get("BoostedRolls.Importer", "Label.StatusMessage"):SetText(errorMessage);
 
         return false;
     end
@@ -713,7 +713,7 @@ function BoostedRolls:broadcast()
     local Broadcast = function ()
         GL:message("Broadcasting BoostedRolls data...");
 
-        local Label = GL.Interface:getItem(GL.BoostedRolls, "Label.BroadcastProgress");
+        local Label = GL.Interface:get(GL.BoostedRolls, "Label.BroadcastProgress");
 
         if (Label) then
             Label:SetText("Broadcasting...");
@@ -735,7 +735,7 @@ function BoostedRolls:broadcast()
             self.broadcastInProgress = false;
             GL.Events:fire("GL.BOOSTEDROLLS_BROADCAST_ENDED");
 
-            Label = GL.Interface:getItem(GL.BoostedRolls, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.BoostedRolls, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText("Broadcast finished!");
             end
@@ -743,7 +743,7 @@ function BoostedRolls:broadcast()
             -- Make sure to broadcast the loot priorities as well
             GL.LootPriority:broadcast();
         end, function (sent, total)
-            Label = GL.Interface:getItem(GL.BoostedRolls, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.BoostedRolls, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText(string.format("Sent %s of %s bytes", sent, total));
             end
@@ -773,7 +773,7 @@ function BoostedRolls:receiveBroadcast(CommMessage)
     GL:debug("BoostedRolls:receiveBroadcast");
 
     -- No need to update our tables if we broadcasted them ourselves
-    if (CommMessage.Sender.name == GL.User.name) then
+    if (CommMessage.Sender.isSelf) then
         GL:debug("BoostedRolls:receiveBroadcast received by self, skip");
         return true;
     end
@@ -814,8 +814,8 @@ function BoostedRolls:receiveBroadcast(CommMessage)
             "Are you sure you want to update your existing boosted rolls with data from |c00%s%s|r?\n\nYour latest update was on |c00a79eff%s|r, theirs on |c00a79eff%s|r.",
             GL:classHexColor(GL.Player:classByName(CommMessage.Sender.name)),
             CommMessage.Sender.name,
-            date('%Y-%m-%d %H:%M', updatedAt),
-            date('%Y-%m-%d %H:%M', MetaData.updatedAt or 0)
+            date("%Y-%m-%d %H:%M", updatedAt),
+            date("%Y-%m-%d %H:%M", MetaData.updatedAt or 0)
         );
     elseif (not GL:empty(uuid)) then -- This is a different dataset, not an update
         question = string.format(
@@ -1103,7 +1103,7 @@ function BoostedRolls:receiveUpdate(CommMessage)
     GL:debug("BoostedRolls:receiveUpdate");
 
     -- No need to update our tables if we broadcasted them ourselves
-    if (CommMessage.Sender.name == GL.User.name) then
+    if (CommMessage.Sender.isSelf) then
         GL:debug("BoostedRolls:receiveUpdate received by self, skip");
         return true;
     end

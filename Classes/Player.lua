@@ -1,10 +1,12 @@
 local _, GL = ...;
 
+---@class Player
 GL.Player = {
     playerClassByName = {},
 };
 GL.Player.__index = GL.Player;
 
+---@type Player
 local Player = GL.Player;
 
 -- This metatable allows us to have multiple instances of this object
@@ -32,7 +34,8 @@ function Player.fromID(GUID)
     local self = Player._new();
 
     self.id = GUID;
-    _, self.class, _, self.race, self.gender, self.name = GetPlayerInfoByGUID(self.id)
+    self.localizedClass, self.class, self.localizedRace, self.race, self.gender, self.name = GetPlayerInfoByGUID(self.id);
+    self.race = string.lower(self.race);
 
     -- The GUID turns out to be invalid, destroy the player object
     if (not self.name or not type(self.name) == "string") then
@@ -46,7 +49,7 @@ function Player.fromID(GUID)
     self.Guild = {};
 
     -- GetGuildInfo(yourOwnID) doesn't work for yourself.. silly Blizzard
-    if (self.id == GL.User.id) then
+    if (self.id == GL.User.id or not GL.User.isInGroup) then
         self.Guild.name = GL.User.Guild.name;
         self.Guild.rank = GL.User.Guild.rank;
         self.Guild.index = GL.User.Guild.index;
@@ -122,17 +125,128 @@ function Player.fromActor()
     return Player.fromID(playerId);
 end
 
+--- Returns true of player has lead or assist
+---
+---@param playerNameOrID string
+---@return boolean
+function Player:hasAssist(playerNameOrID)
+    if (type(playerNameOrID) ~= "string") then
+        return false;
+    end
+
+    local playerName = playerNameOrID;
+    if (GL:strStartsWith(playerNameOrID, "Player-")) then
+        playerName = select(6, GetPlayerInfoByGUID(playerNameOrID));
+    end
+
+    if (not playerName) then
+        return false;
+    end
+
+    -- If the player is not in our group then we're done checking
+    if (not GL.User:unitIsInYourGroup(playerName)) then
+        return false;
+    end
+
+    -- Check if the player has lead or assist
+    local maximumNumberOfGroupMembers = GL.User.isInRaid and _G.MEMBERS_PER_RAID_GROUP or _G.MAX_RAID_MEMBERS;
+    for index = 1, maximumNumberOfGroupMembers do
+        local name, rank = GetRaidRosterInfo(index);
+
+        -- Rank 1 = assist, 2 = lead
+        if (name == playerName) then
+            return rank > 0;
+        end
+    end
+
+    return false;
+end
+
+--- Returns true of player has lead
+---
+---@param playerNameOrID string
+---@return boolean
+function Player:hasLead(playerNameOrID)
+    if (type(playerNameOrID) ~= "string") then
+        return false;
+    end
+
+    local playerName = playerNameOrID;
+    if (GL:strStartsWith(playerNameOrID, "Player-")) then
+        playerName = select(6, GetPlayerInfoByGUID(playerNameOrID));
+    end
+
+    if (not playerName) then
+        return false;
+    end
+
+    -- If the player is not in our group then we're done checking
+    if (not GL.User:unitIsInYourGroup(playerName)) then
+        return false;
+    end
+
+    -- Check if the player has lead or assist
+    local maximumNumberOfGroupMembers = GL.User.isInRaid and _G.MEMBERS_PER_RAID_GROUP or _G.MAX_RAID_MEMBERS;
+    for index = 1, maximumNumberOfGroupMembers do
+        local name, rank = GetRaidRosterInfo(index);
+
+        -- Rank 1 = assist, 2 = lead
+        if (name == playerName) then
+            return rank == 2;
+        end
+    end
+
+    return false;
+end
+
+--- Returns true of player is the master looter
+---
+---@param playerNameOrID string
+---@return boolean
+function Player:isMasterLooter(playerNameOrID)
+    if (type(playerNameOrID) ~= "string") then
+        return false;
+    end
+
+    local playerName = playerNameOrID;
+    if (GL:strStartsWith(playerNameOrID, "Player-")) then
+        playerName = select(6, GetPlayerInfoByGUID(playerNameOrID));
+    end
+
+    if (not playerName) then
+        return false;
+    end
+
+    -- If the player is not in our group then we're done checking
+    if (not GL.User:unitIsInYourGroup(playerName)) then
+        return false;
+    end
+
+    local lootMethod, _, masterLooterRaidID = GetLootMethod();
+    -- Master looting is active and this player is the master looter
+    if (lootMethod == 'master'
+        and tonumber(masterLooterRaidID)
+        and GL:iEquals(GetRaidRosterInfo(masterLooterRaidID), playerName)
+    ) then
+        return true;
+    end
+
+    return false;
+end
+
 --- Fetch a player's class by a given player name
 ---
 ---@param playerName string
 ---@param default string|nil
 ---@return string
 function Player:classByName(playerName, default)
+    GL:debug("Player:classByName");
+
     if (type(default) == "nil") then
         default = "priest";
     end
 
-    playerName = string.lower(playerName);
+    playerName = string.lower(strtrim(playerName));
 
     -- We already know this player's class name, return it
     if (self.playerClassByName[playerName]) then
@@ -140,17 +254,15 @@ function Player:classByName(playerName, default)
     end
 
     -- Attempt to fetch the player class
-    local _, playerClass = UnitClass(playerName);
+    local fileName = UnitClassBase(playerName);
 
     -- Player names can be stored for the entire session since
     -- it's impossible for them to change during runtime
-    if (type(playerClass) == "string"
-        and not GL:empty(playerClass)
+    if (type(fileName) == "string"
+        and not GL:empty(fileName)
     ) then
-        playerClass = string.lower(playerClass);
-
-        if (GL.Data.Constants.Classes[playerClass]) then
-            self.playerClassByName[playerName] = string.lower(playerClass);
+        if (GL.Data.Constants.UnitClasses[string.upper(fileName)]) then
+            self.playerClassByName[playerName] = string.lower(fileName);
         end
     end
 
@@ -168,7 +280,7 @@ function Player:cacheClass(playerName, class)
 
     class = string.lower(class);
 
-    if (not GL.Data.Constants.Classes[class]) then
+    if (GL:empty(class)) then
         return;
     end
 

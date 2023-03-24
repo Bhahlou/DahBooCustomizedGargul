@@ -5,7 +5,7 @@ local Overview = GL.Interface.Settings.Overview; ---@type SettingsOverview
 
 ---@class RollTrackingSettings
 GL.Interface.Settings.RollTracking = {
-    description = "Après avoir annoncé un objet et un roll aux joueurs, Dah Boo Customized Gargul gardera le suivi des rolls entrants. Par défaut, Dah Boo Customized Gargul ne garde que les rolls +1, +2, +3. Les champs ci-dessous vous permettent de customiser cela selon vos préférences, jusqu'à 6 'plages' de roll. L'identifieur est le texte affiché sur le bouton (maximum 3 caractères) et la 'Priorité' détermine comment les rolls seront triés dans la table de suivi (la priorité 1 est la plus haute). 2 ou davantage de plages de rolls peuvent partager la même priorité, ce ne sont pas des valeurs uniques. |cffC41E3AAttention à cliquer sur le bouton 'Sauvegarder plages de roll' lorsque vous avez terminé !|r"
+    description = "Gargul can keep track of incoming rolls. By default, Gargul will only track MS and OS rolls (|c00a79eff/rnd|r or |c00a79eff/rnd 99|r). The fields below allow you to customize this to your liking. The 'Identifier' is the text shown on the buttons, the 'Priority' field determines how rolls will be sorted in the roll tracking window (priority 1 is the top priority)"
 };
 local RollTracking = GL.Interface.Settings.RollTracking; ---@type RollTrackingSettings
 
@@ -16,8 +16,8 @@ function RollTracking:draw(Parent, Window)
     local InputElements = {};
     local Checkboxes = {
         {
-            label = "Suivre tous les rolls",
-            description = "Par défaut, Dah Boo Customized Gargul ne suit que les rolls qui suivent les règles définies ci-dessous. Si vous voulez suivre tous les rolls, alors activez cette option. La plage dans la quelle le joueur a roll sera affichée dans la fenêtre de suivi des rolls",
+            label = "Track all rolls",
+            description = "By default Gargul only tracks rolls that follow the rules defined below. If you want to track all rolls then enable this option. The range in which a player rolled will be displayed in the roll tracker window",
             setting = "RollTracking.trackAll",
         },
     };
@@ -29,10 +29,10 @@ function RollTracking:draw(Parent, Window)
         local TempNewRollSettings = GL.Settings:get("RollTracking.Brackets");
 
         for i = 1, 10 do
-            local identifier = strtrim(InputElements[i].Identifier:GetText(), nil);
-            local min = tonumber(strtrim(InputElements[i].Min:GetText(), nil));
-            local max = tonumber(strtrim(InputElements[i].Max:GetText(), nil));
-            local priority = tonumber(strtrim(InputElements[i].SortingPriority:GetText(), nil));
+            local identifier = strtrim(InputElements[i].Identifier:GetText());
+            local min = tonumber(strtrim(InputElements[i].Min:GetText()));
+            local max = tonumber(strtrim(InputElements[i].Max:GetText()));
+            local priority = tonumber(strtrim(InputElements[i].SortingPriority:GetText()));
             local concernsOS = InputElements[i].ConcernsOS:GetValue();
             local givesPlusOne = InputElements[i].GivesPlusOne:GetValue();
 
@@ -123,14 +123,14 @@ function RollTracking:draw(Parent, Window)
         local Min = GL.AceGUI:Create("EditBox");
         Min:DisableButton(true);
         Min:SetHeight(20);
-        Min:SetWidth(80);
+        Min:SetWidth(100);
         Min:SetText(min);
         Parent:AddChild(Min);
 
         local Max = GL.AceGUI:Create("EditBox");
         Max:DisableButton(true);
         Max:SetHeight(20);
-        Max:SetWidth(80);
+        Max:SetWidth(100);
         Max:SetText(max);
         Parent:AddChild(Max);
 
@@ -144,7 +144,7 @@ function RollTracking:draw(Parent, Window)
 
         local ConcernsOS = GL.AceGUI:Create("CheckBox");
         ConcernsOS:SetValue(concernsOS);
-        ConcernsOS:SetLabel("+2 ?");
+        ConcernsOS:SetLabel("OS?");
         ConcernsOS:SetWidth(60);
         ConcernsOS:SetHeight(26);
         ConcernsOS.text:SetTextColor(1, .95686, .40784);
@@ -152,7 +152,7 @@ function RollTracking:draw(Parent, Window)
 
         local GivesPlusOne = GL.AceGUI:Create("CheckBox");
         GivesPlusOne:SetValue(givesPlusOne);
-        GivesPlusOne:SetLabel("+1 ?");
+        GivesPlusOne:SetLabel("+1?");
         GivesPlusOne:SetWidth(60);
         GivesPlusOne:SetHeight(26);
         GivesPlusOne.text:SetTextColor(1, .95686, .40784);
@@ -169,22 +169,22 @@ function RollTracking:draw(Parent, Window)
 
         if (i == 1) then
             Identifier:SetLabel(string.format(
-                "|cff%sIdentifiant|r",
+                "|cff%sIdentifier|r",
                 GL:classHexColor("rogue")
             ));
 
             Min:SetLabel(string.format(
-                "|cff%sRoll minimum|r",
+                "|cff%sMinimum roll|r",
                 GL:classHexColor("rogue")
             ));
 
             Max:SetLabel(string.format(
-                "|cff%sRoll maximum|r",
+                "|cff%sMaximum roll|r",
                 GL:classHexColor("rogue")
             ));
 
             SortingPriority:SetLabel(string.format(
-                "|cff%sPriorité (tri)|r",
+                "|cff%sPriority (sorting)|r",
                 GL:classHexColor("rogue")
             ));
         end
@@ -205,7 +205,7 @@ function RollTracking:draw(Parent, Window)
     Parent:AddChild(HorizontalSpacer);
 
     local ResetButton = GL.AceGUI:Create("Button");
-    ResetButton:SetText("Annuler");
+    ResetButton:SetText("Undo");
     ResetButton:SetCallback("OnClick", function()
         self.onClose = nil;
         GL.Interface.Settings.Overview:close();

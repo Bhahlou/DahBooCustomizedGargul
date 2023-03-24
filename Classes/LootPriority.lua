@@ -2,13 +2,19 @@
 local _, GL = ...;
 
 GL.AceGUI = GL.AceGUI or LibStub("AceGUI-3.0");
+local AceGUI = GL.AceGUI;
+
+---@type Data
+local CommActions = GL.Data.Constants.Comm.Actions;
+
+---@type DB
+local DB = GL.DB;
 
 ---@class LootPriority
 GL.LootPriority = {};
 
-local AceGUI = GL.AceGUI;
-local CommActions = GL.Data.Constants.Comm.Actions;
-local LootPriority = GL.LootPriority; ---@type LootPriority
+---@type LootPriority
+local LootPriority = GL.LootPriority;
 
 --- Fetch an item's prio
 ---
@@ -21,11 +27,11 @@ function LootPriority:getPriority(itemLink, itemName)
     local itemID = GL:getItemIDFromLink(itemLink);
     itemName = itemName or GL:getItemNameFromLink(itemLink);
 
-    return GL.DB.LootPriority[itemID]
-        or GL.DB.LootPriority[itemName];
+    return DB:get("LootPriority", {})[itemID]
+        or DB:get("LootPriority", {})[itemName];
 end
 
---- Append the loot prio as defined in GL.DB.LootPriority to an item's tooltip
+--- Append the loot prio as defined in DB:get("LootPriority to an item's tooltip
 ---
 ---@param itemLink string
 ---@return table
@@ -119,17 +125,14 @@ end
 function LootPriority:toCSV()
     local LootPriorityCSV = "";
 
-    if (GL.DB.LootPriority and type(GL.DB.LootPriority) == "table") then
-        for item, priority in pairs(GL.DB.LootPriority) do
-            local prioritycount = #priority;
-            local priorityString = "";
+    for item, priority in pairs(DB:get("LootPriority", {}) or {}) do
+        local priorityString = "";
 
-            for index = 1, prioritycount do
-                priorityString = string.format("%s > %s", priorityString, priority[index]);
-            end
-
-            LootPriorityCSV = string.format("%s%s %s\n", LootPriorityCSV, item, priorityString);
+        for index = 1, #priority do
+            priorityString = string.format("%s > %s", priorityString, priority[index]);
         end
+
+        LootPriorityCSV = string.format("%s%s %s\n", LootPriorityCSV, item, priorityString);
     end
 
     return LootPriorityCSV;
@@ -152,7 +155,7 @@ function LootPriority:save(data)
     -- The user wishes to clear the loot priorities
     if (GL:empty(data)) then
         GL:success("Loot priorities cleared successfully");
-        GL.DB.LootPriority = {};
+        DB:set("LootPriority", {});
         return;
     end
 
@@ -165,7 +168,7 @@ function LootPriority:save(data)
             return GL:warning(string.format("Invalid data provided in line: '%s': missing item id or priority", line));
         end
 
-        local key = strtrim(segments[1], nil);
+        local key = strtrim(segments[1]);
 
         if (tonumber(key) ~= nil) then
             key = tonumber(key);
@@ -174,13 +177,13 @@ function LootPriority:save(data)
         LootPriorityData[key] = {};
 
         for segment = 2, segmentCount do
-            local priority = strtrim(segments[segment], nil);
+            local priority = strtrim(segments[segment]);
 
             tinsert(LootPriorityData[key], priority);
         end
     end
 
-    GL.DB.LootPriority = LootPriorityData;
+    DB:set("LootPriority", LootPriorityData);
 
     GL:success("Loot priorities imported successfully");
 end
@@ -210,7 +213,6 @@ function LootPriority:broadcast()
     local LootPriorityCSV = self:toCSV();
     -- Check if there's anything to share
     if (GL:empty(LootPriorityCSV)) then
-        GL:warning("Nothing to broadcast, set up loot priorities first!");
         return false;
     end
 
@@ -220,7 +222,7 @@ function LootPriority:broadcast()
     local Broadcast = function ()
         GL:message("Broadcasting loot priorities...");
 
-        local Label = GL.Interface:getItem(GL.LootPriority, "Label.BroadcastProgress");
+        local Label = GL.Interface:get(GL.LootPriority, "Label.BroadcastProgress");
 
         if (Label) then
             Label:SetText("Broadcasting...");
@@ -235,12 +237,12 @@ function LootPriority:broadcast()
             self.broadcastInProgress = false;
             GL.Events:fire("GL.LOOT_PRIORITY_BROADCAST_ENDED");
 
-            Label = GL.Interface:getItem(GL.LootPriority, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.LootPriority, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText("Broadcast finished!");
             end
         end, function (sent, total)
-            Label = GL.Interface:getItem(GL.LootPriority, "Label.BroadcastProgress");
+            Label = GL.Interface:get(GL.LootPriority, "Label.BroadcastProgress");
             if (Label) then
                 Label:SetText(string.format("Sent %s of %s bytes", sent, total));
             end
@@ -291,7 +293,7 @@ function LootPriority:receiveBroadcast(CommMessage)
     GL:debug("LootPriority:receiveBroadcast");
 
     -- No need to update our priorities if we broadcasted them ourselves
-    if (CommMessage.Sender.id == GL.User.id) then
+    if (CommMessage.Sender.isSelf) then
         GL:debug("LootPriority:receiveBroadcast received by self, skip");
         return true;
     end

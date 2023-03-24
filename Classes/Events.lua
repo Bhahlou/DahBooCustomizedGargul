@@ -63,7 +63,7 @@ end
 
 --- Register an event listener
 ---
----@param identifier string
+---@param identifier string|nil
 ---@param event string
 ---@param callback function
 ---@return boolean
@@ -75,8 +75,7 @@ function Events:register(identifier, event, callback)
         return self:massRegister(identifier, event);
     end
 
-    if (GL:empty(identifier)
-        or GL:empty(event)
+    if (GL:empty(event)
         or type(callback) ~= "function"
     ) then
         return false;
@@ -93,6 +92,12 @@ function Events:register(identifier, event, callback)
         self.Registry.EventListeners[event] = {};
     end
 
+    identifier = identifier or string.format("%s.%s.%s",
+        event,
+        GetTime(),
+        GL:uuid()
+    );
+
     self.Registry.EventByIdentifier[identifier] = event;
     self.Registry.EventListeners[event][identifier] = callback;
 
@@ -104,7 +109,7 @@ end
 ---@param identifier string
 ---@return void
 function Events:unregister(identifier)
-    if (type(identifier) == table) then
+    if (type(identifier) == "table") then
         for _, event in pairs(identifier) do
             self:unregister(event);
         end
@@ -183,7 +188,7 @@ end
 --- Fire an event manually (assuming there's a listener for it)
 ---
 ---@param event string
----@param ... any
+---@param . any
 ---@return void
 function Events:fire(event, ...)
     self:listen(event, ...);

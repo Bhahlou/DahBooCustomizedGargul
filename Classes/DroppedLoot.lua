@@ -155,8 +155,15 @@ function DroppedLoot:lootChanged()
     return lootChanged;
 end
 
--- Remove the highlights on all loot buttons
+--- Remove the highlights on all loot buttons
+---@return void
 function DroppedLoot:removeHighlights()
+    GL:debug("DroppedLoot:removeHighlights");
+
+    if (GL.isRetail) then
+        return;
+    end
+
     for buttonIndex = 1, _G.LOOTFRAME_NUMBUTTONS do
         local Button = getglobal("LootButton" .. buttonIndex);
 
@@ -170,97 +177,16 @@ end
 function DroppedLoot:highlightItemsOfInterest()
     GL:debug("DroppedLoot:highlightItemsOfInterest");
 
-    -- There's no point highlighting loot if the player
-    -- is not in a group or highlights are disabled
-    if (not GL.User.isInGroup
-        or not GL.Settings:get("highlightsEnabled")
-        or (
-            not GL.Settings:get("highlightHardReservedItems")
-            and not GL.Settings:get("highlightSoftReservedItems")
-            and not GL.Settings:get("highlightWishlistedItems")
-        )
-    ) then
-        return;
-    end
-
     -- 4 is the max since buttons seem to be reused
     -- throughout loot pages... thanks Blizzard
     for buttonIndex = 1, _G.LOOTFRAME_NUMBUTTONS do
         local Button = getglobal("LootButton" .. buttonIndex);
 
-        if (Button) then
-            -- Remove the button's highlight
-            LCG.PixelGlow_Stop(Button);
-            if (Button:IsVisible() and Button.slot) then
-                local itemLink = GetLootSlotLink(Button.slot);
+        if (Button and Button:IsVisible() and Button.slot) then
+            local itemLink = GetLootSlotLink(Button.slot);
 
-                if (itemLink) then
-                    local enableHighlight = false;
-                    local BorderColor = {1, 1, 1, 1}; -- The default border color is priest-white and applies to wishlisted items
-
-                    -- The item is hard-reserved
-                    if (GL.Settings:get("highlightHardReservedItems")
-                        and SoftRes:linkIsHardReserved(itemLink)
-                    ) then
-                        enableHighlight = true;
-                        BorderColor = {.77, .12, .23, 1};  -- Make the border red for hard-reserved items
-
-                    -- The item is soft-reserved
-                    elseif (GL.Settings:get("highlightSoftReservedItems")
-                        and SoftRes:linkIsReserved(itemLink)
-                        and not (not GL.User.isMasterLooter
-                            and GL.Settings:get("highlightMyItemsOnly")
-                            and not SoftRes:itemLinkIsReservedByMe(itemLink)
-                        )
-                    ) then
-                        enableHighlight = true;
-                        BorderColor = {.95686, .5490, .72941, 1}; -- Make the border paladin-pink for reserved items
-
-                    -- Check if it's wishlisted/priolisted
-                    elseif (GL.Settings:get("highlightWishlistedItems")
-                        or GL.Settings:get("highlightPriolistedItems")
-                    ) then
-                        local TMBInfo = {};
-
-                        -- Fetch all TMB data for this item
-                        if (GL.User.isMasterLooter
-                            or not GL.Settings:get("highlightMyItemsOnly")
-                        ) then
-                            TMBInfo = GL.TMB:byItemLink(itemLink) or {};
-
-                        -- Fetch only the current user's TMB data, he's not interested in the rest
-                        else
-                            TMBInfo = GL.TMB:byItemLinkAndPlayer(itemLink, GL.User.name) or {};
-                        end
-
-                        local concernsPrio = false;
-
-                        -- Check for active wishlist entries
-                        for _, Entry in pairs(TMBInfo) do
-                            BorderColor = {1, 1, 1, 1}; -- Make the border priest-white for TMB wishlisted items
-
-                            if (Entry.type == Constants.tmbTypePrio) then
-                                concernsPrio = true;
-                                BorderColor = {1, .48627, .0392, 1}; -- Make the border druid-orange for TMB character prio items
-                                break;
-                            end
-                        end
-
-                        if (not GL:empty(TMBInfo)
-                            and (
-                                (not concernsPrio and GL.Settings:get("highlightWishlistedItems"))
-                                or (concernsPrio and GL.Settings:get("highlightPriolistedItems"))
-                            )
-                        ) then
-                            enableHighlight = true;
-                        end
-                    end
-
-                    if (enableHighlight) then
-                        -- Add an animated border to indicate that this item was reserved / wishlisted
-                        LCG.PixelGlow_Start(Button, BorderColor, 10, .05, 5, 3);
-                    end
-                end
+            if (itemLink) then
+                GL:highlightItem(Button, itemLink);
             end
         end
     end
@@ -303,13 +229,19 @@ function DroppedLoot:hookClickEvents()
         if (not self.ButtonsHooked[buttonProvider][buttonIndex]) then
             local Button;
             if (buttonProvider == "ElvUI") then
-                Button = getglobal("ElvLootSlot" .. buttonIndex);
+                --Button = getglobal("ElvLootSlot" .. buttonIndex);
+                -- No need to support the ElvUI button since it's handled by the
+                -- HandleModifiedItemClick handler in bootstrap.lua
             elseif (buttonProvider == "XLoot1") then
                 Button = getglobal("XLootFrameButton" .. buttonIndex);
             elseif (buttonProvider == "XLoot") then
                 Button = getglobal("XLootButton" .. buttonIndex);
             else
-                Button = getglobal("LootButton" .. buttonIndex);
+                --Button = getglobal("LootButton" .. buttonIndex);
+                -- No need to support the vanilla button since it's handled by the
+                -- HandleModifiedItemClick handler in bootstrap.lua
+
+                return;
             end
 
             --- No button with this index was found, no need to look further
@@ -318,39 +250,12 @@ function DroppedLoot:hookClickEvents()
             end
 
             Button:HookScript("OnClick", function()
-                local slot = Button.slot or buttonIndex;
-
+                local slot = tonumber(Button.slot) or buttonIndex;
                 if (not slot) then
                     return;
                 end
 
-                -- The user doesnt want to use shortcut keys when solo
-                if (not GL.User.isInGroup
-                    and GL.Settings:get("ShortcutKeys.onlyInGroup")
-                ) then
-                    return;
-                end
-
-                local itemLink = GetLootSlotLink(slot);
-
-                if (not itemLink or type(itemLink) ~= "string") then
-                    return;
-                end
-
-                local keyPressIdentifier = GL.Events:getClickCombination();
-
-                -- Open the roll window
-                if (keyPressIdentifier == GL.Settings:get("ShortcutKeys.rollOff")) then
-                    GL.MasterLooterUI:draw(itemLink);
-
-                    -- Open the award window
-                elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.award")) then
-                    GL.Interface.Award:draw(itemLink);
-
-                    -- Disenchant the item
-                elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.disenchant")) then
-                    GL.PackMule:disenchant(itemLink);
-                end
+                HandleModifiedItemClick(GetLootSlotLink(slot));
             end);
 
             self.ButtonsHooked[buttonProvider][buttonIndex] = true;
@@ -427,7 +332,7 @@ function DroppedLoot:announce(Modifiers)
 
             if ((
                     quality < GL.Settings:get("DroppedLoot.minimumQualityOfAnnouncedLoot", 4) -- Quality is lower than our set minimum
-                    or GL:inTable(Constants.ItemsThatSouldntBeAnnounced, itemID) -- We don't want to announce this item
+                    or GL:inTable(Constants.ItemsThatShouldntBeAnnounced, itemID) -- We don't want to announce this item
                 )
                 and GL:empty(SoftReserves) -- No one (hard)reserved it
                 and GL:empty(TMBInfo) -- No one has it on his wishlist and it's not a prio item
@@ -525,6 +430,8 @@ function DroppedLoot:announce(Modifiers)
                 local source = "TMB";
                 if (GL.TMB:wasImportedFromDFT()) then
                     source = "DFT";
+                elseif (GL.TMB:wasImportedFromCPR()) then
+                    source = "CPR";
                 elseif (GL.TMB:wasImportedFromCSV()) then
                     source = "Item";
                 end
@@ -701,20 +608,20 @@ function DroppedLoot:announceTest(...)
         itemIDs[key] = value;
     end
 
-    GL:onItemLoadDo(itemIDs, function (Items)
+    GL:onItemLoadDo(itemIDs, function (Details)
         self:announce({
             Functions = {
-                GetNumLootItems = function () return GL:count(Items); end,
+                GetNumLootItems = function () return GL:count(Details); end,
                 GetLootSlotInfo = function (slot)
-                    local SlotItem = Items[slot];
+                    local SlotItem = Details[slot];
 
                     return SlotItem.icon, SlotItem.name, 1, nil, SlotItem.quality, false, false, nil, true;
                 end,
                 GetLootSlotLink = function (slot)
-                    return Items[slot].link or nil;
+                    return Details[slot].link or nil;
                 end,
                 GetLootSlotType = function(slot)
-                    local itemLink = Items[slot].link or "";
+                    local itemLink = Details[slot].link or "";
 
                     if (GL:strContains(itemLink, "Hcurrency:")) then
                         return LOOT_SLOT_CURRENCY;

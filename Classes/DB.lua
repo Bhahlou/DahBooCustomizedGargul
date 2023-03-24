@@ -5,17 +5,19 @@ local _, GL = ...;
 GL.DB = {
     _initialized = false,
     AwardHistory = {},
+    BoostedRolls = {},
     Cache = {},
+    GDKP = {},
+    LoadDetails = {},
     LootPriority = {},
     MinimapButton = {},
     PlusOnes = {},
     PlusTwos = {},
     Settings = {},
-    LoadDetails = {},
     SoftRes = {},
     TMB = {},
-    BoostedRolls = {},
     TMBRaidGroups = {},
+    Utility = {},
 };
 
 local DB = GL.DB;
@@ -34,29 +36,33 @@ function DB:_init()
 
     -- Prepare our database tables
     DahBooCustomizedGargulDB.AwardHistory = DahBooCustomizedGargulDB.AwardHistory or {};
+    DahBooCustomizedGargulDB.BoostedRolls = DahBooCustomizedGargulDB.BoostedRolls or {};
+    DahBooCustomizedGargulDB.GDKP = DahBooCustomizedGargulDB.GDKP or {};
+    DahBooCustomizedGargulDB.LoadDetails = DahBooCustomizedGargulDB.LoadDetails or {};
     DahBooCustomizedGargulDB.LootPriority = DahBooCustomizedGargulDB.LootPriority or {};
     DahBooCustomizedGargulDB.MinimapButton = DahBooCustomizedGargulDB.MinimapButton or {};
     DahBooCustomizedGargulDB.PlusOnes = DahBooCustomizedGargulDB.PlusOnes or {};
     DahBooCustomizedGargulDB.PlusTwos = DahBooCustomizedGargulDB.PlusTwos or {};
     DahBooCustomizedGargulDB.Settings = DahBooCustomizedGargulDB.Settings or {};
-    DahBooCustomizedGargulDB.LoadDetails = DahBooCustomizedGargulDB.LoadDetails or {};
     DahBooCustomizedGargulDB.SoftRes = DahBooCustomizedGargulDB.SoftRes or {};
     DahBooCustomizedGargulDB.TMB = DahBooCustomizedGargulDB.TMB or {};
-    DahBooCustomizedGargulDB.BoostedRolls = DahBooCustomizedGargulDB.BoostedRolls or {};
     DahBooCustomizedGargulDB.TMBRaidGroups = DahBooCustomizedGargulDB.TMBRaidGroups or {};
+    DahBooCustomizedGargulDB.Utility = DahBooCustomizedGargulDB.Utility or {};
 
     -- Provide a shortcut for each table
     self.AwardHistory = DahBooCustomizedGargulDB.AwardHistory;
+    self.BoostedRolls = DahBooCustomizedGargulDB.BoostedRolls;
+    self.GDKP = DahBooCustomizedGargulDB.GDKP;
+    self.LoadDetails = DahBooCustomizedGargulDB.LoadDetails;
     self.LootPriority = DahBooCustomizedGargulDB.LootPriority;
     self.MinimapButton = DahBooCustomizedGargulDB.MinimapButton;
     self.PlusOnes = DahBooCustomizedGargulDB.PlusOnes;
     self.PlusTwos = DahBooCustomizedGargulDB.PlusTwos;
     self.Settings = DahBooCustomizedGargulDB.Settings;
-    self.LoadDetails = DahBooCustomizedGargulDB.LoadDetails;
     self.SoftRes = DahBooCustomizedGargulDB.SoftRes;
     self.TMB = DahBooCustomizedGargulDB.TMB;
-    self.BoostedRolls = DahBooCustomizedGargulDB.BoostedRolls;
     self.TMBRaidGroups = DahBooCustomizedGargulDB.TMBRaidGroups;
+    self.Utility = DahBooCustomizedGargulDB.Utility;
 
     -- Fire DB:store before every logout/reload/exit
     GL.Events:register("DBPlayerLogoutListener", "PLAYER_LOGOUT", self.store);
@@ -71,16 +77,18 @@ function DB:store()
     GL:debug("DB:store");
 
     DahBooCustomizedGargulDB.AwardHistory = GL.DB.AwardHistory;
+    DahBooCustomizedGargulDB.BoostedRolls = GL.DB.BoostedRolls;
+    DahBooCustomizedGargulDB.GDKP = GL.DB.GDKP;
+    DahBooCustomizedGargulDB.LoadDetails = GL.DB.LoadDetails;
     DahBooCustomizedGargulDB.LootPriority = GL.DB.LootPriority;
     DahBooCustomizedGargulDB.MinimapButton = GL.DB.MinimapButton;
     DahBooCustomizedGargulDB.PlusOnes = GL.DB.PlusOnes;
     DahBooCustomizedGargulDB.PlusTwos = GL.DB.PlusTwos;
     DahBooCustomizedGargulDB.Settings = GL.Settings.Active;
-    DahBooCustomizedGargulDB.LoadDetails = GL.DB.LoadDetails;
     DahBooCustomizedGargulDB.SoftRes = GL.DB.SoftRes;
     DahBooCustomizedGargulDB.TMB = GL.DB.TMB;
-    DahBooCustomizedGargulDB.BoostedRolls = GL.DB.BoostedRolls;
     DahBooCustomizedGargulDB.TMBRaidGroups = GL.DB.TMBRaidGroups;
+    DahBooCustomizedGargulDB.Utility = GL.DB.Utility;
 end
 
 -- Get a value from the database, or return a default if it doesn't exist
@@ -93,21 +101,28 @@ function DB:set(keyString, value)
     return GL:tableSet(DB, keyString, value);
 end
 
+-- Add a database value to a given table
+function DB:add(keyString, value)
+    return GL:tableAdd(DB, keyString, value);
+end
+
 -- Reset the tables
 function DB:reset()
     GL:debug("DB:reset");
 
     self.AwardHistory = {};
+    self.BoostedRolls = {};
+    self.GDKP = {};
+    self.LoadDetails = {};
     self.LootPriority = {};
     self.MinimapButton = {};
     self.PlusOnes = {};
     self.PlusTwos = {};
     self.Settings = {};
-    self.LoadDetails = {};
     self.SoftRes = {};
     self.TMB = {};
-    self.BoostedRolls = {};
     self.TMBRaidGroups = {}
+    self.Utility = {};
 
     GL:success("Tables reset");
 end

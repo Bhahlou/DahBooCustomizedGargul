@@ -1,3 +1,5 @@
+local L = Gargul_L;
+
 ---@type GL
 local _, GL = ...;
 
@@ -22,7 +24,7 @@ GL.RollOff = GL.RollOff or {
     StopListeningForRollsTimer = nil,
 };
 local RollOff = GL.RollOff; ---@type RollOff
-local DB = GL.DB; ---@type DB
+
 local CommActions = GL.Data.Constants.Comm.Actions;
 local Events = GL.Events; ---@type Events
 
@@ -113,13 +115,20 @@ function RollOff:announceStart(itemLink, time, note)
 
     GL.Settings:set("UI.RollOff.timer", time);
 
+    return true;
+end
+
+---@param itemLink string
+---@param time number
+---@param note string|nil
+function RollOff:postStartMessage(itemLink, time, note)
     -- The user doesn't want to announce anything in chat
     if (not GL.Settings:get("MasterLooting.announceRollStart")) then
         return true;
     end
 
     local announceMessage = string.format(
-        "Vous avez %s secondes pour roll sur %s",
+        "You have %s seconds to roll on %s",
         time,
         itemLink
     );
@@ -131,7 +140,7 @@ function RollOff:announceStart(itemLink, time, note)
         and not GL:empty(note)
     ) then
         announceMessage = string.format(
-            "Vous avez %s secondes pour roll sur %s - %s",
+            "You have %s seconds to roll on %s - %s",
             time,
             itemLink,
             note
@@ -139,14 +148,16 @@ function RollOff:announceStart(itemLink, time, note)
     end
 
     -- Check if this item was reserved, if so: mentioned the players who reserved it!
-    if (GL.Settings:get("SoftRes.announceInfoWhenRolling", true)
+    if (GL.Settings:get("SoftRes.announceInfoWhenRolling")
         and not GL:empty(Reserves)
     ) then
         Reserves = table.concat(Reserves, ", ");
         eligiblePlayersMessage = "This item has been reserved by: " .. Reserves;
 
     -- Check if this item is on someone's TMB wish/prio list, if so: mention the player(s) first in line!
-    elseif (GL.Settings:get("TMB.announceInfoWhenRolling", true)
+    elseif ((GL.Settings:get("TMB.announceWishlistInfoWhenRolling")
+            or GL.Settings:get("TMB.announcePriolistInfoWhenRolling")
+        )
         and not GL:empty(TMBDetails)
     ) then
         local WishListEntries = {};
@@ -164,7 +175,9 @@ function RollOff:announceStart(itemLink, time, note)
         end
 
         local EligiblePlayers = {};
-        if (not GL:empty(PrioListEntries)) then
+        if (not GL:empty(PrioListEntries)
+            and GL.Settings:get("TMB.announcePriolistInfoWhenRolling")
+        ) then
             -- Sort the PrioListEntries based on prio (lowest to highest)
             table.sort(PrioListEntries, function (a, b)
                 return a.prio < b.prio;
@@ -184,7 +197,9 @@ function RollOff:announceStart(itemLink, time, note)
                     tinsert(EligiblePlayers, Entry);
                 end
             end
-        elseif (not GL:empty(WishListEntries)) then
+        elseif (not GL:empty(WishListEntries)
+            and GL.Settings:get("TMB.announceWishlistInfoWhenRolling")
+        ) then
             -- Sort the PrioListEntries based on prio (lowest to highest)
             table.sort(WishListEntries, function (a, b)
                 return a.prio < b.prio;
@@ -210,12 +225,14 @@ function RollOff:announceStart(itemLink, time, note)
             local source = "TMB";
             if (GL.TMB:wasImportedFromDFT()) then
                 source = "DFT";
+            elseif (GL.TMB:wasImportedFromCPR()) then
+                source = "CPR";
             elseif (GL.TMB:wasImportedFromCSV()) then
                 source = "Item";
             end
 
             local EligiblePlayerNames = table.concat(GL:tableColumn(EligiblePlayers, "character"), ", ");
-            eligiblePlayersMessage = string.format("Les joueurs suivants ont la plus haute prio %s : %s", source, EligiblePlayerNames);
+            eligiblePlayersMessage = string.format("The following players have the highest %s prio: %s", source, EligiblePlayerNames);
         end
     end
 
@@ -237,8 +254,6 @@ function RollOff:announceStart(itemLink, time, note)
             "GROUP"
         );
     end
-
-    return true;
 end
 
 --- Anounce to everyone in the raid that a roll off has ended
@@ -296,10 +311,8 @@ function RollOff:start(CommMessage)
     ---
     ---@vararg Item
     ---@return void
-    GL:onItemLoadDo(content.item, function (Items)
-        local Entry = Items[1];
-
-        if (GL:empty(Entry)) then
+    GL:onItemLoadDo(content.item, function (Details)
+        if (not Details) then
             return;
         end
 
@@ -307,7 +320,7 @@ function RollOff:start(CommMessage)
         local SupportedRolls = content.SupportedRolls or {};
 
         -- This is a new roll off so clean everything
-        if (Entry.link ~= self.CurrentRollOff.itemLink
+        if (Details.link ~= self.CurrentRollOff.itemLink
             or CommMessage.Sender.id ~= self.CurrentRollOff.initiator
         ) then
             -- This is a new item so make sure to
@@ -315,10 +328,10 @@ function RollOff:start(CommMessage)
             self.CurrentRollOff = {
                 initiator = CommMessage.Sender.id,
                 time = time,
-                itemID = Entry.id,
-                itemName = Entry.name,
-                itemLink = Entry.link,
-                itemIcon = Entry.icon,
+                itemID = Details.id,
+                itemName = Details.name,
+                itemLink = Details.link,
+                itemIcon = Details.icon,
                 SupportedRolls = SupportedRolls,
                 note = content.note,
                 Rolls = {},
@@ -336,11 +349,12 @@ function RollOff:start(CommMessage)
         if (GL.Settings:get("Rolling.showRollOffWindow")
             or self:startedByMe()
         ) then
-            GL.RollerUI:show(time, Entry.link, Entry.icon, content.note, SupportedRolls);
-
-            if (CommMessage.Sender.id == GL.User.id) then
+            if (self:startedByMe()) then
+                self:postStartMessage(Details.link, time, content.note);
                 GL.MasterLooterUI:drawReopenMasterLooterUIButton();
             end
+
+            GL.RollerUI:show(time, Details.link, Details.icon, content.note, SupportedRolls);
         end
 
         -- Make sure the rolloff stops when time is up
@@ -368,7 +382,7 @@ function RollOff:start(CommMessage)
                         SecondsAnnounced[secondsLeft] = true;
 
                         GL:sendChatMessage(
-                        string.format("%s seconde(s) restante(s) pour roll", secondsLeft),
+                            string.format("%s seconds to roll", secondsLeft),
                             "GROUP"
                         );
 
@@ -384,7 +398,16 @@ function RollOff:start(CommMessage)
         end
 
         -- Play raid warning sound
-        GL:playSound(8959, "Master");
+        GL:playSound(SOUNDKIT.RAID_WARNING, "SFX");
+
+        -- Flash the game icon in case the player alt-tabbed
+        FlashClientIcon();
+
+        -- Flash the game icon in case the player alt-tabbed
+        FlashClientIcon();
+
+        -- Let the application know that a rolloff has started
+        GL.Events:fire("GL.ROLLOFF_STARTED");
 
         -- Items should only contain 1 item but lets add a return just in case
         return;
@@ -428,10 +451,15 @@ function RollOff:stop(CommMessage)
         -- Announce that the roll has ended
         if (GL.Settings:get("MasterLooting.announceRollEnd", true)) then
             GL:sendChatMessage(
-                string.format("Arrêtez vos rolls !"),
+                string.format("Stop your rolls!"),
                 "RAID_WARNING"
             );
         end
+
+        -- We stop listening for rolls one second after the rolloff ends just in case there is server lag/jitter
+        self.rollListenerCancelTimerId = GL.Ace:ScheduleTimer(function()
+            self:stopListeningForRolls();
+        end, 1);
     end
 
     if (self.InitiateCountDownTimer) then
@@ -447,7 +475,7 @@ function RollOff:stop(CommMessage)
     end
 
     -- Play raid warning sound
-    GL:playSound(8959);
+    GL:playSound(SOUNDKIT.RAID_WARNING, "SFX");
 
     RollOff.inProgress = false;
     GL.Ace:CancelTimer(RollOff.StopRollOffTimer);
@@ -458,6 +486,9 @@ function RollOff:stop(CommMessage)
     if (self:startedByMe()) then
         GL.MasterLooterUI:updateWidgets();
     end
+
+    -- Let the application know that a rolloff has ended
+    GL.Events:fire("GL.ROLLOFF_STOPPED");
 
     return true;
 end
@@ -475,8 +506,7 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
 
     itemLink = GL:tableGet(self.CurrentRollOff, "itemLink", itemLink);
 
-    local isOS = false;
-    local addPlusOne = false;
+    local isOS, addPlusOne = false;
     local BRCost = nil;
 
     if (boostedRoll) then
@@ -491,31 +521,31 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
     if (GL:nameIsUnique(roller)) then
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Attribuer %s à |cff%s%s|r ?",
+            question = string.format("Award %s to |cff%s%s|r?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(roller)),
                 roller
             ),
             OnYes = function ()
-                local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
+                local OSCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
 
                     if (isOS) then
-                        GL.PlusTwos:add(roller);
+                        GL.PlusTwos:addPlusTwos(roller);
                     end
                 end
 
-                local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
+                local addPlusOneCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
                 if (addPlusOneCheckBox) then
                     addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
 
                     if (addPlusOne) then
-                        GL.PlusOnes:add(roller);
+                        GL.PlusOnes:addPlusOnes(roller);
                     end
                 end
 
-                local BoostedRollCostEditBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
+                local BoostedRollCostEditBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
                 if (BoostedRollCostEditBox) then
                     BRCost = GL.BoostedRolls:toPoints(BoostedRollCostEditBox:GetText());
 
@@ -548,31 +578,31 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll)
     GL.Interface.PlayerSelector:draw(description, roller, function (player)
         -- Make sure the initiator has to confirm his choices
         GL.Interface.Dialogs.AwardDialog:open({
-            question = string.format("Attribuer %s à |cff%s%s|r?",
+            question = string.format("Award %s to |cff%s%s|r?",
                 itemLink,
                 GL:classHexColor(GL.Player:classByName(player)),
                 player
             ),
             OnYes = function ()
-                local OSCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
+                local OSCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.OffSpec");
                 if (OSCheckBox) then
                     isOS = GL:toboolean(OSCheckBox:GetValue());
 
                     if (isOS) then
-                        GL.PlusTwos:add(roller);
+                        GL.PlusTwos:addPlusTwos(roller);
                     end
                 end
 
-                local addPlusOneCheckBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
+                local addPlusOneCheckBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "CheckBox.PlusOne");
                 if (addPlusOneCheckBox) then
                     addPlusOne = GL:toboolean(addPlusOneCheckBox:GetValue());
 
                     if (addPlusOne) then
-                        GL.PlusOnes:add(roller);
+                        GL.PlusOnes:addPlusOnes(roller);
                     end
                 end
 
-                local boostedRollCostEditBox = GL.Interface:getItem(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
+                local boostedRollCostEditBox = GL.Interface:get(GL.Interface.Dialogs.AwardDialog, "EditBox.Cost");
                 if (boostedRollCostEditBox) then
                     BRCost = GL.BoostedRolls:toPoints(boostedRollCostEditBox:GetText());
 
@@ -645,7 +675,7 @@ function RollOff:processRoll(message)
     GL:debug("RollOff:processRoll");
 
     -- We only track rolls when a rollof is actually in progress
-    if (not RollOff.inProgress) then
+    if (not RollOff.listeningForRolls) then
         return;
     end
 
@@ -712,7 +742,7 @@ function RollOff:processRoll(message)
                 if (GL.Settings:get("TMBRaidGroups.useAsSortCriteria")) then
                     local normalizedPlayerName = string.lower(rollerName);
                     -- Find player raid group
-                    local playerRaidGroup = DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName,"");
+                    local playerRaidGroup = GL.DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName,"");
                     GL:debug("TMBRaidGroup : "..playerRaidGroup);
                     if (playerRaidGroup == "") then
                         GL:error(string.format("%s ne fait pas partie d'un groupe de raid",rollerName));
@@ -746,6 +776,9 @@ function RollOff:processRoll(message)
     end
 
     tinsert(RollOff.CurrentRollOff.Rolls, Roll);
+
+    GL.Events:fire("GL.ROLLOFF_ROLL_ACCEPTED");
+
     RollOff:refreshRollsTable();
 end
 
@@ -756,7 +789,7 @@ function RollOff:refreshRollsTable()
 
     local RollTableData = {};
     local Rolls = self.CurrentRollOff.Rolls;
-    local RollsTable = GL.Interface:getItem(GL.MasterLooterUI, "Table.Players");
+    local RollsTable = GL.Interface:get(GL.MasterLooterUI, "Table.Players");
     local NumberOfRollsPerPlayer = {};
 
     if (not RollsTable) then
@@ -851,15 +884,15 @@ function RollOff:refreshRollsTable()
         end
 
         local class = Roll.class;
-        local plusOnes = GL.PlusOnes:get(playerName);
-        local plusTwos = GL.PlusTwos:get(playerName);
+        local plusOnes = GL.PlusOnes:getPlusOnes(playerName);
+        local plusTwos = GL.PlusTwos:getPlusTwos(playerName);
 
         if (GL:higherThanZero(plusOnes)) then
-            plusOnes = "+" .. plusOnes;
+            plusOnes = plusOnes;
         end
 
         if (GL:higherThanZero(plusTwos)) then
-            plusTwos = "+" .. plusTwos;
+            plusTwos = plusTwos;
         end
 
         local Row = {
