@@ -71,6 +71,7 @@ GL.Commands = GL.Commands or {
         pt = "plustwos",
         points = "boostedrolls",
         pr = "lootpriority",
+        prio3 = "cpr",
         priority = "lootpriority",
         rcsv = "raidcsv",
         ro = "rolloff",
@@ -108,7 +109,7 @@ GL.Commands = GL.Commands or {
                     itemLink = winner;
                 end
 
-                return GL.Interface.Award:draw(itemLink);
+                return GL.Interface.Award.Award:draw(itemLink);
             end
 
             GL.AwardedLoot:addWinner(...);
@@ -116,7 +117,7 @@ GL.Commands = GL.Commands or {
 
         -- Toggle the award history window
         awardhistory = function ()
-            GL.Interface.AwardHistory:toggle();
+            GL.Interface.Award.Overview:open();
         end,
 
         -- Award an item on a given date. Useful if you forgot to award an item and want to do it later
@@ -153,7 +154,7 @@ GL.Commands = GL.Commands or {
 
         -- Clear all plus ones
         clearplusones = function() GL.PlusOnes:clearPlusOnes(); end,
-        
+
         -- Clear all plus twos
         clearplustwos = function() GL.PlusTwos:clearPlusTwos(); end,
 

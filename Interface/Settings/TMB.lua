@@ -26,9 +26,26 @@ function TMB:draw(Parent)
     Overview:drawCheckboxes({
         {
             label = "Automatically share data",
-            description = "Automatically share data with players who join your raid or when you import new data",
+            description = "Automatically share data with players (all players or if specified, those listed below) who join your raid or when you import new data",
             setting = "TMB.automaticallyShareData",
         },
+    }, Parent);
+
+    local ShareWhitelist = GL.AceGUI:Create("EditBox");
+    ShareWhitelist:DisableButton(true);
+    ShareWhitelist:SetHeight(20);
+    ShareWhitelist:SetFullWidth(true);
+    ShareWhitelist:SetText(GL.Settings:get("TMB.shareWhitelist", ""));
+    ShareWhitelist:SetLabel(string.format(
+        "|cff%sAdd a comma-separated list of names to share with, only these people will receive data|r",
+        GL:classHexColor("rogue")
+    ));
+    ShareWhitelist:SetCallback("OnTextChanged", function (self)
+        GL.Settings:set("TMB.shareWhitelist", self:GetText());
+    end);
+    Parent:AddChild(ShareWhitelist);
+
+    Overview:drawCheckboxes({
         {
             label = "Show players in group only",
             description = "Makes sure you only see the names of players who are actually in your group",
@@ -40,13 +57,18 @@ function TMB:draw(Parent)
             setting = "TMB.showEntriesWhenSolo",
         },
         {
+            label = "Show everything when using prio3/classicpr.io",
+            description = "Show all entries when in a group and prio3/classicpr.io data is present (|c00a79eff/gl prio3|r or |c00a79eff/gl cpr|r)",
+            setting = "TMB.showEntriesWhenUsingPrio3",
+        },
+        {
             label = "Hide wishlist info when priority is set",
             description = "You will only see an item's wishlist details if no priority (LC) is set for it",
             setting = "TMB.hideWishListInfoIfPriorityIsPresent",
         },
         {
             label = "Award based on drops without using Gargul UI",
-            description = "Want to export items won via group loot? Want to use the native WoW UI when master looting instead of Gargul's? Then enable this option! You can still edit entries via the award history window (|c00a79eff/gl ah|r)",
+            description = "Want to export items won via group loot? Want to use the native WoW UI when master looting? Enable this! Items awarded this way will only be broadcasted to others when master loot is active and you are the master looter or when group loot is active and you are the raid/party leader!",
             setting = "AwardingLoot.awardOnReceive",
         },
     }, Parent);
@@ -93,6 +115,11 @@ function TMB:draw(Parent)
             label = "Show item tier and note",
             description = "An item's guild note and item tier are shown on its tooltip",
             setting = "TMB.showItemInfoOnTooltips",
+        },
+        {
+            label = "Show raid group",
+            description = "When more than one raid group is present, show a player's raid group on tooltips",
+            setting = "TMB.showRaidGroup",
         },
         {
             label = "Give OS items a lower priority",

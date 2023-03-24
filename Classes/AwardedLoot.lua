@@ -299,8 +299,23 @@ end
 ---@param BRCost number|nil
 ---@param GDKPCost number|nil
 ---@return void|string
-function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, addPlusOne, GDKPCost, Rolls)
+function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, addPlusOne, GDKPCost, Rolls, automaticallyAwarded)
     GL:debug("AwardedLoot:addWinner");
+
+    local broadcast = false;
+    if (automaticallyAwarded) then
+        if (GetLootMethod() == "master") then
+            broadcast = GL.User.isMasterLooter;
+        else
+            broadcast = GL.User.isLead;
+        end
+    else
+        broadcast = GL.User.isMasterLooter or GL.User.hasAssist;
+    end
+
+    -- Loot awarded automatically (when AwardingLoot.awardOnReceive is enabled)
+    -- will not be broadcasted/shared in any way unless you have the required permissions!
+    automaticallyAwarded = GL:toboolean(automaticallyAwarded);
 
     -- Determine whether the item should be flagged as off-spec
     isOS = GL:toboolean(isOS);
@@ -466,36 +481,42 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
         end
     end
 
-    -- Broadcast the awarded loot details to everyone in the group
-    GL.CommMessage.new(CommActions.awardItem, AwardEntry, "GROUP"):send();
+    if (broadcast) then
+        -- Broadcast the awarded loot details to everyone in the group
+        GL.CommMessage.new(CommActions.awardItem, AwardEntry, "GROUP"):send();
+    end
 
-    -- The loot window is still active and the auto assign setting is enabled
-    if (GL.DroppedLoot.lootWindowIsOpened
-        and GL.User.isMasterLooter
-        and GL.Settings:get("AwardingLoot.autoAssignAfterAwardingAnItem")
-    ) then
-        GL.PackMule:assignLootToPlayer(AwardEntry.itemID, winner);
+    -- Trading players is not necessary when the item was awarded
+    -- automatically via group loot or the native wow master looter UI
+    if (not automaticallyAwarded) then
+        -- The loot window is still active and the auto assign setting is enabled
+        if (GL.DroppedLoot.lootWindowIsOpened
+            and GL.User.isMasterLooter
+            and GL.Settings:get("AwardingLoot.autoAssignAfterAwardingAnItem")
+        ) then
+            GL.PackMule:assignLootToPlayer(AwardEntry.itemID, winner);
 
-    -- The loot window is closed and the auto trade setting is enabled
-    elseif (not GL.DroppedLoot.lootWindowIsOpened
+        -- The loot window is closed and the auto trade setting is enabled
+        elseif (not GL.DroppedLoot.lootWindowIsOpened
 
-        -- No need to trade with ourselves
-        and GL.User.name ~= winner
+            -- No need to trade with ourselves
+            and GL.User.name ~= winner
 
-        -- Auto trading is disabled
-        and GL.Settings:get("AwardingLoot.autoTradeAfterAwardingAnItem")
+            -- Auto trading is disabled
+            and GL.Settings:get("AwardingLoot.autoTradeAfterAwardingAnItem")
 
-        -- The player doesn't want to auto trade disenchanted items
-        and (GL.Settings:get("AwardingLoot.autoTradeDisenchanter") or
-            winner ~= GL.Exporter.disenchantedItemIdentifier
-        )
+            -- The player doesn't want to auto trade disenchanted items
+            and (GL.Settings:get("AwardingLoot.autoTradeDisenchanter") or
+                winner ~= GL.Exporter.disenchantedItemIdentifier
+            )
 
-        -- The player doesn't want to trade whilst ink combat
-        and (GL.Settings:get("AwardingLoot.autoTradeInCombat") or
-            not UnitAffectingCombat("player")
-        )
-    ) then
-        AwardedLoot:initiateTrade(AwardEntry);
+            -- The player doesn't want to trade whilst ink combat
+            and (GL.Settings:get("AwardingLoot.autoTradeInCombat") or
+                not UnitAffectingCombat("player")
+            )
+        ) then
+            AwardedLoot:initiateTrade(AwardEntry);
+        end
     end
 
     -- Let the application know that an item was awarded
@@ -503,9 +524,15 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
 
     -- Send the award data along to CLM if the player has it installed
     pcall(function ()
-        local CLMEventDispatcher = LibStub("EventDispatcher");
+        if (not broadcast) then
+            return;
+        end
 
-        if (not CLMEventDispatcher) then
+        local CLMEventDispatcher = LibStub("EventDispatcher", true);
+
+        if (not CLMEventDispatcher
+            or not CLMEventDispatcher.dispatchEvent
+        ) then
             return;
         end
 
