@@ -64,7 +64,7 @@ local Auction = GDKP.Auction;
 local GDKPSession = GDKP.Session;
 
 --[[ CONSTANTS ]]
-local AUTO_BID_THROTTLE_IN_SECONDS = .8;
+local AUTO_BID_THROTTLE_IN_SECONDS = .6;
 local BROADCAST_QUEUE_DELAY_IN_SECONDS = 2;
 
 function Auction:_init()
@@ -132,7 +132,11 @@ function Auction:_initializeQueue()
 
     local SortedQueue = GL:tableValues(Auction.Queue);
     table.sort(SortedQueue, function (a, b)
-        return a.order < b.order;
+        if (a.order and b.order) then
+            return a.order < b.order;
+        end
+
+        return false;
     end);
 
     local i = 1;
@@ -957,7 +961,11 @@ function Auction:sanitizeQueue()
 
     --[[ MAKE SURE THE ORDER IS INCREMENTAL ]]
     table.sort(Sanitized, function (a, b)
-        return a.order < b.order;
+        if (a.order and b.order) then
+            return a.order < b.order;
+        end
+
+        return false;
     end);
 
     self.Queue = {};
