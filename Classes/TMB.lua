@@ -1170,6 +1170,7 @@ function TMB:broadcastToWhitelist()
 
         if (not GL:iEquals(GL.User.name, name)
             and GL:inTable(GroupMemberNames, name)
+            and UnitIsConnected(name) -- Only send if player is online
         ) then
             tinsert(WhitelistedPlayersInGroup, name);
         end
@@ -1433,6 +1434,30 @@ function TMB:replyToDataRequest(CommMessage)
     -- The player is not in the same guild, this is something we won't support in data requests
     if (not GL.User:playerIsGuildMember(CommMessage.senderFqn)) then
         return;
+    end
+
+    -- This player is not on our whitelist
+    local Whitelist = GL.Settings:get("TMB.shareWhitelist", "");
+    if (not GL:empty(Whitelist)) then
+        Whitelist = GL:strSplit(Whitelist, ",");
+
+        if (not GL:empty(Whitelist)) then
+            local WhitelistedPlayersInGroup = {};
+            local GroupMemberNames = GL.User:groupMemberNames();
+            for _, name in pairs(Whitelist) do
+                name = string.lower(name);
+
+                if (not GL:iEquals(GL.User.name, name)
+                    and GL:inTable(GroupMemberNames, name)
+                ) then
+                    tinsert(WhitelistedPlayersInGroup, name);
+                end
+            end
+
+            if (not GL:inTable(WhitelistedPlayersInGroup, CommMessage.Sender.name)) then
+                return;
+            end
+        end
     end
 
     local playerTMBHash = CommMessage.content.currentHash or '';

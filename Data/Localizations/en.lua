@@ -50,6 +50,8 @@ L.DELETE_BID_TOOLTIP = "Delete bid. Auction must be stopped first!";
 L.DISENCHANT = "Disenchant";
 L.EDIT = "Edit";
 L.EXPORT = "Export";
+L.FINAL_CALL = "Final Call";
+L.FINAL_CALL_ANNOUNCEMENT = "Final Call on %s: %s seconds left to bid!";
 L.GDKP_QUEUE_EXPLANATION = [[|c00a79eff%s|r items in bags, loot windows or even on links in your chat to add them to this auction queue.
 Items in the queue will automatically be auctioned off once your current auction is done. Click the '%s' button to prevent this.
 
@@ -109,6 +111,7 @@ L.SOFTRES = "Soft-Reserves";
 L.TIME = "Time";
 L.TMBETC = "TMB, DFT or PRIO3";
 L.TOGGLE_QUEUE = "Show/Hide Queue";
+L.TOGGLE_DATES = "Show/Hide Dates";
 L.TUTORIAL = "Tutorial";
 L.TUTORIAL_AWARD_OVERVIEW = [[This window shows all the items that have been awarded on any given date (select one or more dates on the left).
 

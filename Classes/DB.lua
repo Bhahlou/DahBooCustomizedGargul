@@ -1,130 +1,88 @@
 ---@type GL
 local _, GL = ...;
 
+---@type Events
+local Events = GL.Events;
+
 ---@class DB
 GL.DB = {
     _initialized = false,
-    AwardHistory = {},
-    BoostedRolls = {},
-    Cache = {},
-    GDKP = {},
-    LoadDetails = {},
-    LootPriority = {},
-    MinimapButton = {},
-    PlusOnes = {},
-    PlusTwos = {},
-    Settings = {},
-    SoftRes = {},
-    TMB = {},
-    TMBRaidGroups = {},
-    Utility = {},
+
+    Tables = {
+        "AwardHistory",
+        "BoostedRolls",
+        "GDKP",
+        "LoadDetails",
+        "LootPriority",
+        "MinimapButton",
+        "PlusOnes",
+        "PlusTwos",
+        "Settings",
+        "SoftRes",
+        "TMB",
+        "TMBRaidGroups",
+        "TradeTime",
+        "Utility",
+    },
 };
 
+---@type DB
 local DB = GL.DB;
 
+---@return void
 function DB:_init()
-    GL:debug("DB:_init");
-
-    -- No need to initialize this class twice
     if (self._initialized) then
         return;
     end
 
+    -- Should only be possible on first boot
     if (not DahBooCustomizedGargulDB or not type(DahBooCustomizedGargulDB) == "table") then
         DahBooCustomizedGargulDB = {};
     end
 
-    -- Prepare our database tables
-    DahBooCustomizedGargulDB.AwardHistory = DahBooCustomizedGargulDB.AwardHistory or {};
-    DahBooCustomizedGargulDB.BoostedRolls = DahBooCustomizedGargulDB.BoostedRolls or {};
-    DahBooCustomizedGargulDB.GDKP = DahBooCustomizedGargulDB.GDKP or {};
-    DahBooCustomizedGargulDB.LoadDetails = DahBooCustomizedGargulDB.LoadDetails or {};
-    DahBooCustomizedGargulDB.LootPriority = DahBooCustomizedGargulDB.LootPriority or {};
-    DahBooCustomizedGargulDB.MinimapButton = DahBooCustomizedGargulDB.MinimapButton or {};
-    DahBooCustomizedGargulDB.PlusOnes = DahBooCustomizedGargulDB.PlusOnes or {};
-    DahBooCustomizedGargulDB.PlusTwos = DahBooCustomizedGargulDB.PlusTwos or {};
-    DahBooCustomizedGargulDB.Settings = DahBooCustomizedGargulDB.Settings or {};
-    DahBooCustomizedGargulDB.SoftRes = DahBooCustomizedGargulDB.SoftRes or {};
-    DahBooCustomizedGargulDB.TMB = DahBooCustomizedGargulDB.TMB or {};
-    DahBooCustomizedGargulDB.TMBRaidGroups = DahBooCustomizedGargulDB.TMBRaidGroups or {};
-    DahBooCustomizedGargulDB.Utility = DahBooCustomizedGargulDB.Utility or {};
-
-    -- Provide a shortcut for each table
-    self.AwardHistory = DahBooCustomizedGargulDB.AwardHistory;
-    self.BoostedRolls = DahBooCustomizedGargulDB.BoostedRolls;
-    self.GDKP = DahBooCustomizedGargulDB.GDKP;
-    self.LoadDetails = DahBooCustomizedGargulDB.LoadDetails;
-    self.LootPriority = DahBooCustomizedGargulDB.LootPriority;
-    self.MinimapButton = DahBooCustomizedGargulDB.MinimapButton;
-    self.PlusOnes = DahBooCustomizedGargulDB.PlusOnes;
-    self.PlusTwos = DahBooCustomizedGargulDB.PlusTwos;
-    self.Settings = DahBooCustomizedGargulDB.Settings;
-    self.SoftRes = DahBooCustomizedGargulDB.SoftRes;
-    self.TMB = DahBooCustomizedGargulDB.TMB;
-    self.TMBRaidGroups = DahBooCustomizedGargulDB.TMBRaidGroups;
-    self.Utility = DahBooCustomizedGargulDB.Utility;
+    -- Prepare our saved variables and add a shortcut to each table
+    for _, identifier in pairs(self.Tables or {}) do
+        DahBooCustomizedGargulDB[identifier] = DahBooCustomizedGargulDB[identifier] or {};
+        self[identifier] = DahBooCustomizedGargulDB[identifier];
+    end
 
     -- Fire DB:store before every logout/reload/exit
-    GL.Events:register("DBPlayerLogoutListener", "PLAYER_LOGOUT", self.store);
+    Events:register("DBPlayerLogoutListener", "PLAYER_LOGOUT", function ()
+        self:store();
+    end);
 
     self._initialized = true;
 end
 
---- Make sure the database persists between sessions
---- This is just a safety precaution and should strictly
---- speaking not be necessary, but hey you never know!
-function DB:store()
-    GL:debug("DB:store");
-
-    DahBooCustomizedGargulDB.AwardHistory = GL.DB.AwardHistory;
-    DahBooCustomizedGargulDB.BoostedRolls = GL.DB.BoostedRolls;
-    DahBooCustomizedGargulDB.GDKP = GL.DB.GDKP;
-    DahBooCustomizedGargulDB.LoadDetails = GL.DB.LoadDetails;
-    DahBooCustomizedGargulDB.LootPriority = GL.DB.LootPriority;
-    DahBooCustomizedGargulDB.MinimapButton = GL.DB.MinimapButton;
-    DahBooCustomizedGargulDB.PlusOnes = GL.DB.PlusOnes;
-    DahBooCustomizedGargulDB.PlusTwos = GL.DB.PlusTwos;
-    DahBooCustomizedGargulDB.Settings = GL.Settings.Active;
-    DahBooCustomizedGargulDB.SoftRes = GL.DB.SoftRes;
-    DahBooCustomizedGargulDB.TMB = GL.DB.TMB;
-    DahBooCustomizedGargulDB.TMBRaidGroups = GL.DB.TMBRaidGroups;
-    DahBooCustomizedGargulDB.Utility = GL.DB.Utility;
-end
-
--- Get a value from the database, or return a default if it doesn't exist
+---@param keyString string
+---@param default any
+---@return any
 function DB:get(keyString, default)
-    return GL:tableGet(DB, keyString, default);
+    return GL:tableGet(self, keyString, default);
 end
 
--- Set a database value by a given key and value
-function DB:set(keyString, value)
-    return GL:tableSet(DB, keyString, value);
+---@param keyString string
+---@param value any
+---@param ignoreIfExists boolean If the given final key exists then it will not be overwritten
+---@return boolean
+function DB:set(keyString, value, ignoreIfExists)
+    return GL:tableSet(self, keyString, value, ignoreIfExists);
 end
 
--- Add a database value to a given table
+---@param keyString string
+---@param value any
+---@return boolean
 function DB:add(keyString, value)
-    return GL:tableAdd(DB, keyString, value);
+    return GL:tableAdd(self, keyString, value);
 end
 
--- Reset the tables
-function DB:reset()
-    GL:debug("DB:reset");
-
-    self.AwardHistory = {};
-    self.BoostedRolls = {};
-    self.GDKP = {};
-    self.LoadDetails = {};
-    self.LootPriority = {};
-    self.MinimapButton = {};
-    self.PlusOnes = {};
-    self.PlusTwos = {};
-    self.Settings = {};
-    self.SoftRes = {};
-    self.TMB = {};
-    self.TMBRaidGroups = {}
-    self.Utility = {};
-
-    GL:success("Tables reset");
+--- Make extra(?) sure the database persists between sessions
+--- This is just a safety precaution and should strictly
+--- speaking not be necessary at all, but hey you never know!
+---
+---@return void
+function DB:store()
+    for _, identifier in pairs(self.Tables or {}) do
+        DahBooCustomizedGargulDB[identifier] = self[identifier];
+    end
 end
-
-GL:debug("DB.lua");

@@ -52,24 +52,99 @@ function Session:_init()
     GDKPAuction = GDKP.Auction;
     self._initialized = true;
 
+    -- Make sure trades involving gold are logged
     Events:register("GDKPSessionTradeCompletedListener", "GL.TRADE_COMPLETED", function (_, Details)
         self:registerGoldTrade(Details);
     end);
 
+    -- Add gold to the trade window and whisper outstanding balance
     Events:register("GDKPSessionTradeInitiatedListener", "GL.TRADE_SHOW", function (_, Details)
         self:tradeInitiated(Details);
     end);
 
+    -- Post a message in chat after creating an auction
     Events:register("GDKPSessionAuctionCreatedListener", "GL.GDKP_AUCTION_CREATED", function (_, sessionID)
         if (Settings:get("GDKP.announcePotAfterAuction")
             and sessionID == self:activeSessionID()
         ) then
-            local total = tonumber(GDKP.Pot:total()) or 0;
+            local total = tonumber(GDKPPot:total()) or 0;
             if (total < 1) then
                 return;
             end
 
             GL:sendChatMessage(string.format("Pot was updated, it now holds %sg", tostring(total)), "GROUP");
+        end
+    end);
+
+    -- Post a message in chat after deleting an auction
+    Events:register("GDKPSessionAuctionDeletedListener", "GL.GDKP_AUCTION_DELETED", function (_, sessionID, _, Before)
+        if (sessionID ~= self:activeSessionID()) then
+            return;
+        end
+
+        local total = tonumber(GDKPPot:total()) or 0;
+        if (total < 1) then
+            total = 0;
+        end
+
+        if (Before and Before.itemLink and Before.itemID) then
+            local winner = GL:tableGet(Before, "PreviousStates.1.Winner.name");
+            local price = GL:tableGet(Before, "PreviousStates.1.price");
+
+            -- This was raw gold added to the pot
+            if (Before.itemID == Constants.GDKP.potIncreaseItemID) then
+                GL:sendChatMessage(("I removed %sg from the pot"):format(price), "GROUP");
+                GL:sendChatMessage(("The pot now holds %sg"):format(tostring(total)), "GROUP");
+                return;
+
+            -- Just in case someone has old data still
+            elseif (winner and price) then
+                GL:sendChatMessage(("I removed %s awarded to %s for %sg"):format(Before.itemLink, winner, price), "GROUP");
+                GL:sendChatMessage(("The pot now holds %sg"):format(tostring(total)), "GROUP");
+
+                return;
+            end
+
+            GL:sendChatMessage(string.format("Pot was updated after deleting an auction, it now holds %sg", tostring(total)), "GROUP");
+        else
+            -- Should not be possible, shenanigans?
+            GL:sendChatMessage(string.format("Pot was updated after deleting an auction, it now holds %sg", tostring(total)), "GROUP");
+        end
+    end);
+
+    -- Post a message in chat after restoring an auction
+    Events:register("GDKPSessionAuctionRestoredListener", "GL.GDKP_AUCTION_RESTORED", function (_, sessionID, _, Instance)
+        if (sessionID ~= self:activeSessionID()) then
+            return;
+        end
+
+        local total = tonumber(GDKPPot:total()) or 0;
+        if (total < 1) then
+            total = 0;
+        end
+
+        if (Instance and Instance.itemLink and Instance.itemID) then
+            local winner = GL:tableGet(Instance, "Winner.name");
+            local price = Instance.price;
+
+            -- This was raw gold added to the pot
+            if (Instance.itemID == Constants.GDKP.potIncreaseItemID) then
+                GL:sendChatMessage(("I added %sg back to the pot"):format(price), "GROUP");
+                GL:sendChatMessage(("The pot now holds %sg"):format(tostring(total)), "GROUP");
+                return;
+
+            -- Just in case someone has old data still
+            elseif (winner and price) then
+                GL:sendChatMessage(("I restored %s awarded to %s for %sg"):format(Instance.itemLink, winner, price), "GROUP");
+                GL:sendChatMessage(("The pot now holds %sg"):format(tostring(total)), "GROUP");
+
+                return;
+            end
+
+            GL:sendChatMessage(string.format("Pot was updated after restoring an auction, it now holds %sg", tostring(total)), "GROUP");
+        else
+            -- Should not be possible, shenanigans?
+            GL:sendChatMessage(string.format("Pot was updated after restoring an auction, it now holds %sg", tostring(total)), "GROUP");
         end
     end);
 
@@ -167,20 +242,19 @@ function Session:tradeInitiated(Details)
 
     local playerCutInCopper = playerCut * 10000;
     local copperReceived = GoldTrades.from;
-    local copperGiven = GoldTrades.to;
+    local copperGiven = GoldTrades.to + GL:tableGet(Instance, "GoldMails." .. Details.partner, 0);
     local copperSpentByPlayer = self:goldSpentByPlayer(Details.partner) * 10000;
-    local copperToReceive = copperSpentByPlayer - copperReceived;
-    local copperToGive = playerCutInCopper - copperToReceive - copperGiven;
+    local balance = tonumber(self:copperOwedToPlayer(Details.partner, Instance.ID) or 0);
 
     local balanceMessage = " ";
     local whisperMessage = nil;
-    if (copperToGive > 0) then
-        local due = GL:copperToMoney(copperToGive);
+    if (balance > 0) then
+        local due = GL:copperToMoney(balance);
         balanceMessage = string.format("|c00F7922ETo give: %s|r", due);
         whisperMessage = string.format("I owe you %s. Enjoy!", due);
 
-    elseif (copperToGive < 0) then
-        local owed = GL:copperToMoney(copperToGive * -1);
+    elseif (balance < 0) then
+        local owed = GL:copperToMoney(balance * -1);
         balanceMessage = string.format("|c0092FF00To receive: %s|r", owed);
         whisperMessage = string.format("You owe me %s. Thank you!", owed);
     end
@@ -240,20 +314,20 @@ function Session:tradeInitiated(Details)
 
     -- Add the gold to the trade window
     if (playerCutInCopper > 0
-        and copperToGive
+        and balance
         and Settings:get("GDKP.addGoldToTradeWindow")
     ) then
-        if (copperToGive > GetMoney()) then
+        if (balance > GetMoney()) then
             GL:error("You don't have enough money to pay " .. Details.partner);
         else
-            GL.TradeWindow:setCopper(copperToGive, Details.partner, function(success)
+            GL.TradeWindow:setCopper(balance, Details.partner, function(success)
                 if (success) then
                     return;
                 end
 
                 GL:error(string.format(
                     "Unable to add %s to the trade window. Try adding it manually!",
-                    GL:copperToMoney(copperToGive)
+                    GL:copperToMoney(balance)
                 ));
             end);
         end
@@ -578,12 +652,13 @@ function Session:create(title, managementCut)
         return false;
     end
 
-    managementCut = strtrim(managementCut);
-    if (not GL:empty(managementCut)
-        and tonumber(managementCut)
-        and not GL:higherThanZero(tonumber(managementCut))
-    ) then
-        return false;
+    if (managementCut) then
+        managementCut = tonumber(managementCut);
+        if (managementCut
+                and managementCut < 0
+        ) then
+            return false;
+        end
     end
 
     local Instance = {

@@ -22,16 +22,32 @@ function GDKP:settingsForItemID(itemID)
         return false;
     end
 
+    local defaultMinimum = Settings:get("GDKP.defaultMinimumBid");
+    local defaultIncrement = Settings:get("GDKP.defaultIncrement");
+    if (GL:count(Settings:get("GDKP.ItemLevelDetails")) > 0) then
+        local itemLevel = tonumber(GetDetailedItemLevelInfo(itemID) or 0);
+
+        -- If there are item level specific settings and we
+        -- can't find the item level then we need to notifiy the player
+        if (itemLevel < 1) then
+            GL:warning(("Could not determine item level for item with ID %s, check minimum price and increment!"):format(itemID));
+        else
+            defaultMinimum = Settings:get(("GDKP.ItemLevelDetails.%s.minimum"):format(tostring(itemLevel)), defaultMinimum);
+            defaultIncrement = Settings:get(("GDKP.ItemLevelDetails.%s.increment"):format(tostring(itemLevel)), defaultIncrement);
+        end
+    end
+
     if (not Settings:get("GDKP.storeMinimumAndIncrementPerItem")) then
         return {
-            minimum = Settings:get("GDKP.defaultMinimumBid"),
-            increment = Settings:get("GDKP.defaultIncrement"),
+            minimum = defaultMinimum,
+            increment = defaultIncrement,
         }
     end
 
     local PerItemSettings = DB:get("GDKP.SettingsPerItem." .. itemID, {});
-    PerItemSettings.minimum = PerItemSettings.minimum or Settings:get("GDKP.defaultMinimumBid");
-    PerItemSettings.increment = PerItemSettings.increment or Settings:get("GDKP.defaultIncrement");
+
+    PerItemSettings.minimum = PerItemSettings.minimum or defaultMinimum;
+    PerItemSettings.increment = PerItemSettings.increment or defaultIncrement;
 
     return PerItemSettings;
 end
@@ -73,8 +89,8 @@ function GDKP:importPerItemSettings(data)
         else -- The first line includes the heading, we don't need that
             (function()
                 local itemID = tonumber(strtrim(Segments[Columns.ItemID]));
-                local minimum = defaultMinimum;
-                local increment = defaultIncrement;
+                local minimum = tonumber(defaultMinimum);
+                local increment = tonumber(defaultIncrement);
 
                 if (not itemID or not GetItemInfoInstant(itemID)) then
                     if (itemID) then
@@ -97,6 +113,16 @@ function GDKP:importPerItemSettings(data)
 
                 if (Columns.Increment) then
                     increment = tonumber(strtrim(Segments[Columns.Increment]));
+                end
+
+                if (not minimum) then
+                    GL:error(("Invalid 'Minimum' provided for item ID '%s'"):format(itemID));
+                    return;
+                end
+
+                if (not increment) then
+                    GL:error(("Invalid 'Increment' provided for item ID '%s'"):format(itemID));
+                    return;
                 end
 
                 increment = GL:round(increment);

@@ -258,7 +258,7 @@ GL.Data.Constants = {
         },
         adjustMutatorIdentifier = "+.__adjust__.+",
         baseMutatorIdentifier = "+.__base__.+",
-        potIncreaseItemID = 45978,
+        potIncreaseItemID = GetItemInfoInstant(45978) or 21100, -- Classic era doesn't have a solid gold coin, yikes!
     },
 
     GroupLootActions = {
@@ -524,7 +524,7 @@ GL.Data.Constants = {
     ]]
     Comm = {
         channel = "GargulComm2",
-        minimumAppVersion = "5.3.3",
+        minimumAppVersion = "5.3.19",
         Actions = {
             awardItem = 1,
             broadcastLootPriorities = 2,

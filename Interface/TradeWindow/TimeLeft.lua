@@ -38,8 +38,7 @@ function TimeLeft:_init()
     GL.Ace:ScheduleTimer(function ()
         GL.Events:register({
             {"TimeLeftPlayerEnteringWorldListener", "PLAYER_ENTERING_WORLD"},
-            --{"TimeLeftBagUpdateDelayedListener", "BAG_UPDATE_DELAYED"}, ---@todo reset when Blizzard fixes the event
-            {"TimeLeftBagUpdateListener", "BAG_UPDATE"}, ---@todo remove when Blizzard fixes the delayed event
+            {"TimeLeftBagUpdateDelayedListener", "BAG_UPDATE_DELAYED"},
             {"TimeLeftZoneChangedListener", "ZONE_CHANGED"},
             {"TimeLeftPlayerAliveListener", "PLAYER_ALIVE"},
             {"TimeLeftPlayerUnghostListener", "PLAYER_UNGHOST"},
@@ -680,11 +679,11 @@ function TimeLeft:refreshBars(byRefresh)
         local awarded = false;
         local disenchanted = false;
         if (BagItem.unreceived and awardedItemCountByLink[BagItem.itemLink] > 0) then
-            TimerBar:SetIcon("Interface\\AddOns\\DahBooCustomizedGargul\\Assets\\Icons\\trophy");
+            TimerBar:SetIcon("Interface\\AddOns\\Gargul\\Assets\\Icons\\trophy");
             awardedItemCountByLink[BagItem.itemLink] = awardedItemCountByLink[BagItem.itemLink] - 1;
             awarded = true;
         elseif (BagItem.deUnreceived and deItemCountByLink[BagItem.itemLink] > 0) then
-            TimerBar:SetIcon("Interface\\AddOns\\DahBooCustomizedGargul\\Assets\\Icons\\disenchant");
+            TimerBar:SetIcon("Interface\\AddOns\\Gargul\\Assets\\Icons\\disenchant");
             deItemCountByLink[BagItem.itemLink] = deItemCountByLink[BagItem.itemLink] - 1;
             disenchanted = true;
         end

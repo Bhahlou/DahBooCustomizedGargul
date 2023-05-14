@@ -26,6 +26,7 @@ local Auctioneer;
 
 ---@class GDKPAuction
 GDKP.Auction = {
+    _broadcastingDisabled = false,
     _initialized = false,
     autoBiddingIsActive = nil,
     lastBidAt = nil,
@@ -65,7 +66,7 @@ local GDKPSession = GDKP.Session;
 
 --[[ CONSTANTS ]]
 local AUTO_BID_THROTTLE_IN_SECONDS = .6;
-local BROADCAST_QUEUE_DELAY_IN_SECONDS = 2;
+local BROADCAST_QUEUE_DELAY_IN_SECONDS = 3;
 
 function Auction:_init()
     GL:debug("GDKP.Auction:_init");
@@ -130,6 +131,7 @@ function Auction:_initializeQueue()
         return;
     end
 
+    self._broadcastingDisabled = true;
     local SortedQueue = GL:tableValues(Auction.Queue);
     table.sort(SortedQueue, function (a, b)
         if (a.order and b.order) then
@@ -151,13 +153,21 @@ function Auction:_initializeQueue()
             GL.Ace:CancelTimer(QueueAddTimer);
             SortedQueue = nil;
 
+            self._broadcastingDisabled = false;
+
             GL.Events:fire("GL.GDKP_QUEUE_UPDATED");
+
+            -- Make sure to broadcast the queue when everything's said and done
+            if (i > 1) then
+                self:broadcastQueue();
+            end
+
             return;
         end
 
         i = i + 1;
         return Auctioneer:addToQueue(Queued.itemLink, Queued.identifier, false);
-    end, .2);
+    end, .1);
 end
 
 ---@return void
@@ -415,7 +425,7 @@ function Auction:restore(sessionID, auctionID)
     GL:tableSet(Session, "Auctions." .. auctionID, Instance);
 
     Events:fire("GL.GDKP_AUCTION_CHANGED", sessionID, auctionID, Before, Instance);
-    Events:fire("GL.GDKP_AUCTION_RESTORED", sessionID, auctionID);
+    Events:fire("GL.GDKP_AUCTION_RESTORED", sessionID, auctionID, Instance);
 
     return true;
 end
@@ -830,10 +840,8 @@ function Auction:addToQueue(itemLink, identifier)
         return;
     end
 
-    local addedAt = GetTime();
     local PerItemSettings = GDKP:settingsForItemID(GL:getItemIDFromLink(itemLink));
     self.Queue[identifier] = {
-        addedAt = addedAt,
         identifier = identifier,
         increment = PerItemSettings.increment,
         itemID = itemID,
@@ -918,8 +926,7 @@ end
 function Auction:removeFromQueue(checksum)
     GL:debug("Auction:removeFromQueue");
 
-    checksum = tostring(checksum or 0);
-    if (not self.Queue[checksum]) then
+    if (not self.Queue[checksum or 0]) then
         return false;
     end
 
@@ -978,9 +985,15 @@ function Auction:sanitizeQueue()
     end
 end
 
+--- Broadcast the first 20 items to everyone in the raid
 ---@return void
 function Auction:broadcastQueue(immediately)
     GL:debug("Auction:broadcastQueue");
+
+    -- Broadcasting is
+    if (self._broadcastingDisabled) then
+        return;
+    end
 
     GL.Ace:CancelTimer(self.QueueBroadcastTimer);
     self:sanitizeQueue();
@@ -989,10 +1002,41 @@ function Auction:broadcastQueue(immediately)
         return;
     end
 
+    -- Make sure we only broadcast the first 15 items as to not overload the system
+    local SortedQueue = GL:tableValues(Auction.Queue);
+    table.sort(SortedQueue, function (a, b)
+        if (a.order and b.order) then
+            return a.order < b.order;
+        end
+
+        return false;
+    end);
+
+    local QueueSegment = {};
+    local i = 0;
+    for _, Details in pairs(SortedQueue) do
+
+        i = i + 1;
+
+        -- Trim down the queue details in order to minimize the comm payload
+        tinsert(QueueSegment, {
+            Details.identifier,
+            Details.itemID,
+            Details.minimumBid,
+            Details.order,
+            Details.increment,
+        });
+
+        -- A queue of more than a 100 items makes no sense
+        if (i > 100) then
+            break;
+        end
+    end
+
     local broadcast = function ()
         GL.CommMessage.new(
             CommActions.broadcastGDKPAuctionQueue,
-            self.Queue or {},
+            QueueSegment or {},
             "GROUP"
         ):send();
     end;
@@ -1025,10 +1069,50 @@ function Auction:receiveQueue(CommMessage)
         return;
     end
 
-    self.Queue = CommMessage.content;
-    self:sanitizeQueue();
+    local Queue = {};
 
-    Events:fire("GL.GDKP_QUEUE_UPDATED");
+    -- Check if this is the old format including item links
+    local itemLinksArePresent = true;
+    for _, Details in pairs(CommMessage.content or {}) do
+        itemLinksArePresent = not not Details.itemLink;
+    end
+
+    -- Old format, no need to continue
+    if (itemLinksArePresent) then
+        self.Queue = Queue;
+        self:sanitizeQueue();
+
+        Events:fire("GL.GDKP_QUEUE_UPDATED");
+        return;
+    end
+
+    -- Enrich the received queue with required data
+    GL:onItemLoadDo(GL:tableColumn(CommMessage.content, 2), function (Details)
+        local ItemLinksByID = {};
+
+        for _, Entry in pairs(Details) do
+            ItemLinksByID[Entry.id] = Entry.link;
+        end
+
+        for _, Queued in pairs(CommMessage.content or {}) do
+            local itemLink = ItemLinksByID[Queued[2]];
+            if (itemLink) then
+                Queue[Queued[1]] = {
+                    identifier = Queued[1],
+                    itemID = Queued[2],
+                    minimumBid = Queued[3],
+                    order = Queued[4],
+                    increment = Queued[5],
+                    itemLink = itemLink,
+                };
+            end
+        end
+
+        self.Queue = Queue;
+        self:sanitizeQueue();
+
+        Events:fire("GL.GDKP_QUEUE_UPDATED");
+    end);
 end
 
 --- Announce to everyone in the raid that an auction is starting
@@ -1073,14 +1157,13 @@ function Auction:announceStart(itemLink, minimumBid, minimumIncrement, duration,
 
     local itemID = GL:getItemIDFromLink(itemLink) or 0;
     if (itemID < 1 or not GetItemInfoInstant(itemID)) then
-        GL:warning("Invalid item provided for GDKP auction start!");
         self.waitingForStart = false;
+        GL:warning("Invalid item provided for GDKP auction start!");
         return false;
     end
 
     self.inProgress = true;
     self:listenForBids();
-    self:broadcastQueue(true);
 
     -- This is still the same item, use the previous highest bid as the starting point
     if (itemLink == self.Current.itemLink) then
@@ -1107,7 +1190,7 @@ function Auction:announceStart(itemLink, minimumBid, minimumIncrement, duration,
     return true;
 end
 
---- Anounce to everyone in the raid that the auction has ended
+--- Announce to everyone in the raid that the auction has ended
 ---
 ---@param forceStop boolean|nil bypass the snipe detection check
 ---
@@ -1145,10 +1228,10 @@ function Auction:announceStop(forceStop)
     ):send();
 end
 
---- Anounce to everyone in the raid that we're extending the current auction
+--- Announce to everyone in the raid that we're extending the current auction
 ---
 ---@param time number
----@return void
+---@return boolean
 function Auction:announceExtension(time)
     GL:debug("GDKP.Auction:announceExtension");
 
@@ -1156,31 +1239,25 @@ function Auction:announceExtension(time)
 
     time = tonumber(time) or 0
     if (time < 1) then
+        self.waitingForReschedule = false;
         GL:warning("Invalid data provided for GDKP extension!");
         return false;
     end
 
     local secondsLeft = GL.Ace:TimeLeft(self.timerId) - GL.Settings:get("GDKP.auctionEndLeeway", 2);
-
     local newDuration = math.ceil(secondsLeft + time);
 
     if (newDuration < time) then
         newDuration = time;
     end
 
-    GL.CommMessage.new(
-        CommActions.rescheduleGDKPAuction,
-        newDuration,
-        "GROUP"
-    ):send();
-
-    return true;
+    return self:announceReschedule(newDuration);
 end
 
---- Anounce to everyone in the raid that we're extending the current auction
+--- Announce to everyone in the raid that we're extending the current auction
 ---
 ---@param time number
----@return void
+---@return boolean
 function Auction:announceShortening(time)
     GL:debug("GDKP.Auction:announceShortening");
 
@@ -1188,6 +1265,7 @@ function Auction:announceShortening(time)
 
     time = tonumber(time) or 0
     if (time < 1) then
+        self.waitingForReschedule = false;
         GL:warning("Invalid data provided for GDKP shortening!");
         return false;
     end
@@ -1200,29 +1278,55 @@ function Auction:announceShortening(time)
         newDuration = 5;
     end
 
+    return self:announceReschedule(newDuration);
+end
+
+--- Announce a new auction time remaining to everyone in the raid
+---
+---@param time number
+---@return boolean
+function Auction:announceReschedule(time)
+    GL:debug("GDKP.Auction:announceShortening");
+
+    self.waitingForReschedule = GetServerTime();
+
+    time = tonumber(time) or 0
+    if (time < 1) then
+        self.waitingForReschedule = false;
+        GL:warning("Invalid data provided for GDKP reschedule!");
+        return false;
+    end
+
+    -- In order to prevent funny business we won't allow anything lower than 5 for the new time
+    if (time <= 5) then
+        time = 5;
+    end
+
     GL.CommMessage.new(
         CommActions.rescheduleGDKPAuction,
-        newDuration,
+        time,
         "GROUP"
     ):send();
 
     return true;
 end
 
-function Auction:extend(CommMessage)
-    GL:debug("GDKP.Auction:extend");
+---@param CommMessage CommMessage
+---@return void
+function Auction:reschedule(CommMessage)
+    GL:debug("GDKP.Auction:reschedule");
 
     if (not self.Current.initiatorID
         or CommMessage.Sender.id ~= self.Current.initiatorID
     ) then
-        GL:debug("GDKP.Auction:extend received by non-initiator");
+        GL:debug("GDKP.Auction:reschedule received by non-initiator");
         return;
     end
 
     local time = tonumber(CommMessage.content) or 0;
     if (time < 1) then
         self.waitingForReschedule = false;
-        return GL:error("Invalid time provided in Auction:extend");
+        return GL:error("Invalid time provided in Auction:reschedule");
     end
 
     self.Current.duration = time;
@@ -1427,14 +1531,14 @@ function Auction:start(CommMessage)
         -- Flash the game icon in case the player alt-tabbed
         FlashClientIcon();
 
-        -- Let the application know that an auction started
-        Events:fire("GL.GDKP_AUCTION_STARTED");
-
         -- Automatically auto-bid on the item if we set an auto bid max
         if (self.QueuedItemAutoBids[Details.id]) then
             self:setAutoBid(self.QueuedItemAutoBids[Details.id]);
             self.QueuedItemAutoBids[Details.id] = nil;
         end
+
+        -- Let the application know that an auction started
+        Events:fire("GL.GDKP_AUCTION_STARTED");
 
         -- Items should only contain 1 item but lets add a return just in case
         return;
@@ -1641,6 +1745,12 @@ function Auction:setAutoBid(max, queuedItemChecksum)
     -- Make sure we're the highest bidder, if not then bid
     if (GL:tableGet(self.Current, "TopBid.Bidder.name") ~= GL.User.name) then
         self:bid(lowestMinimumBid);
+    end
+
+    -- Make sure the stop auto bid button is shown on the
+    if (GL.Interface.GDKP.Bidder.StopAutoBidButton and self.inProgress) then
+        GL.Interface.GDKP.Bidder.AutoBidButton:Hide();
+        GL.Interface.GDKP.Bidder.StopAutoBidButton:Show();
     end
 
     return true;
@@ -1885,7 +1995,7 @@ function Auction:processBid(message, bidder)
     tinsert(self.Current.Bids, BidEntry);
 
     -- We already have at least one bid
-    local auctionHasBid = not not self.Current.TopBid;
+    local auctionHasBid = currentBid > 0;
 
     -- Check if we're currently the highest bidder
     local userWasHighestBidder = self:userIsTopBidder();
