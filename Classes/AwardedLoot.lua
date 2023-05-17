@@ -309,6 +309,7 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
     if (type(winner) == "table") then
         itemLink = winner.itemLink;
         announce = winner.announce;
+        addPlusOne = winner.addPlusOne
         date = winner.date;
         isOS = winner.isOS;
         BRCost = winner.BRCost;
