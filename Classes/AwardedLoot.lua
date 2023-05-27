@@ -296,11 +296,31 @@ end
 ---@param announce boolean|nil
 ---@param date string|nil
 ---@param isOS boolean|nil
+---@param addPlusOne boolean|nil
 ---@param BRCost number|nil
 ---@param GDKPCost number|nil
+---@param automaticallyAwarded boolean|nil Was this awarded automatically via the AwardingLoot.awardOnReceive setting?
+---@param RollBracket table|nil See DefaultSettings.lua -> RollTracking.Brackets
 ---@return void|string
-function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, addPlusOne, GDKPCost, Rolls, automaticallyAwarded)
+function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, addPlusOne, GDKPCost, Rolls, automaticallyAwarded, RollBracket)
     GL:debug("AwardedLoot:addWinner");
+
+    -- Named parameters aren't possible, so supporting a table is the next best thing
+    if (type(winner) == "table") then
+        itemLink = winner.itemLink;
+        announce = winner.announce;
+        addPlusOne = winner.addPlusOne
+        date = winner.date;
+        isOS = winner.isOS;
+        BRCost = winner.BRCost;
+        GDKPCost = winner.GDKPCost;
+        Rolls = winner.Rolls;
+        automaticallyAwarded = winner.automaticallyAwarded;
+        RollBracket = winner.RollBracket;
+
+        -- Save this for last
+        winner = winner.winner;
+    end
 
     local broadcast = false;
     if (automaticallyAwarded) then
@@ -414,6 +434,7 @@ function AwardedLoot:addWinner(winner, itemLink, announce, date, isOS, BRCost, a
         WL = isWishlisted,
         PL = isPrioritized,
         TMB = isWishlisted or isPrioritized,
+        winningRollType = RollBracket and RollBracket[1],
         Rolls = Rolls or {},
     };
 

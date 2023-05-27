@@ -57,7 +57,10 @@ function RollerUI:draw(time, itemLink, itemIcon, note, SupportedRolls, userCanUs
         -- Close the roll window on right-click
         if (button == "RightButton") then
             self:hide();
+            return;
         end
+
+        GL:handleItemClick(itemLink, button);
     end);
     Window:SetScale(GL.Settings:get("Rolling.scale", 1));
     Window.ownedByGargul = true; -- We used this in the tooltip check later

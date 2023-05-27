@@ -335,11 +335,12 @@ function GL:handleItemClick(itemLink, mouseButtonPressed, callback)
     elseif (keyPressIdentifier == GL.Settings:get("ShortcutKeys.disenchant")) then
         GL.PackMule:disenchant(itemLink, nil, callback);
 
+    -- Try the item on if the user does not have a CTRL_CLICK hotkey set for Gargul
+    elseif (keyPressIdentifier == "CTRL_CLICK") then
+        DressUpItemLink(itemLink);
+
     -- Check for unmodified double clicks (trade)
-    elseif (not IsShiftKeyDown()
-        and not IsAltKeyDown()
-        and not IsControlKeyDown()
-    ) then
+    elseif (keyPressIdentifier == "CLICK") then
         local currentTime = GetTime();
 
         -- Double click behavior detected
@@ -371,8 +372,10 @@ function GL:empty(mixed)
     end
 
     if (varType == "table") then
-        for _ in pairs(mixed) do
-            return false;
+        for _, val in pairs(mixed) do
+            if (not GL:empty(val)) then
+                return false;
+            end
         end
 
         return true;
@@ -414,6 +417,7 @@ end
 --- StringHash method, courtesy of Mikk38024 @ Wowpedia (https://wowpedia.fandom.com/wiki/StringHash)
 ---
 ---@param text string|table
+---@return number
 function GL:stringHash(text)
     if (type(text) == "table") then
         text = GL:implode(text, ".");
@@ -1537,34 +1541,32 @@ end
 --- Dragonflight and future WoW releases no longer support OnTooltipSetItem
 ---
 ---@param Callback function
+---@param includeItemRefTooltip boolean
 ---@return any
 function GL:onTooltipSetItem(Callback, includeItemRefTooltip)
     GL:debug("GL:onTooltipSetItem");
 
-    if (includeItemRefTooltip == nil) then
-        includeItemRefTooltip = true;
-    end
-
+    includeItemRefTooltip = includeItemRefTooltip == nil and true or includeItemRefTooltip;
     includeItemRefTooltip = GL:toboolean(includeItemRefTooltip);
 
     -- Support native GameToolTip
     if (TooltipDataProcessor) then
-        TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function (Tooltip)
+        return TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function (Tooltip)
             return Callback(Tooltip);
         end);
-    else
-        GameTooltip:HookScript("OnTooltipSetItem", function(Tooltip)
+    end
+
+    GameTooltip:HookScript("OnTooltipSetItem", function(Tooltip)
+        return Callback(Tooltip);
+    end);
+
+    -- Support AceConfigDialog
+    LibStub("AceConfigDialog-3.0").tooltip:HookScript("OnTooltipSetItem", Callback);
+
+    if (includeItemRefTooltip) then
+        ItemRefTooltip:HookScript("OnTooltipSetItem", function(Tooltip)
             return Callback(Tooltip);
         end);
-
-        -- Support AceConfigDialog
-        LibStub("AceConfigDialog-3.0").tooltip:HookScript("OnTooltipSetItem", Callback);
-
-        if (includeItemRefTooltip) then
-            ItemRefTooltip:HookScript("OnTooltipSetItem", function(Tooltip)
-                return Callback(Tooltip);
-            end);
-        end
     end
 end
 

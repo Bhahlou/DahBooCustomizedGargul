@@ -73,7 +73,7 @@ Comm.Actions = {
         GL.GDKP.Auction:stop(Message);
     end,
     [Actions.rescheduleGDKPAuction] = function (Message)
-        GL.GDKP.Auction:extend(Message);
+        GL.GDKP.Auction:reschedule(Message);
     end,
     [Actions.broadcastGDKPAuctionQueue] = function (Message)
         GL.GDKP.Auction:receiveQueue(Message);
@@ -144,6 +144,7 @@ function Comm:send(CommMessage, broadcastFinishedCallback, packageSentCallback)
 
     local distribution = CommMessage.channel;
     local recipient = CommMessage.recipient;
+    local action = CommMessage.action;
 
     if (distribution == "GROUP") then
         distribution = "PARTY";
@@ -175,10 +176,9 @@ function Comm:send(CommMessage, broadcastFinishedCallback, packageSentCallback)
     end
 
     -- We lower the burst value and cps on large payloads to make sure
-    -- our messages are not dropped by the server, which happens A LOT ffs
+    -- our messages are not dropped by the server. ChatThrottleLib is not accurate enough sadly
     local stringLength = string.len(compressedMessage);
-    GL:debug("Payload size: " .. stringLength);
-    local throttle = distribution ~= "WHISPER" and stringLength > 800;
+    local throttle = distribution ~= "WHISPER" and stringLength > 1900;
 
     local throttleResetTimer;
     -- Stop throttling: reset the burst and max cps values
@@ -199,6 +199,12 @@ function Comm:send(CommMessage, broadcastFinishedCallback, packageSentCallback)
         throttleResetTimer = GL.Ace:ScheduleTimer(function ()
             stopThrottling();
         end, 5);
+    end
+
+    -- Make sure we can keep an eye on comm behavior
+    if (GL.User:isDev()) then
+        local actionTitle = GL:tableFlip(Actions)[action] or action;
+        DevTools_Dump(("Action: %s | Payload size: %s | Throttled: %s"):format(tostring(actionTitle), stringLength, throttle and "Y" or "N"));
     end
 
     GL.Ace:SendCommMessage(self.channel, compressedMessage, distribution, recipient, "BULK", function (_, sent, textlen)
@@ -241,6 +247,27 @@ function Comm:listen(payload, distribution, playerName)
 
     payload = GL.CommMessage:decompress(payload);
 
+    if (not payload.senderFqn and playerName) then
+        payload.senderFqn = ("%s-%s"):format(playerName, GetRealmName());
+    end
+
+    -- The version includes a version, see if it's one we can work with
+    if (payload.version and type(payload.version) == "string") then
+        Version:addRelease(payload.version, true);
+
+        -- The person sending us the message has an old version that's not compatible with ours, let him know!
+        if (not Version:leftIsNewerThanOrEqualToRight(payload.version, GL.Data.Constants.Comm.minimumAppVersion)) then
+            -- This empty message will trigger an out-of-date error on the recipient's side
+            GL.CommMessage.new(
+                Actions.response,
+                nil,
+                "WHISPER",
+                playerName
+            ):send();
+            return;
+        end
+    end
+
     if (not payload.senderFqn or not type(payload.senderFqn) == "string") then
         GL:warning("Failed to determine sender of COMM message");
         return false;
@@ -277,23 +304,6 @@ function Comm:listen(payload, distribution, playerName)
     ) then
         Version:notBackwardsCompatibleNotice();
         return false;
-    end
-
-    -- The version includes a version, see if it's one we can work with
-    if (payload.version and type(payload.version) == "string") then
-        Version:addRelease(payload.version, true);
-
-        -- The person sending us the message has an old version that's not compatible with ours, let him know!
-        if (not Version:leftIsNewerThanOrEqualToRight(payload.version, GL.Data.Constants.Comm.minimumAppVersion)) then
-            -- This empty message will trigger an out-of-date error on the recipient's side
-            GL.CommMessage.new(
-                Actions.response,
-                nil,
-                "WHISPER",
-                Sender.name
-            ):send();
-            return;
-        end
     end
 
     if (not payload.action) then

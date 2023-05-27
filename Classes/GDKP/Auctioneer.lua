@@ -133,7 +133,8 @@ function Auctioneer:_init()
         end
     end);
 
-    -- An item dropped, add it to the queue
+    -- An item dropped, add it to the queue. Can test this using:
+    -- /script _G.Gargul.Events:fire("GL.ITEM_RECEIVED", {itemID=45613,itemLink="|cffa335ee|Hitem:45613::::::::80:::::|h[Dreambinder]|h|r",quality=4,droppedOn=GetTime(), playerName="Omegachrist"});
     local firstItem = true;
     Events:register("AuctioneerItemReceived", "GL.ITEM_RECEIVED", function (_, Details)
         -- We don't want to automatically add loot
@@ -257,7 +258,7 @@ function Auctioneer:addToQueue(itemLink, identifier, open)
     AuctioneerUI = AuctioneerUI or GL.Interface.GDKP.Auctioneer;
 
     local Queue = AuctioneerUI:getQueueWindow(true);
-    identifier = identifier or GL:stringHash(GetTime() .. itemLink) .. math.random(1, 1000);
+    identifier = identifier or tonumber(GL:stringHash(GetTime() .. itemLink) .. math.random(1, 1000));
 
     Auction:addToQueue(itemLink, identifier);
     Queue:addItemByLink(itemLink, identifier);
@@ -468,6 +469,22 @@ function Auctioneer:shorten()
     GL:debug("Auctioneer:shorten");
 
     return Auction:announceShortening(DEFAULT_AUCTION_SHORTENING);
+end
+
+---@return boolean
+function Auctioneer:finalCall()
+    GL:debug("Auctioneer:finalCall");
+
+    local time = Settings:get("GDKP.finalCallTime");
+    if (Auction:announceReschedule(time)) then
+        if(Settings:get("GDKP.announceFinalCall")) then
+            GL:sendChatMessage((L.FINAL_CALL_ANNOUNCEMENT):format(Auction.Current.itemLink, time), "RAID_WARNING", nil, nil, false);
+        end
+
+        return true;
+    end
+
+    return false;
 end
 
 ---@return void

@@ -11,6 +11,7 @@ local Settings = GL.Settings;
 GL.Interface.Settings.GDKP = {
     description = "Type |c00a79eff/gl gdkp|r or simply |c00a79eff/gdkp|r or click the button below to get started!",
     InputElements = {},
+    ItemLevelElements = {},
 };
 local GDKP = GL.Interface.Settings.GDKP; ---@type GDKPSettings
 
@@ -232,32 +233,15 @@ function GDKP:draw(Parent)
 
                 if (checked) then
                     local enableQueue = function ()
-                        GL.Settings:set("GDKP.disableQueues", true);
+                        GL.Settings:set("GDKP.disableQueues", false);
                         Checkbox:SetValue(false);
                     end;
 
                     GL.Interface.Dialogs.PopupDialog:open({
-                        question = string.format("Are you sure? If used properly this will save you A LOT of time!"),
+                        question = string.format("If used properly queues will save you a lot of time and let your raiders see what items are coming up and bid on them\n\nIf you're looking for a way to speed up your raids then this is what you should be using, are you sure you want to disable it?"),
                         OnYes = function ()
-                            GL.Interface.Dialogs.PopupDialog:open({
-                                question = string.format("Your raiders will no longer be able prebid without a queue!"),
-                                OnYes = function ()
-                                    GL.Interface.Dialogs.PopupDialog:open({
-                                        question = string.format("Wanting to disable queues usually points to using the add-on wrong. Are you still sure?"),
-                                        OnYes = function ()
-                                            GL.GDKP.Auctioneer:clearQueue();
-                                            C_UI.Reload();
-                                            return;
-                                        end,
-                                        OnNo = function ()
-                                            enableQueue();
-                                        end
-                                    });
-                                end,
-                                OnNo = function ()
-                                    enableQueue();
-                                end
-                            });
+                            GL.GDKP.Auctioneer:clearQueue();
+                            C_UI.Reload();
                         end,
                         OnNo = function ()
                             enableQueue();
@@ -333,6 +317,10 @@ function GDKP:draw(Parent)
             description = "Announce bids in /rw instead of /ra. Requires |c00967FD2Announce incoming bids|r to be enabled!|r",
             setting = "GDKP.announceNewBidInRW",
         },
+        {
+            label = "Announce final call",
+            setting = "GDKP.announceFinalCall",
+        },
     }, Parent);
 
     Spacer = GL.AceGUI:Create("SimpleGroup");
@@ -383,6 +371,27 @@ function GDKP:draw(Parent)
     Spacer:SetHeight(20);
     Parent:AddChild(Spacer);
 
+    local FinalCallTime = GL.AceGUI:Create("Slider");
+    FinalCallTime:SetLabel("Final call jumps to");
+    FinalCallTime.label:SetTextColor(1, .95686, .40784);
+    FinalCallTime:SetFullWidth(true);
+    FinalCallTime:SetValue(GL.Settings:get("GDKP.finalCallTime", 15));
+    FinalCallTime:SetSliderValues(5, 30, 1);
+    FinalCallTime:SetCallback("OnValueChanged", function(Slider)
+        local value = math.floor(tonumber(Slider:GetValue()));
+
+        if (value >= 0) then
+            GL.Settings:set("GDKP.finalCallTime", value);
+        end
+    end);
+    Parent:AddChild(FinalCallTime);
+
+    Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
+
     Overview:drawHeader("Item Prices", Parent);
 
     local ImportPerItemSettings = GL.AceGUI:Create("Button");
@@ -393,11 +402,17 @@ function GDKP:draw(Parent)
     end);
     Parent:AddChild(ImportPerItemSettings);
 
-    Spacer = GL.AceGUI:Create("SimpleGroup");
-    Spacer:SetLayout("FILL");
-    Spacer:SetFullWidth(true);
-    Spacer:SetHeight(20);
-    Parent:AddChild(Spacer);
+    local SettingPrioExplanation = GL.AceGUI:Create("Label");
+    SettingPrioExplanation:SetText([[
+
+An item's price and increment are determined in the following order:
+1: Item specific (if remember minimum bid/increment setting below is enabled)
+2: Item level specific settings
+3: Default minimum bid and increment
+
+]]);
+    SettingPrioExplanation:SetFullWidth(true);
+    Parent:AddChild(SettingPrioExplanation);
 
     Overview:drawCheckboxes({
         {
@@ -471,7 +486,66 @@ function GDKP:draw(Parent)
     end);
     Parent:AddChild(DefaultIncrement);
 
+    Spacer = GL.AceGUI:Create("SimpleGroup");
+    Spacer:SetLayout("FILL");
+    Spacer:SetFullWidth(true);
+    Spacer:SetHeight(20);
+    Parent:AddChild(Spacer);
 
+    local ItemLevelExplanation = GL.AceGUI:Create("Label");
+    ItemLevelExplanation:SetText("Set a minimum price and increment per item level. Example: 252 -> 5000 -> 500");
+    ItemLevelExplanation:SetFullWidth(true);
+    Parent:AddChild(ItemLevelExplanation);
+
+    local ItemLevelSettings = GL:tableValues(Settings:get("GDKP.ItemLevelDetails", {}));
+    table.sort(ItemLevelSettings, function (a, b)
+        return a.level < b.level;
+    end);
+
+    for i = 1, 5 do
+        local Details = ItemLevelSettings[i] or {};
+
+        local Level = GL.AceGUI:Create("EditBox");
+        Level:DisableButton(true);
+        Level:SetHeight(20);
+        Level:SetWidth(100);
+        Level:SetText(Details.level or "");
+        Parent:AddChild(Level);
+
+        local Minimum = GL.AceGUI:Create("EditBox");
+        Minimum:DisableButton(true);
+        Minimum:SetHeight(20);
+        Minimum:SetWidth(100);
+        Minimum:SetText(Details.minimum or "");
+        Parent:AddChild(Minimum);
+
+        local Increment = GL.AceGUI:Create("EditBox");
+        Increment:DisableButton(true);
+        Increment:SetHeight(20);
+        Increment:SetWidth(100);
+        Increment:SetText(Details.increment or "");
+        Parent:AddChild(Increment);
+
+        self.ItemLevelElements[i] = {
+            Level = Level,
+            Minimum = Minimum,
+            Increment = Increment,
+        };
+
+        if (i == 1) then
+            Level:SetLabel("|cffFFF569Level|r");
+            Minimum:SetLabel("|cffFFF569Minimum|r");
+            Increment:SetLabel("|cffFFF569Increment|r");
+        end
+
+        if (i < 5) then
+            Spacer = GL.AceGUI:Create("SimpleGroup");
+            Spacer:SetLayout("FILL");
+            Spacer:SetFullWidth(true);
+            Spacer:SetHeight(10);
+            Parent:AddChild(Spacer);
+        end
+    end
 
     Spacer = GL.AceGUI:Create("SimpleGroup");
     Spacer:SetLayout("FILL");
@@ -662,7 +736,6 @@ function GDKP:draw(Parent)
         AutoApplyTo:SetHeight(20);
         AutoApplyTo:SetWidth(220);
         AutoApplyTo:SetText(MutatorDetails.autoApplyTo);
-        AutoApplyTo:SetMaxLetters(2);
         Parent:AddChild(AutoApplyTo);
 
         self.InputElements[i] = {
@@ -692,6 +765,32 @@ end
 --- Store the button details (will be overwritten by the draw method)
 function GDKP:onClose()
     GL.Settings:set("GDKP.Mutators", {});
+    GL.Settings:set("GDKP.ItemLevelDetails", {});
+
+    for _, Details in pairs(self.ItemLevelElements or {}) do
+        (function ()
+            local level = tonumber(strtrim(Details.Level:GetText())) or 0;
+            if (level < 1) then
+                return;
+            end
+
+            local minimum = tonumber(strtrim(Details.Minimum:GetText())) or 0;
+            if (minimum < 0) then
+                return;
+            end
+
+            local increment = tonumber(strtrim(Details.Increment:GetText())) or 0;
+            if (increment < 1) then
+                return;
+            end
+
+            GL.Settings:set(("GDKP.ItemLevelDetails.%s"):format(level), {
+                increment = increment,
+                level = level,
+                minimum = minimum,
+            });
+        end)();
+    end
 
     for _, Mutator in pairs(self.InputElements or {}) do
         (function ()

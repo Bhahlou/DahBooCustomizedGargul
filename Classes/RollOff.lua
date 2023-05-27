@@ -345,16 +345,13 @@ function RollOff:start(CommMessage)
 
         self.inProgress = true;
 
-        -- Don't show the roll UI if the user disabled it
-        -- and the current user is not the one who initiated the rolloff
-        if (GL.Settings:get("Rolling.showRollOffWindow")
-            or self:startedByMe()
-        ) then
-            if (self:startedByMe()) then
-                self:postStartMessage(Details.link, time, content.note);
-                GL.MasterLooterUI:drawReopenMasterLooterUIButton();
-            end
+        if (self:startedByMe()) then
+            self:postStartMessage(Details.link, time, content.note);
+            GL.MasterLooterUI:drawReopenMasterLooterUIButton();
+        end
 
+        -- Don't show the roll UI if the user disabled it
+        if (GL.Settings:get("Rolling.showRollOffWindow")) then
             GL.RollerUI:show(time, Details.link, Details.icon, content.note, SupportedRolls);
         end
 
@@ -498,29 +495,33 @@ end
 ---
 ---@param roller string Name of the player
 ---@param itemLink string
----@param osRoll boolean
----@param boostedRoll boolean
----@param plusOneRoll boolean
+---@param RollBracket table See DefaultSettings.lua -> RollTracking.Brackets. Can be empty when allowing all rolls!
 ---@param identicalRollDetected boolean Was there another roll identical to the winning one?
 ---@return void
-function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll, identicalRollDetected)
+function RollOff:award(roller, itemLink, RollBracket, identicalRollDetected)
     GL:debug("RollOff:award");
 
-    -- If the roller has a roll number suffixed to his name
-    -- e.g. "playerName [2]" then make sure to remove that number
-    local openingBracketPosition = string.find(roller, " %[");
-    if (openingBracketPosition) then
-        roller = string.sub(roller, 1, openingBracketPosition - 1);
+    identicalRollDetected = GL:toboolean(identicalRollDetected);
+    itemLink = itemLink or GL:tableGet(self.CurrentRollOff, "itemLink");
+
+    if (GL:empty(roller)
+        or GL:empty(itemLink)
+    ) then
+        return;
     end
 
-    itemLink = GL:tableGet(self.CurrentRollOff, "itemLink", itemLink);
-
-    local isOS, addPlusOne = false;
-    local BRCost = nil;
-
-    if (boostedRoll) then
-        BRCost = GL.Settings:get("BoostedRolls.defaultCost", 0);
+    if (GL:empty(RollBracket)) then
+        RollBracket = {
+            [1] = "",
+            [5] = false,
+            [6] = false,
+        };
     end
+
+    local rollIdentifier = RollBracket[1];
+    local isBR = rollIdentifier == GL.Settings:get("BoostedRolls.identifier", "BR");
+    local BRCost = isBR and GL.Settings:get("BoostedRolls.defaultCost", 0) or nil;
+    local isOS, addPlusOne = GL:toboolean(RollBracket[5]), GL:toboolean(RollBracket[6]);
 
     local Rolls = RollOff.CurrentRollOff.Rolls;
     if (type(Rolls) ~= "table") then
@@ -571,7 +572,15 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll, ident
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, BRCost, addPlusOne, 0, Rolls);
+                GL.AwardedLoot:addWinner({
+                    winner = roller,
+                    itemLink = itemLink,
+                    addPlusOne = addPlusOne,
+                    isOS = isOS,
+                    BRCost = BRCost,
+                    Rolls = Rolls,
+                    RollBracket = RollBracket,
+                });
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -579,9 +588,9 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll, ident
                     GL.MasterLooterUI:close();
                 end
             end,
-            checkOS = osRoll,
-            checkPlusOne = plusOneRoll,
-            isBR = boostedRoll,
+            checkOS = isOS,
+            checkPlusOne = addPlusOne,
+            isBR = isBR,
             boostedRollCost = BRCost,
         });
 
@@ -629,7 +638,15 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll, ident
                 end
 
                 -- Add the player we awarded the item to to the item's tooltip
-                GL.AwardedLoot:addWinner(roller, itemLink, nil, nil, isOS, BRCost, addPlusOne, 0, Rolls);
+                GL.AwardedLoot:addWinner({
+                    winner = roller,
+                    itemLink = itemLink,
+                    addPlusOne = addPlusOne,
+                    isOS = isOS,
+                    BRCost = BRCost,
+                    Rolls = Rolls,
+                    RollBracket = RollBracket,
+                });
 
                 GL.MasterLooterUI:closeReopenMasterLooterUIButton();
 
@@ -639,9 +656,9 @@ function RollOff:award(roller, itemLink, osRoll, boostedRoll, plusOneRoll, ident
 
                 GL.Interface.PlayerSelector:close();
             end,
-            checkOS = osRoll,
-            checkPlusOne = plusOneRoll,
-            isBR = boostedRoll,
+            checkOS = isOS,
+            checkPlusOne = addPlusOne,
+            isBR = isBR,
             boostedRollCost = BRCost,
         });
     end);

@@ -12,6 +12,29 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "5.4.1",
+            date = "May 7th, 2023",
+            Changes = {
+                "Raid on PTR? Gargul has been updated for Trial of the Crusader (|c00a79eff3.4.2|r)",
+                "A |c00a79effFinal Call|r button was added to the GDKP auctioneer window, useful for instantly shortening auctions of less desirable items!",
+            },
+        },
+        {
+            version = "5.3.20",
+            date = "April 30th, 2023",
+            Changes = {
+                "|c00a79effCTRL_CLICK|r the roll, bid or queue window to preview an item",
+                "A raid leader deleting and restoring GDKP auctions is now displayed in group chat for improved transparency",
+                "Gold is now auto looted from corpses (not containers). Go to |c00a79eff/gl|r -> |c00a79effAutoloot with PackMule|r to disable",
+            },
+        },
+        {
+            version = "5.3.12",
+            date = "April 1st, 2023",
+            Changes = {
+                "You can now set a minimum price and increment per item level (check |c00a79eff/gl|r -> GDKP)",
+            },
+        },{
             version = "5.3.4",
             date = "March 3rd, 2023",
             Changes = {

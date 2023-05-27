@@ -238,6 +238,7 @@ function Exporter:getLootEntries()
                 WL = AwardEntry.WL and 1 or 0,
                 PL = AwardEntry.PL and 1 or 0,
                 TMB = AwardEntry.TMB and 1 or 0,
+                winningRollType = AwardEntry.winningRollType or "-",
                 checksum = checksum,
             });
         end
@@ -286,6 +287,7 @@ function Exporter:transformEntriesToCustomFormat(Entries)
                     ["@WL"] = GL:toboolean(AwardEntry.WL),
                     ["@PL"] = GL:toboolean(AwardEntry.PL),
                     ["@TMB"] = GL:toboolean(AwardEntry.TMB),
+                    ["@ROLLTYPE"] = AwardEntry.winningRollType,
                     ["@CHECKSUM"] = AwardEntry.checksum,
                     ["@YEAR"] = date('%Y', AwardEntry.timestamp),
                     ["@YY"] = date('%y', AwardEntry.timestamp),

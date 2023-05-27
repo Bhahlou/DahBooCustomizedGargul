@@ -18,6 +18,7 @@ GL.Data.DefaultSettings = {
     noSounds = false,
     profilerEnabled = false,
     showMinimapButton = true,
+    showUpdateAlert = false,
     soundChannel = "SFX",
     welcomeMessage = true,
 
@@ -83,6 +84,7 @@ GL.Data.DefaultSettings = {
         autoDisableForGroupLoot = true,
         enabledForGroupLoot = false,
         enabledForMasterLoot = false,
+        lootGold = true,
         Rules = {},
     },
     Rolling = {
@@ -125,6 +127,8 @@ GL.Data.DefaultSettings = {
         enableWhisperCommand = true,
     },
     GDKP = {
+        ItemLevelDetails = {},
+
         acceptBidsLowerThanMinimum = false, -- Change default? Check Auction.lua !!
         addDropsToQueue = true,
         addBOEDropsToQueue = true,
@@ -132,6 +136,7 @@ GL.Data.DefaultSettings = {
         addGoldToTradeWindow = true,
         announceAuctionStart = true,
         announceCountdownInRW = true,
+        announceFinalCall = true,
         announceNewBidInRW = true,
         announceBidsClosed = true,
         announceNewBid = true,
@@ -147,6 +152,7 @@ GL.Data.DefaultSettings = {
         disableQueues = false,
         enableBidderQueue = true,
         exportFormat = 1,
+        finalCallTime = 10,
         potExportFormat = 1,
         customExportHeader = "Item,Player,Gold,Wowheadlink",
         customExportFormat = "@ITEM,@WINNER,@GOLD,@WOWHEAD",

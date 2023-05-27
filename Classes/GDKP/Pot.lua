@@ -334,7 +334,7 @@ function Pot:calculateCuts(sessionID)
     local PlayerNames = {};
     for _, Player in pairs(GL.User:groupMembers() or {}) do
         tinsert(PlayerNames, Player.name);
-        if (not DistributionDetails[Player.name]) then
+        if (GL:empty(DistributionDetails[Player.name])) then
             DistributionDetails[Player.name] = self:determineDistributionDefaults(Player, Session);
         end
     end
@@ -381,7 +381,7 @@ function Pot:calculateCuts(sessionID)
 
     if (GL:higherThanZero(baseTotal) and GL:higherThanZero(numberOfPlayersWithBase)) then
         base = baseTotal / numberOfPlayersWithBase;
-    elseif (not GL:higherThanZero(baseTotal) and GL:higherThanZero(percentages)) then
+    elseif (Session.lockedAt and not GL:higherThanZero(baseTotal) and GL:higherThanZero(percentages)) then
         GL:error("There's not enough gold to distribute, expect some weird cut calculations!");
     end
 
@@ -651,13 +651,10 @@ function Pot:clearUnavailablePlayerDetails(sessionID, keepAdjusted)
         return false;
     end
 
-    local PlayerNames = GL.User:groupMemberNames();
     local somethingChanged = false;
     for player in pairs(Session.Pot.DistributionDetails or {}) do
-        if (not GL:inTable(PlayerNames, player)) then
-            if (self:clearPlayerDetails(sessionID, player)) then
-                somethingChanged = true;
-            end
+        if (self:clearPlayerDetails(sessionID, player)) then
+            somethingChanged = true;
         end
     end
 
