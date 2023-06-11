@@ -91,7 +91,7 @@ function Overview:draw()
     ScrollFrame:SetLayout("Flow");
     ScrollFrameParent:AddChild(ScrollFrame);
 
-    local HorizontalSpacer = AceGUI:Create("SimpleGroup");
+    HorizontalSpacer = AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");
     HorizontalSpacer:SetFullWidth(true);
     HorizontalSpacer:SetHeight(6);
@@ -139,7 +139,7 @@ function Overview:draw()
     end);
     ButtonFrame:AddChild(ExportButton);
 
-    local HorizontalSpacer = AceGUI:Create("SimpleGroup");
+    HorizontalSpacer = AceGUI:Create("SimpleGroup");
     HorizontalSpacer:SetLayout("FILL");
     HorizontalSpacer:SetFullWidth(true);
     HorizontalSpacer:SetHeight(6);
@@ -187,16 +187,14 @@ end
 ---@param Parent table
 ---@return void
 function Overview:addPlayerPlusTwoEntries(Parent)
-    local VerticalSpacer;
     local HorizontalSpacer;
     local PlusTwoEntries = {};
 
     for _, Player in pairs(GL.User:groupMembers()) do
-        local normalizedName = GL:normalizedName(Player.name);
         tinsert(PlusTwoEntries, {
-            name = normalizedName,
+            name = Player.fqn,
             class = Player.class,
-            total = GL.PlusTwos:getPlusTwos(normalizedName),
+            total = GL.PlusTwos:getPlusTwos(Player.fqn),
         });
     end
 
@@ -217,7 +215,7 @@ function Overview:addPlayerPlusTwoEntries(Parent)
 
         local PlayerName = AceGUI:Create("Label");
         PlayerName:SetFontObject(_G["GameFontNormal"]);
-        PlayerName:SetText(GL:capitalize(Entry.name));
+        PlayerName:SetText(GL:nameFormat(Entry.name));
         PlayerName:SetColor(unpack(GL:classRGBColor(Entry.class)))
         PlayerName:SetHeight(28);
         PlayerName:SetWidth(320);
@@ -309,11 +307,10 @@ function Overview:update()
     end
 
     for _, Player in pairs(GL.User:groupMembers()) do
-        local normalizedName = GL:normalizedName(Player.name);      
-        local PlusTwoLabel = GL.Interface:get(self, "Label.PlusTwosOf_" .. normalizedName);
+        local PlusTwoLabel = GL.Interface:get(self, "Label.PlusTwosOf_" .. Player.fqn);
 
         if (PlusTwoLabel) then
-            PlusTwoLabel:SetText(GL.PlusTwos:getPlusTwos(normalizedName));
+            PlusTwoLabel:SetText(GL.PlusTwos:getPlusTwos(Player.fqn));
         else
             self:close();
             return self:draw();

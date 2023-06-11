@@ -171,6 +171,8 @@ function Award:draw(itemLink, callback)
         local winner = false;
 
         local award = function ()
+            winner = GL:addRealm(winner);
+
             local isOS, addPlusOne = false;
             local boostedRollCost = nil;
             local GDKPPrice = nil;
@@ -235,7 +237,7 @@ function Award:draw(itemLink, callback)
 
             if (GL:empty(winner)) then
                 -- Show a confirmation dialog asking whether we should award this to a random person
-                return GL.Interface.Dialogs.PopupDialog:open({
+                return GL.Interface.Dialogs.PopupDialog:open{
                     question = string.format("Do you want to award %s to a random player?", itemLink),
                     OnYes = function ()
                         local GroupMembers = GL.User:groupMembers();
@@ -251,21 +253,21 @@ function Award:draw(itemLink, callback)
                         GL:sendChatMessage(string.format("Random winner for %s selected (%s)", itemLink, winner), "GROUP");
                         award();
                     end,
-                });
+                };
             end
         else
             winner = selected.cols[1].value;
         end
 
         -- Make sure the initiator has to confirm his choices
-        GL.Interface.Dialogs.AwardDialog:open({
+        GL.Interface.Dialogs.AwardDialog:open{
             question = string.format("Award %s to |cff%s%s|r?",
-                    itemLink,
-                    GL:classHexColor(GL.Player:classByName(winner)),
-                    winner
+                itemLink,
+                GL:classHexColor(GL.Player:classByName(winner)),
+                winner
             ),
             OnYes = award,
-        });
+        };
     end);
     FirstRow:AddChild(AwardButton);
     GL.Interface:set(self, "Award", AwardButton);
@@ -317,7 +319,7 @@ function Award:draw(itemLink, callback)
     DisenchantButton:SetHeight(20);
     DisenchantButton:SetDisabled(false);
     DisenchantButton:SetCallback("OnClick", function()
-        local itemLink = GL.Interface:get(self, "EditBox.Item"):GetText();
+        itemLink = GL.Interface:get(self, "EditBox.Item"):GetText();
 
         if (GL.PackMule.disenchanter) then
             GL.PackMule:disenchant(itemLink);
@@ -339,20 +341,20 @@ function Award:draw(itemLink, callback)
         local disenchanter = selected.cols[1].value;
 
         -- No disenchanter was set yet
-        GL.Interface.Dialogs.PopupDialog:open({
-            question = string.format("Set |cff%s%s|r as your disenchanter?",
-                    GL:classHexColor(GL.Player:classByName(disenchanter)),
+        GL.Interface.Dialogs.PopupDialog:open{
+            question = string.format("Set %s as your disenchanter?",
+                    GL:nameFormat{ name = disenchanter, colorize = true },
                     disenchanter
             ),
             OnYes = function ()
-                GL.PackMule.disenchanter = disenchanter;
+                GL.PackMule:setDisenchanter(disenchanter);
                 GL.PackMule:disenchant(itemLink, true);
 
                 if (Settings:get("UI.Award.closeOnAward", true)) then
                     self:close();
                 end
             end,
-        });
+        };
     end);
     FirstRow:AddChild(DisenchantButton);
     GL.Interface:set(self, "Disenchant", DisenchantButton);
@@ -485,7 +487,7 @@ function Award:drawPlayersTable()
     Table.frame:SetPoint("BOTTOM", Parent, "BOTTOM", 0, 46);
     GL.Interface:set(self, "Players", Table);
 
-    Table:RegisterEvents({
+    Table:RegisterEvents{
         OnClick = function (_, _, data, _, _, realrow)
             -- Make sure something is actually selected, better safe than lua error
             if (not GL:higherThanZero(realrow)
@@ -504,7 +506,7 @@ function Award:drawPlayersTable()
                 EditBox:SetText(GL:capitalize(selectedPlayer));
             end
         end
-    });
+    };
 
     Award:populatePlayersTable();
 end
@@ -532,7 +534,7 @@ function Award:topPrioForItem(itemID)
         end
 
         if (lastPlayerName
-                and not moreThanOnePersonReservedThisItem
+            and not moreThanOnePersonReservedThisItem
         ) then
             return lastPlayerName;
         end
@@ -576,8 +578,9 @@ function Award:topPrioForItem(itemID)
 
     -- Return a sanitized name variant to ensure proper name matching
     local sanitizePlayerName = function(name)
-        name = string.lower(GL:stripRealm(name));
-        return name:gsub("%(os%)", "");
+        name = name:gsub("%(os%)", "");
+        name = string.lower(GL:disambiguateName(name));
+        return name;
     end;
 
     -- There are wish list entries available, use them
@@ -625,18 +628,16 @@ function Award:populatePlayersTable(itemID)
     local TableData = {};
     local row = 1;
     for _, Player in pairs(GL.User:groupMembers()) do
-        local name = Player.name;
-
         tinsert(TableData, {
             cols = {
                 {
-                    value = name,
+                    value = GL:nameFormat(Player.fqn),
                     color = GL:classRGBAColor(Player.class),
                 },
             },
         });
 
-        if (topPrioForItem and topPrioForItem == string.lower(GL:stripRealm(name))) then
+        if (topPrioForItem and topPrioForItem == string.lower(Player.name)) then
             PlayersTable:SetSelection(row);
             local EditBox = GL.Interface:get(self, "EditBox.PlayerName");
 

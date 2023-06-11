@@ -1,8 +1,8 @@
 ## Interface: 30401
-## Title: Dah Boo Customized Gargul |c00967FD2v5.5.0|r
+## Title: Dah Boo Customized Gargul |c00967FD2v6.0.5|r
 ## Author: Bhahl - Auberdine
 ## Notes: Loot addon that supports GDKP, softres sr, thatsmybis tmb, auto looting, plus one tracking and much more
-## Version: 5.5.0
+## Version: 6.0.5
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
 
@@ -112,6 +112,8 @@ Interface/GDKP/Distribute/EditMutator.lua
 Interface/GDKP/Distribute/AddRaider.lua
 Interface/GDKP/Distribute/EditRaider.lua
 Interface/GDKP/Distribute/MailCuts.lua
+Interface/GDKP/GoldTrades/Overview.lua
+Interface/GDKP/GoldTrades/Create.lua
 Interface/GDKP/CreateSession.lua
 Interface/GDKP/EditSession.lua
 Interface/GDKP/AddGold.lua
