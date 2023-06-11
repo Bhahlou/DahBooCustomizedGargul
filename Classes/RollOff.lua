@@ -776,11 +776,13 @@ function RollOff:processRoll(message)
                 --- Check whether the raid groups should be used as priority sorting useAsSortCriteria
                 if (GL.Settings:get("TMBRaidGroups.useAsSortCriteria")) then
                     local normalizedPlayerName = string.lower(rollerName);
+                    GL:debug("normalizedPlayerName : "..normalizedPlayerName);
                     -- Find player raid group
-                    local playerRaidGroup = GL.DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName,"");
+                    local _, playerRaidGroup = GL.TMB:groupByPlayerName(normalizedPlayerName)
+                    --local playerRaidGroup = GL.DB:get("TMBRaidGroups.RaidGroups."..normalizedPlayerName,"");
                     GL:debug("TMBRaidGroup : "..playerRaidGroup);
                     if (playerRaidGroup == "") then
-                        GL:error(string.format("%s ne fait pas partie d'un groupe de raid",rollerName));
+                        GL:error(string.format("%s is not part of a raid group",rollerName));
                     else
                         local rollPriority = GL.Settings:get("RaidGroupSorting."..RollType[1]..playerRaidGroup..".SortingPriority","")
                         GL:debug(string.format("Roll priority for '%s' : in raid group '%s' is '%s'",RollType[1],playerRaidGroup,rollPriority));

@@ -19,11 +19,6 @@ function RaidGroups:draw(Parent)
             label = "Utiliser les groupes de raid comme critère de priorité dans les rolls",
             description = "En cochant ceci, vous pouvez utilier les groupes de raid comme un critère supplémentaire de tri dans la priorité des rolls",
             setting = "TMBRaidGroups.useAsSortCriteria",
-        },
-        {
-            label = "Partager les groupes de raid",
-            description = "Partage automatiquement les groupes de raid lorsque quelqu'un rejoint votre groupe ou lorsque vous les importez",
-            setting = "TMBRaidGroups.broadcastRaidGroups"
         }
     };
     
@@ -62,14 +57,6 @@ function RaidGroups:draw(Parent)
         GL.Interface:set(GL.Settings, Entry.setting, Checkbox);
         Parent:AddChild(Checkbox);
     end
-
-    local ImportTMBRaidGroups = GL.AceGUI:Create("Button");
-    ImportTMBRaidGroups:SetText("Import des groupes de raid");
-    ImportTMBRaidGroups:SetCallback("OnClick", function()
-        -- GL.Settings:close();
-        GL.Commands:call("tmbRaidGroupImport");
-    end);
-    Parent:AddChild(ImportTMBRaidGroups);
 
     local SaveRaidGroupSorting = GL.AceGUI:Create("Button");
     SaveRaidGroupSorting:SetText("Sauvegarder tri par groupe de raid");
@@ -132,9 +119,9 @@ function RaidGroups:refreshPrioritySettings(Parent)
     local rollBracketCounter = GL:count(GL.Settings:get("RollTracking.Brackets"));
 
     if (useAsSortCriteria) then
-        if (GL:count(GL.DB:get("TMBRaidGroups.RaidGroups")) == 0) then
+        if (GL:count(GL.DB:get("TMB.RaidGroups")) == 0) then
             -- No Raid group imported
-            currentText = "Aucun groupe de raid n'a été importé";
+            currentText = "No raid group has been recovered from TMB"
             currentStatusMessage:SetText(currentText);
             return;
         end
@@ -148,11 +135,8 @@ function RaidGroups:refreshPrioritySettings(Parent)
 
         local raidGroups = {};
 
-        for player, raidGroup in pairs(GL.DB:get("TMBRaidGroups.RaidGroups")) do
-            
-            if raidGroups[raidGroup] == nil then
-                raidGroups[raidGroup] = true;
-            end
+        for id, raidGroup in pairs(GL.DB:get("TMB.RaidGroups")) do
+            raidGroups[raidGroup] = id
         end
 
         local lineToDraw = rollBracketCounter * GL:count(raidGroups);
@@ -201,17 +185,17 @@ function RaidGroups:refreshPrioritySettings(Parent)
 
                 if (j == 1) then
                     Identifier:SetLabel(string.format(
-                        "|cff%sIdentifieur|r",
+                        "|cff%sIdentifier|r",
                         GL:classHexColor("rogue")
                     ));
         
                     RaidGroup:SetLabel(string.format(
-                        "|cff%sGroupe de raid|r",
+                        "|cff%sRaid group|r",
                         GL:classHexColor("rogue")
                     ));
                 
                     SortingPriority:SetLabel(string.format(
-                        "|cff%sPriorité (tri)|r",
+                        "|cff%sPriority (sorting)|r",
                         GL:classHexColor("rogue")
                     ));
                 end
