@@ -182,7 +182,7 @@ function Award:draw(itemLink, callback)
                 isOS = GL:toboolean(OSCheckBox:GetValue());
 
                 if (isOS) then
-                    GL.PlusTwos:add(winner);
+                    GL.PlusTwos:addPlusTwos(winner);
                 end
             end
 
