@@ -17,11 +17,10 @@ GL.DB = {
         "MinimapButton",
         "PlusOnes",
         "PlusTwos",
+        "RecentlyAwardedItems",
         "Settings",
         "SoftRes",
         "TMB",
-        "TMBRaidGroups",
-        "TradeTime",
         "Utility",
     },
 };

@@ -29,7 +29,6 @@ GL.Interface.Settings.Overview = {
         {"|c00a79effADVANCED|r", "Advanced"},
         {"Master Looting", "MasterLooting"},
         {"    Roll Tracking", "RollTracking"},
-        {"    Raid groups", "RaidGroups"},
         {"    Awarding Loot", "AwardingLoot"},
         {"Shortcut Keys", "ShortcutKeys"},
         {"Trade Announcements", "TradeAnnouncements"},

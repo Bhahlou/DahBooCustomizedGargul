@@ -12,6 +12,17 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "6.1.0",
+            date = "June 18th, 2023",
+            Changes = {
+[[With this version come all new trade timer bars:
+* Awarded / disenchanted to self is marked properly
+* Settings to filter out items based on status or time remaining
+* Bars can be resized / rescaled as desired]],
+                "An all new broadcast feature to let people know what items you still have on you is also included",
+            },
+        },
+        {
             version = "6.0.4",
             date = "June 4th, 2023",
             Changes = {
@@ -196,32 +207,6 @@ GL.Interface.Changelog = {
             },
         },
         {
-            version = "4.9.3",
-            date = "26 Octobre 2022",
-            Changes = {
-                "Les données de +1 et +2 sont maintenant partagées avec le groupe ",
-                "Les groupes de raid peuvent maintenant être partagés automatiquement avec le groupe",
-            },
-        },
-        {
-
-            version = "4.9.2",
-            date = "15 Octobre 2022",
-            Changes = {
-                "Les +2 sont maintenant stockés en base de données comme les +1. Tapez |c00a79eff/dbcgl +2|r pour afficher les valeurs du groupe.",
-                "Une colonne +2 a été ajoutée dans l'interface du ML pour lui faciliter l'attribution des loots.",
-                "Le tooltip des loots obtenus les 8 dernières heures affiche maintenant si c'était en +1 ou +2."
-            }
-        },
-        {
-            version = "4.9.1",
-            date = "14 Octobre 2022",
-            Changes = {
-                "Récupération des fonctionnalités de la v4.9.0 standard de Gargul",
-                "Correction d'une erreur LUA au changement de valeur de la coche |c00a79effUtiliser les groupes de raid comme critère de priorité dans les rolls|r ",
-            },
-        },
-        {
             version = "4.9.0",
             date = "October 10th, 2022",
             Changes = {
@@ -403,7 +388,7 @@ function Changelog:draw()
 
     -- Create a container/parent frame
     local Window = AceGUI:Create("Frame");
-    Window:SetTitle("Dah Boo Customized Gargul v" .. GL.version);
+    Window:SetTitle("Gargul v" .. GL.version);
     Window:SetLayout("Flow");
     Window:SetWidth(400);
     Window:SetHeight(500);
@@ -426,7 +411,7 @@ function Changelog:draw()
         local SantaHat = GL.AceGUI:Create("Icon");
         SantaHat:SetWidth(83);
         SantaHat:SetHeight(81);
-        SantaHat:SetImage("Interface/AddOns/DahBooCustomizedGargul/Assets/Icons/santa_hat");
+        SantaHat:SetImage("Interface/AddOns/Gargul/Assets/Icons/santa_hat");
         SantaHat.frame:SetParent(Window.frame);
         SantaHat.frame:SetPoint("TOPLEFT", Window.frame, "TOPLEFT", -26, 36);
         SantaHat.frame:Show();
