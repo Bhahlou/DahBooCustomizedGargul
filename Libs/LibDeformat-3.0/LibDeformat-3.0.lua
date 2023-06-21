@@ -267,6 +267,6 @@ function LibDeformat.Test()
     test("Hello, friend", "Cost: $%d", nil)
     print("LibDeformat-3.0: Tests completed.")
 end
---@end-debug@]===]
+--@end-debug@]==]]===]
 
 setmetatable(LibDeformat, { __call = function(self, ...) return self.Deformat(...) end })
