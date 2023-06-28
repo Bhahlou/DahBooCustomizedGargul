@@ -360,6 +360,8 @@ function GL:dump(mixed)
 end
 
 local lastClickTime;
+--- Only call this function directly if you need the callback functionality, in all other cases use
+--- the native HandleModifiedItemClick method instead so that you also have support for linking items to chat for example
 ---@param itemLink string
 ---@param mouseButtonPressed string|nil
 ---@param callback function|nil Some actions (like award) support a callback
@@ -1037,9 +1039,13 @@ function GL:count(var)
     return 0;
 end
 
+--- Use `return false;` in your func if you want to break the loop early
 ---@param func function
 ---@return void
 function GL:forEachItemInBags(func)
+     -- Used to break out of our double loop
+     local finished = false;
+
     -- Dragon Flight introduced an extra bag slot
     local numberOfBagsToCheck = self.clientIsDragonFlightOrLater and 5 or 4;
 
@@ -1053,8 +1059,16 @@ function GL:forEachItemInBags(func)
                     return;
                 end
 
-                func(Location, bag, slot);
+                finished = func(Location, bag, slot) == false;
             end)();
+            
+            if (finished) then
+                break;
+            end
+        end
+
+        if (finished) then
+            return;
         end
     end
 end
@@ -1431,6 +1445,25 @@ function GL:itemTradeTimeRemaining(itemLinkOrID)
     return Results;
 end
 
+---@param itemGUID string
+---@return boolean,boolean|number,number
+function GL:getBagAndSlotByGUID(itemGUID)
+    local itemBag = false;
+    local itemSlot = false;
+
+    self:forEachItemInBags(function(Location, bag, slot)
+        -- This is not the item we're looking for
+        if (C_Item.GetItemGUID(Location) ~= itemGUID) then
+            return;
+        end
+
+        itemBag, itemSlot = bag, slot;
+        return false;
+    end);
+
+    return itemBag, itemSlot;
+end
+
 --- Check how much time to trade is remaining on the given item in our bags
 ---
 ---@param bag number
@@ -1566,6 +1599,95 @@ function GL:highlightItem(Item, itemLink, Details)
     );
 end
 
+---@return void
+function GL:bugReport()
+    local AddonData = {};
+    for i = 1, GetNumAddOns() do
+        local name = GetAddOnInfo(i);
+        local version = GetAddOnMetadata(i, "Version");
+        local loaded = GetAddOnEnableState(GL.User.name, name) == 2;
+
+        AddonData[name] = { version, loaded };
+    end
+
+    local oldestTimestamp = (function ()
+        local now = GetServerTime();
+        local oldest = now;
+
+        local brUpdatedAt = GL.DB:get("BoostedRolls.MetaData.updatedAt", now);
+        local brImportedAt = GL.DB:get("BoostedRolls.MetaData.importedAt", now);
+        local poUpdatedAt = GL.DB:get("PlusOnes.MetaData.updatedAt", now);
+        local srImportedAt = GL.DB:get("SoftRes.MetaData.importedAt", now);
+        local tmbImportedAt = GL.DB:get("TMB.MetaData.importedAt", now);
+
+        oldest = brUpdatedAt < oldest and brUpdatedAt or oldest;
+        oldest = brImportedAt < oldest and brImportedAt or oldest;
+        oldest = poUpdatedAt < oldest and poUpdatedAt or oldest;
+        oldest = srImportedAt < oldest and srImportedAt or oldest;
+        oldest = tmbImportedAt < oldest and tmbImportedAt or oldest;
+
+        -- Awarded items and rolls
+        for _, Details in pairs(GL.DB:get("AwardHistory") or {}) do
+            for _, Roll in pairs(Details.Rolls or {}) do
+                if (Roll.time and Roll.time < oldest) then
+                    oldest = Roll.time;
+                end
+            end
+
+            if (Details.timestamp < oldest) then
+                oldest = Details.timestamp;
+            end
+        end
+
+        -- GDKP Session, auctions, states and gold
+        for _, Session in pairs(GL.DB:get("GDKP.Ledger") or {}) do
+            for _, Auction in pairs(Session.Auctions or {}) do
+                if (Auction.createdAt and Auction.createdAt < oldest) then
+                    oldest = Auction.createdAt;
+                end
+
+                for _, State in pairs(Auction.PreviousStates or {}) do
+                    if (State.createdAt and State.createdAt < oldest) then
+                        oldest = State.createdAt;
+                    end
+                end
+            end
+
+            for _, Player in pairs(Session.GoldLedger or {}) do
+                for _, Details in pairs(Player or {}) do
+                    if (Details.createdAt and Details.createdAt < oldest) then
+                        oldest = Details.createdAt;
+                    end
+                end
+            end
+
+            if (Session.createdAt < oldest) then
+                oldest = Session.createdAt;
+            end
+        end
+
+        return oldest;
+    end)();
+
+    local Payload = {
+        AddonData = AddonData,
+        LoadDetails = GL.DB.LoadDetails,
+        ScriptErrors = C_CVar.GetCVar("scriptErrors"),
+        dataSince = oldestTimestamp,
+        guid = GL.User.id,
+        name = GL.User.name,
+        realm = GL.User.realm,
+    };
+
+    local LibDeflate = LibStub:GetLibrary("LibDeflate");
+    local zlibEncodeSucceeded;
+    local data = GL.JSON:encode(Payload);
+    zlibEncodeSucceeded, data = pcall(function () return LibDeflate:CompressZlib(data); end);
+    data = GL.Base64.encode(data);
+
+    self:frameMessage(data);
+end
+
 --- Check whether a user can use the given item ID or link (callback required)
 ---
 ---@param itemLinkOrID string|number
@@ -1637,7 +1759,7 @@ end
 ---@param bag number
 ---@param slot number
 ---@return boolean|string
-function GL:getItemGUID(bag, slot)
+function GL:getItemGUIDByBagAndSlot(bag, slot)
     local Location = ItemLocation:CreateFromBagAndSlot(bag, slot);
 
     -- Item doesn't exist
@@ -1788,8 +1910,9 @@ end
 --- Some items have items linked to them. Example: t4 tokens have their quest reward counterpart linked to them.
 ---
 ---@param itemID number
+---@param linkNormalAndHardModeItems boolean
 ---@return table
-function GL:getLinkedItemsForID(itemID)
+function GL:getLinkedItemsForID(itemID, linkNormalAndHardModeItems)
     -- An invalid item id was provided
     itemID = tonumber(itemID);
     if (not GL:higherThanZero(itemID)) then
@@ -1806,7 +1929,9 @@ function GL:getLinkedItemsForID(itemID)
         i = i + 1;
     end
 
-    if (GL.Settings:get("MasterLooting.linkNormalAndHardModeItems")) then
+    if (linkNormalAndHardModeItems
+        or GL.Settings:get("MasterLooting.linkNormalAndHardModeItems")
+    ) then
         for _, id in pairs(GL.Data.NormalModeHardModeLinks[itemID] or {}) do
             AllLinkedItemIDs[id] = i;
             i = i + 1;

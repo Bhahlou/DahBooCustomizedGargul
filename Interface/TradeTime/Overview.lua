@@ -5,6 +5,9 @@ local CandyBar = LibStub("LibCandyBarGargul-3.0");
 local _, GL = ...;
 GL.Interface.TradeTime = GL.Interface and GL.Interface.TradeTime or {};
 
+---@type Constants
+local Constants = GL.Data.Constants;
+
 ---@type DB
 local DB = GL.DB;
 
@@ -16,6 +19,12 @@ local Events = GL.Events;
 
 ---@type TradeTime
 local TradeTime = GL.TradeTime;
+
+---@type SoftRes
+local SoftRes = GL.SoftRes;
+
+---@type TMB
+local TMB = GL.TMB;
 
 ---@type Interface
 local Interface = GL.Interface;
@@ -37,10 +46,14 @@ GL.Interface.TradeTime.Overview = {
 ---@type TradeTimeOverviewInterface
 local Overview = GL.Interface.TradeTime.Overview;
 
---[[ CONSTANTS ]]
+--[[ LOCALS ]]
 local FONT;
 local HEADER_HEIGHT = 20 + GL:remOffset();
 local ROW_HEIGHT = 16 + GL:remOffset();
+local HIDE_AWARDED = false;
+local HIDE_AWARDED_TO_SELF = false;
+local HIDE_DISENCHANTED = false;
+local MAXIMUM_TRADE_TIME_LEFT = 7200; -- Two hours in seconds
 
 ---@return void
 function Overview:_init()
@@ -51,10 +64,14 @@ function Overview:_init()
     self._initialized = true;
     FONT = GL.FONT;
 
-    -- We override a lot of settings on boot
-    -- so wait a couple seconds to not overload :refresh()
+     -- We fetch these values once on boot in order to increase performance
+     HIDE_AWARDED = Settings:get("LootTradeTimers.hideAwarded");
+     HIDE_AWARDED_TO_SELF = Settings:get("LootTradeTimers.hideAwardedToSelf");
+     HIDE_DISENCHANTED = Settings:get("LootTradeTimers.hideDisenchanted");
+     MAXIMUM_TRADE_TIME_LEFT = Settings:get("LootTradeTimers.maximumTradeTimeLeft") * 60;
+
+
     Events:register({
-        "GL.SETTING_CHANGED",
         "GL.USER_LOST_MASTER_LOOTER",
         "GL.USER_OBTAINED_MASTER_LOOTER",
     }, function (_)
@@ -71,11 +88,30 @@ function Overview:_init()
         self:refresh();
     end);
 
-    -- Refresh every 10 seconds so that we can dynamically show/hide items that
-    -- don't meet the user's maximumTradeTimeLeft setting
-    GL:after(10, "TradeTimeOverviewRefreshInterval", function ()
+    -- Refresh every 60 seconds so that we can dynamically show
+    -- items that meet the user's maximumTradeTimeLeft setting
+    GL:after(60, "TradeTimeOverviewRefreshInterval", function ()
         GL:interval(10, "TradeTimeOverviewRefreshInterval", function ()
             self:refresh();
+        end);
+    end);
+
+    -- Make sure to update setting values whenever the user changes a relevant setting
+    GL:after(2, "TradeTimeOverviewSettingChangeTimer", function ()
+        Settings:onChange("LootTradeTimers.hideAwarded", function ()
+            HIDE_AWARDED = Settings:get("LootTradeTimers.hideAwarded");
+        end);
+
+        Settings:onChange("LootTradeTimers.hideAwardedToSelf", function ()
+            HIDE_AWARDED_TO_SELF = Settings:get("LootTradeTimers.hideAwardedToSelf");
+        end);
+
+        Settings:onChange("LootTradeTimers.hideDisenchanted", function ()
+            HIDE_DISENCHANTED = Settings:get("LootTradeTimers.hideDisenchanted");
+        end);
+
+        Settings:onChange("LootTradeTimers.maximumTradeTimeLeft", function ()
+            MAXIMUM_TRADE_TIME_LEFT = Settings:get("LootTradeTimers.maximumTradeTimeLeft") * 60;
         end);
     end);
 end
@@ -93,17 +129,7 @@ end
 function Overview:close()
     for key, Row in pairs(self.ItemRows) do
         if (Row) then
-            -- Simply calling Bar:Stop() causes too many problems, resorted to duration of 1s instead
-            pcall(function()
-                local CountDownBar = Row.CountDownBar;
-                if (CountDownBar
-                    and CountDownBar:Get("type") == "TRADE_TIME_LEFT"
-                ) then
-                    Row.CountDownBar:SetDuration(1);
-                end
-            end);
-
-            Interface:release(Row);
+            self:releaseItemRow(Row);
             Row = nil;
             self.ItemRows[key] = nil;
         end
@@ -345,7 +371,8 @@ function Overview:refresh()
     -- or the player opted to not show the item on the list
     for itemGUID, Row in pairs(self.ItemRows or {}) do
         if (not State[itemGUID] or self.HiddenItems[itemGUID]) then
-            Interface:release(Row);
+            self:releaseItemRow(Row);
+            Row = nil;
             self.ItemRows[itemGUID] = nil;
         end
     end
@@ -354,16 +381,12 @@ function Overview:refresh()
     local ActionButtons = Window.ActionButtons;
 
     -- Add newly acquired items to the list
-    local hideAwarded = Settings:get("LootTradeTimers.hideAwarded");
-    local hideAwardedToSelf = Settings:get("LootTradeTimers.hideAwardedToSelf");
-    local hideDisenchanted = Settings:get("LootTradeTimers.hideDisenchanted");
-    local maximumTradeTimeLeftInSeconds = Settings:get("LootTradeTimers.maximumTradeTimeLeft") * 60;
     for itemGUID, Details in pairs(State) do
         local AwardDetails = DB:get("RecentlyAwardedItems." .. Details.itemGUID);
         local disenchanted = AwardDetails and AwardDetails.awardedTo == GL.Exporter.disenchantedItemIdentifier;
         local awarded = not disenchanted and not not AwardDetails;
         local awardedToSelf = awarded and not disenchanted and GL:iEquals(AwardDetails.awardedTo, GL.User.fqn);
-        local itemIsTooNew = Details.secondsRemaining > maximumTradeTimeLeftInSeconds;
+        local itemIsTooNew = Details.secondsRemaining > MAXIMUM_TRADE_TIME_LEFT;
 
         if (not self.ItemRows[itemGUID]
             and not self.HiddenItems[itemGUID]
@@ -375,13 +398,14 @@ function Overview:refresh()
 
         if (self.ItemRows[itemGUID] and (
             itemIsTooNew
-            or (awarded and hideAwarded)
-            or (awardedToSelf and hideAwardedToSelf)
-            or (disenchanted and hideDisenchanted)
+            or (awarded and HIDE_AWARDED)
+            or (awardedToSelf and HIDE_AWARDED_TO_SELF)
+            or (disenchanted and HIDE_DISENCHANTED)
         )) then
-            self.ItemRows[itemGUID]:Hide();
-            Interface:release(self.ItemRows[itemGUID]);
+            local Row = self.ItemRows[itemGUID];
+            self:releaseItemRow(Row);
             self.ItemRows[itemGUID] = nil;
+            Row = nil;
         end
     end
 
@@ -483,7 +507,20 @@ function Overview:buildItemRow(Details, Window, ActionButtons)
     CountDownBar:SetTimeVisibility(false);
 
     CountDownBar:SetScript("OnMouseUp", function (_, mouseButtonPressed)
-        GL:handleItemClick(Details.itemLink, mouseButtonPressed);
+        -- Allow selling an item from the trade timer bars by right clicking
+        if (mouseButtonPressed == "RightButton") then
+            if (GL.merchantIsShown) then
+                local bag, slot = GL:getBagAndSlotByGUID(Details.itemGUID);
+
+                if (bag) then
+                    GL:useContainerItem(bag, slot);
+                end
+            end
+
+            return;
+        end
+
+        HandleModifiedItemClick(Details.itemLink, mouseButtonPressed);
     end);
 
     ItemRow.updateIcon = function ()
@@ -541,11 +578,53 @@ function Overview:buildItemRow(Details, Window, ActionButtons)
         end);
     end);
 
+    local itemIsHardReserved, itemIsSoftReserved, itemIsWishListed, itemIsPrioritized;
+    local updateReservationDetails = function()
+        -- Check if this item is reserved
+        itemIsHardReserved = SoftRes:linkIsHardReserved(Details.itemLink);
+        itemIsSoftReserved = not itemIsHardReserved and SoftRes:linkIsReserved(Details.itemLink);
+
+        -- Check if this item is on TMB
+        itemIsWishListed, itemIsPrioritized = false, false;
+        local TMBInfo = GL.TMB:byItemLink(Details.itemLink) or {};
+        for _, Entry in pairs(TMBInfo or {}) do
+            itemIsWishListed = true;
+
+            if (Entry.type == Constants.tmbTypePrio) then
+                itemIsPrioritized = true;
+                break;
+            end
+        end
+        itemIsWishListed = not itemIsPrioritized and itemIsWishListed;
+    end
+
+    Events:register({
+        { "TradeTimeOverviewSoftresImported" .. Details.itemGUID, "GL.SOFTRES_IMPORTED" },
+        { "TradeTimeOverviewSoftresCleared" .. Details.itemGUID, "GL.SOFTRES_CLEARED" },
+        { "TradeTimeOverviewTMBImported" .. Details.itemGUID, "GL.TMB_IMPORTED" },
+        { "TradeTimeOverviewTMBCleared" .. Details.itemGUID, "GL.TMB_CLEARED" },
+    }, updateReservationDetails);
+    updateReservationDetails();
+
     -- Make the bar turn green/yellow/red based on time left
     CountDownBar:AddUpdateFunction(function (Bar)
+        if (CountDownBar.remaining > MAXIMUM_TRADE_TIME_LEFT) then
+            self:releaseItemRow(self.ItemRows[Details.itemGUID]);
+
+            return;
+        end
+        
         local percentageLeft = (CountDownBar.remaining / 7200) * 100;
 
-        if (ItemRow.awarded or ItemRow.disenchanted) then
+        if (itemIsHardReserved) then
+            Bar:SetColor(.77, .12, .23, 1);
+        elseif (itemIsSoftReserved) then
+            Bar:SetColor(.95686, .5490, .72941, 1);
+        elseif (itemIsPrioritized) then
+            Bar:SetColor(1, .48627, .0392, 1);
+        elseif (itemIsWishListed) then
+            Bar:SetColor(1, 1, 1, 1);
+        elseif (ItemRow.awarded or ItemRow.disenchanted) then
             Bar:SetColor(0, 0, 0, .6);
         elseif (percentageLeft >= 60) then
             Bar:SetColor(0, 1, 0, .3);
@@ -557,11 +636,17 @@ function Overview:buildItemRow(Details, Window, ActionButtons)
     end);
 
     CandyBar.RegisterCallback(GL.Ace, "LibCandyBar_Stop", function (_, Bar)
-        if (Bar and Bar.Get and Bar:Get("type") == "TRADE_TIME_LEFT") then
+        if (Bar
+            and Bar.Get
+            and Bar:Get("type") == "TRADE_TIME_LEFT"
+            and not Bar:Get("stopping")
+        ) then
             local itemGUID = Bar:Get("itemGUID");
 
-            if (not GL:empty(itemGUID)) then
-                self:hideItemRow(itemGUID);
+            if (type(itemGUID) == "string"
+                and not GL:empty(itemGUID)
+            ) then
+                self:hideItemRow(itemGUID, false);
             end
         end
     end);
@@ -578,4 +663,30 @@ function Overview:hideItemRow(itemGUID)
     self.HiddenItems[itemGUID] = true;
 
     self:refresh();
+end
+
+--- Release an ItemRow (aka remove it, hide it, take care of the countdown bar it holds)
+---
+---@param ItemRow Frame
+---@return void
+function Overview:releaseItemRow(ItemRow)
+    if (type(ItemRow) ~= "table") then
+        return;
+    end
+
+    local CountDownBar = ItemRow.CountDownBar;
+    if (type(CountDownBar) == "table"
+        and CountDownBar.Get
+        and CountDownBar:Get("type") == "TRADE_TIME_LEFT"
+        and not CountDownBar:Get("stopping")
+    ) then
+        CountDownBar:SetParent(UIParent);
+        CountDownBar:Set("stopping", true);
+
+        if (CountDownBar.running) then
+            CountDownBar:Stop();
+        end
+    end
+
+    Interface:release(ItemRow);
 end

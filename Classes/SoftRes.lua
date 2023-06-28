@@ -600,7 +600,7 @@ function SoftRes:byItemID(itemID, inRaidOnly)
     end
 
     -- The item linked to this id can have multiple IDs (head of Onyxia for example)
-    local AllLinkedItemIDs = GL:getLinkedItemsForID(itemID);
+    local AllLinkedItemIDs = GL:getLinkedItemsForID(itemID, true);
 
     local GroupMemberNames = {};
     if (inRaidOnly) then
@@ -920,6 +920,8 @@ function SoftRes:importLootReserveData(Reserves)
 
     -- Materialize the data for ease of use
     self:materializeData();
+
+    GL.Events:fire("GL.SOFTRES_IMPORTED");
 end
 
 --- Import a Gargul data string
@@ -1066,10 +1068,8 @@ function SoftRes:importGargulData(data)
 
             -- We don't simply overwrite the PlusOnes if plusone data is already present
             -- If the player doesn't have any plusones yet then we set it to whatever is provided by softres
-            if (GL:isCrossRealm()
-                or (GL:higherThanZero(currentPlusOneValue)
-                    and currentPlusOneValue ~= plusOnes
-                )
+            if (GL:higherThanZero(currentPlusOneValue)
+                and currentPlusOneValue ~= plusOnes   
             ) then
                 differentPlusOnes = true;
             else
@@ -1102,16 +1102,7 @@ function SoftRes:importGargulData(data)
     DB.SoftRes.HardReserves = HardReserveEntries;
 
     -- At this point in Era we don't really know anyone's plus one because SoftRes doesn't support realm tags (yet)
-    if (GL:isCrossRealm()) then
-        if (not GL:empty(DB:get("PlusOnes"))) then
-            GL.Interface.Dialogs.PopupDialog:open{
-                question = "Do you want to clear all previous PlusOne values?",
-                OnYes = function ()
-                    GL.PlusOnes:clearPlusOnes();
-                end,
-            };
-        end
-    elseif (differentPlusOnes) then
+    if (differentPlusOnes) then
         -- Show a confirmation dialog before overwriting the plusOnes
         GL.Interface.Dialogs.PopupDialog:open{
             question = "The PlusOne values provided collide with the ones already present. Do you want to replace your old PlusOne values?",
@@ -1183,10 +1174,8 @@ function SoftRes:importCSVData(data, reportStatus)
 
                 -- We don't simply overwrite the PlusOnes if plusone data is already present
                 -- If the player doesn't have any plusones yet then we set it to whatever is provided by softres
-                if (GL:isCrossRealm()
-                    or (GL:higherThanZero(currentPlusOneValue)
-                        and currentPlusOneValue ~= plusOnes
-                    )
+                if (GL:higherThanZero(currentPlusOneValue)
+                    or currentPlusOneValue ~= plusOnes
                 ) then
                     differentPlusOnes = true;
                 else
@@ -1223,17 +1212,7 @@ function SoftRes:importCSVData(data, reportStatus)
         DB:add("SoftRes.SoftReserves", Entry);
     end
 
-    -- At this point we don't really know anyone's plus one because SoftRes doesn't support realm tags (yet)
-    if (GL:isCrossRealm()) then
-        if (not GL:empty(DB:get("PlusOnes"))) then
-            GL.Interface.Dialogs.PopupDialog:open{
-                question = "Do you want to clear all previous PlusOne values?",
-                OnYes = function ()
-                    GL.PlusOnes:clearPlusOnes();
-                end,
-            };
-        end
-    elseif (differentPlusOnes) then
+    if (differentPlusOnes) then
         -- Show a confirmation dialog before overwriting the plusOnes
         GL.Interface.Dialogs.PopupDialog:open{
             question = "The PlusOne values provided collide with the ones already present. Do you want to replace your old PlusOne values?",

@@ -1,10 +1,10 @@
-## Interface: 100002
-## Interface-Wrath: 30401
+## Interface: 100105
+## Interface-Wrath: 30402
 ## Interface-Classic: 11403
 ## Title: Dah Boo Customized Gargul |c00967FD2@project-version@|r
 ## Author: Bhahl - Auberdine
 ## Notes: Loot addon that supports GDKP, softres sr, thatsmybis tmb, auto looting, plus one tracking and much more
-## Version: 6.1.1
+## Version: 6.1.6
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
 

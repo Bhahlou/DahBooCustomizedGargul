@@ -12,6 +12,26 @@ GL.Interface.Changelog = {
 
     History = {
         {
+            version = "6.1.6",
+            date = "June 26th, 2023",
+            Changes = {
+                "Items can now be sold directly from the trade timer bars. Right click them when at a vendor!",
+                "Trade timer bars will now be colorized when they are reserved or wishlisted",
+                "Greatly improved the performance of automated item trading",
+                "Soft-reserves will show up on both normal and heroic mode items (soft-reserve sheets show normal items only)",
+                "You can now link normal and heroic mode TotC items to one another for TMB and DFT. Check |c00a79eff/gl|r -> |c00a79effGeneral|r",
+                "Please include a bug report from now on when reporting bugs or odd behavior (|c00a79eff/gl bug|r)",
+            },
+        },
+        {
+            version = "6.1.2",
+            date = "June 21nd, 2023",
+            Changes = {
+                "Welcome, Trial of the Crusader! We've worked hard on making Gargul 3.4.2-ready, with notable changes to the Softres and TMB module, trade timer bars, auto trading and necessary item linking.",
+                "Happy looting, and as always: spot something fishy? Join our discord and be sure to report it!",
+            },
+        },
+        {
             version = "6.1.0",
             date = "June 18th, 2023",
             Changes = {
