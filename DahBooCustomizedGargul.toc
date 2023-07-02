@@ -4,7 +4,7 @@
 ## Title: Dah Boo Customized Gargul |c00967FD2@project-version@|r
 ## Author: Bhahl - Auberdine
 ## Notes: Loot addon that supports GDKP, softres sr, thatsmybis tmb, auto looting, plus one tracking and much more
-## Version: 6.1.7
+## Version: 6.1.8
 ## DefaultState: enabled
 ## SavedVariables: DahBooCustomizedGargulDB
 
