@@ -73,7 +73,8 @@ function Overview:build()
     end
 
     ---@type Frame
-    local Window = Interface:createWindow(self.windowName, {
+    local Window = Interface:createWindow{
+        name = self.windowName,
         width = DEFAULT_WINDOW_WIDTH,
         height = DEFAULT_WINDOW_HEIGHT,
         minWidth = 500,
@@ -81,7 +82,7 @@ function Overview:build()
         maxWidth = DEFAULT_WINDOW_WIDTH,
         maxHeight = 700,
         hideMinimizeButton = true,
-    });
+    };
 
     --[[ ADD THE SETTINGS MENU IN THE TOP LEFT OF THE WINDOW ]]
     Interface:addWindowOptions(Window, {
@@ -249,6 +250,7 @@ function Overview:build()
                 warning = "Are you sure you want to remove your complete reward history table? This deletes ALL loot data and cannot be undone!";
                 onConfirm = function()
                     DB:set("AwardHistory", {});
+                    GL.Events:fire("GL.ITEM_UNAWARDED");
 
                     self:open();
                 end;
@@ -266,6 +268,7 @@ function Overview:build()
                         if (SelectedDates[dateString]) then
                             AwardEntry = nil;
                             DB:set("AwardHistory." .. key, nil);
+                            GL.Events:fire("GL.ITEM_UNAWARDED");
                         end
                     end
 
@@ -301,10 +304,10 @@ function Overview:build()
 
     -- Make sure that the window is updated whenever an award changes
     GL.Events:register({
-        {"AwardHistoryItemAwardedListener", "GL.ITEM_AWARDED" },
-        {"AwardHistoryItemUnAwardedListener", "GL.ITEM_UNAWARDED" },
-        {"AwardHistoryItemEditedListener", "GL.ITEM_AWARD_EDITED" },
-        {"AwardHistoryItemEditedListener", "GL.ITEM_UNAWARDED" },
+        {"AwardOverviewItemAwardedListener", "GL.ITEM_AWARDED" },
+        {"AwardOverviewItemUnAwardedListener", "GL.ITEM_UNAWARDED" },
+        {"AwardOverviewItemEditedListener", "GL.ITEM_AWARD_EDITED" },
+        {"AwardOverviewItemEditedListener", "GL.ITEM_UNAWARDED" },
     }, function()
         GL.Ace:CancelTimer(self.RefreshTimer);
         self.RefreshTimer = GL.Ace:ScheduleTimer(function ()
@@ -558,7 +561,7 @@ function Overview:refreshItems()
 
                 --[[ MAKE AWARDING / DISENCHANTING ETC POSSIBLE ON CLICK ]]
                 ItemRow:SetScript("OnMouseUp", function (_, mouseButtonPressed)
-                    GL:handleItemClick(Item.link, mouseButtonPressed);
+                    HandleModifiedItemClick(Item.link, mouseButtonPressed);
                 end);
 
                 --[[ DETAILS TOOLTIP ]]
@@ -614,7 +617,6 @@ function Overview:refreshItems()
                     if (not GL:empty(Entry.Rolls)) then
                         local rollsPerPlayer = {};
 
-                        -- Sort the PrioListEntries based on prio (lowest to highest)
                         table.sort(Entry.Rolls, function (a, b)
                             if (a.time and b.time) then
                                 return a.time < b.time;

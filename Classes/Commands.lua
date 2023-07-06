@@ -12,6 +12,7 @@ GL.Commands = GL.Commands or {
         awardhistory = "Open the award history window which shows recently awarded items and their rolls",
         boostedrolls = "Open the Boosted Rolls UI that allows you to easily manage roll boosts.",
         buffs = "You can instantly check player buffs like Ony, ZG, but also protection consumables like shadow protection: /gl buffs 22888, 22818, 22817, 22820, 24425, 15366, 20079",
+        bugreport = "Include the output of this command when filing a bug report on the Gargul discord server",
         clearplusones = "Clear all plus one values",
         clearplustwos = "Clear all plus two values",
         cleardisenchanter = "Clear the disenchanter entry so you can pick a new one the next time around",
@@ -50,6 +51,7 @@ GL.Commands = GL.Commands or {
         boostedroll = "boostedrolls",
         br = "boostedrolls",
         bu = "buffs",
+        bug = "bugreport",
         cd = "cleardisenchanter",
         co = "settings",
         config = "settings",
@@ -126,6 +128,9 @@ GL.Commands = GL.Commands or {
         -- Open the boosted rolls window
         boostedrolls = function() GL.BoostedRolls:draw(); end,
 
+        -- Generate a bug report
+        bugreport = function() GL:bugReport(); end,
+
         -- Open the GDKP overview
         gdkp = function () GL.Interface.GDKP.Overview:open(); end,
 
@@ -175,9 +180,6 @@ GL.Commands = GL.Commands or {
 
         -- Open the TMB window
         thatsmybis = function() GL.TMB:draw(); end,
-
-        -- Open the TMB raid group import window
-        tmbraidgroupimport = function() GL.TMBRaidGroups:draw();end,
 
         -- Open the TMB window with DFT skin
         dft = function() GL.TMB:draw("dft"); end,

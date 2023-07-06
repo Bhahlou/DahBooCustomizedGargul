@@ -142,6 +142,15 @@ function MasterLooterUI:draw(itemLink)
                     GameTooltip:Hide();
                 end)
 
+                ItemIcon:SetCallback("OnClick", function (_, _, mouseButtonPressed)
+                    if (not MasterLooterUI.ItemBoxHoldsValidItem) then
+                        return;
+                    end
+
+                    local itemLink = ItemBox:GetText();
+                    HandleModifiedItemClick(itemLink, mouseButtonPressed);
+                end);
+
                 --[[
                     BUTTON PADDER
                     CONTAINER FOR PADDING PURPOSES ONLY
@@ -838,7 +847,7 @@ function MasterLooterUI:drawPlayersTable(parent)
                 roller = string.sub(roller, 1, openingBracketPosition - 1);
             end
 
-            local ItemsWonByRollerInTheLast8Hours = GL.AwardedLoot:byWinner(roller, GetServerTime() - (8 * 60 * 60)) or {};
+            local ItemsWonByRollerInTheLast8Hours = GL.AwardedLoot:byWinner(GL:addRealm(roller), GetServerTime() - (8 * 60 * 60)) or {};
             local wonItems = not GL:empty(ItemsWonByRollerInTheLast8Hours);
             local showPlayerGroups = GL:count(GL.DB:get("TMB.RaidGroups", {})) > 1
                 and GL.Settings:get("TMB.showRaidGroup");

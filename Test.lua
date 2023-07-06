@@ -5,6 +5,7 @@ local _, GL = ...;
 GL.Test = {
     Classes = {"druid","hunter","mage","paladin","priest","rogue","shaman","warlock","warrior","death knight",},
     Names = {"Aiyana","Callum","Virginia","Laylah","Isabell","Javon","Miley","Ian","Isai","Ahmad","Campbell","Bobby","Karter","Brooklynn","Asher","Maci","Gael","Jamal","Zion","Sarahi","Kierra","Perla","Rylie","Lorelei","John","Madeleine","Jadiel","Billy","Jazmin","Keon","Stephany","George","Malcolm","Brenden","Daphne","Dane","Derek","Marcel","Madilynn","Enrique","Cindy","Amir","Melvin","Anya","Ali","Rex","Lewis","Parker","Carl","Arnav","Kamari","Jessie","Madelynn","Heath","Haleigh","Madyson","Jorden","Amya","Elisa","Marques","Ana","Miracle","Abdiel","Dale","Sincere","Marin","Karina","Clay","Caden","Eve","Rubi","Zavier","Megan","Payton","Peyton","Emmett","Diego","Joaquin","German","Tania","Miguel","Malachi","Martin","Richard","Allison","Avah","Kamora","Deborah","Esperanza","Konnor","Isla","Tess","Keely","Margaret","Rory","Jake","Averie","Ally","Craig","Gage","Oswaldo","Kaitlynn","Ashley","Davian","Mauricio","Brandon","Aryana","Douglas","Kyan","Carsen","Mikaela","Regan","Theodore","Maximillian","Luke","Dixie","Makenna","Keagan","Mallory","America",},
+    TimeLeft = {},
     TradeState = {
         _initialized = false,
         Items = {},
@@ -27,7 +28,7 @@ function Test.TradeState:_init(callback)
     local ItemIDs = {};
 
     local ItemIDSources = {
-        GL.Data.Constants.ItemsThatSouldntBeAnnounced,
+        GL.Data.Constants.ItemsThatShouldntBeAnnounced,
         GL.Data.Constants.TradeableItems,
         GL.Data.Constants.UntradeableItems,
     };
@@ -39,8 +40,8 @@ function Test.TradeState:_init(callback)
     end
 
     -- Preload items
-    GL:onItemLoadDo(ItemIDs, function (ResultSet)
-        self.Items = ResultSet;
+    GL:onItemLoadDo(ItemIDs, function (Details)
+        self.Items = Details;
 
         if (callback and type(callback) == "function") then
             callback();
@@ -336,10 +337,10 @@ function Test.TradeState:iGaveGoldTheyTradedItems()
 end
 
 --[[ Show what happens if you gave and received items
-/script _G.Gargul.Test.TradeState:iTradedItemstheyTradedItems()
+/script _G.Gargul.Test.TradeState:iTradedItemsTheyTradedItems()
 ]]
-function Test.TradeState:iTradedItemstheyTradedItems()
-    GL:success("Running Test.TradeState:iTradedItemstheyTradedItems() ...");
+function Test.TradeState:iTradedItemsTheyTradedItems()
+    GL:success("Running Test.TradeState:iTradedItemsTheyTradedItems() ...");
 
     self:_init(function ()
         local State = self:defaultState();
@@ -481,6 +482,49 @@ function Test.PackMule:whoReceivesItem(itemID, lootMethod)
     end, 1);
 end
 
+--[[ Enable a random trade time remaining for a specific item
+You have to move an item around in your bags after executing this command
+
+Steam Tonk Controller and Hearthstone
+/script _G.Gargul.Test.TimeLeft:testItems(22728, 6948)
+]]
+function Test.TimeLeft:testItems(...)
+    local ItemIDs = {...};
+
+    for _, itemID in pairs(ItemIDs or {}) do
+        GL:tableAdd(GL.TradeTime, "TestItems", itemID, true);
+    end
+
+    GL.Events:fire("BAG_UPDATE_DELAYED");
+end
+
+--[[ Stop item testing
+/script _G.Gargul.Test.TimeLeft:stopItemTest()
+]]
+function Test.TimeLeft:stopItemTest()
+    GL:tableSet(GL.TradeTime, "TestItems", nil);
+end
+
+--[[ Test PackMule's RR functionality
+/script _G.Gargul.Test.PackMule:roundRobin()
+]]
+function Test.PackMule:roundRobin(itemID)
+    itemID = itemID == nil and 6948 or itemID;
+
+    local GroupMembers = GL.User:groupMembers();
+    local iterations = GL:count(GroupMembers) * 2;
+
+    local Rule = {
+        target = "RR",
+        item = itemID,
+    };
+
+    for _ = 1, iterations do
+        local target = GL.PackMule:roundRobinTargetForRule(Rule);
+        GL:xd(target);
+    end
+end
+
 --[[ Simulate being in an X-man group
 /script _G.Gargul.Test:simulateGroup(25)
 ]]
@@ -488,23 +532,20 @@ function Test:simulateGroup(numberOfPlayers, includeSelf, includeCurrentGroupMem
     local Players = {};
     numberOfPlayers = numberOfPlayers or 25;
 
-    if (includeSelf == nil) then
-        includeSelf = true;
-    end
-
-    if (includeCurrentGroupMembers == nil) then
-        includeCurrentGroupMembers = true;
-    end
+    includeSelf = includeSelf ~= false;
+    includeCurrentGroupMembers = includeCurrentGroupMembers ~= false;
 
     if (includeSelf and not includeCurrentGroupMembers) then
         numberOfPlayers = numberOfPlayers - 1;
         tinsert(Players, {
             name = GL.User.name,
+            realm = GL.User.realm,
+            fqn = GL.User.fqn,
             rank = 2,
             subgroup = 1,
             level = GL.User.level,
             class = string.lower(GL.User.class),
-            fileName = string.upper(GL.User.class),
+            classFile = GL.User.classFile,
             zone = "Development Land",
             online = true,
             isDead = false,
@@ -522,18 +563,20 @@ function Test:simulateGroup(numberOfPlayers, includeSelf, includeCurrentGroupMem
 
     local Names = GL:cloneTable(self.Names);
 
-    for _ = 1, numberOfPlayers do
+    for _ = 1, numberOfPlayers - #Players do
         local nameIndex = math.random(1, #Names);
         local name = Names[nameIndex];
         local class = self.Classes[math.random(1, #self.Classes)];
 
         tinsert(Players, {
             name = name,
+            realm = GL:getRealmFromName(name) or GL.User.realm,
+            fqn = GL:addRealm(name, GL.User.realm),
             rank = 2,
             subgroup = 1,
             level = GL.User.level,
             class = string.lower(class),
-            fileName = string.upper(class),
+            classFile = string.upper(class),
             zone = "Development Land",
             online = true,
             isDead = false,

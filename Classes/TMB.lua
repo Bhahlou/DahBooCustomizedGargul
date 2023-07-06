@@ -58,7 +58,7 @@ function TMB:_init()
         GL.AwardedLoot:addWinner(Details.playerName, Details.itemLink, false, nil, nil, nil, nil, nil, true);
         Settings:set("AwardingLoot.autoTradeAfterAwardingAnItem", autoAward, true);
     end);
-    
+
     self._initialized = true;
     return true;
 end
@@ -418,14 +418,7 @@ function TMB:tooltipLines(itemLink)
         local source = GL.TMB:source();
         tinsert(Lines, string.format("\n|cFFff7a0a%s|r", source .. " Prio List"));
 
-        -- Sort the PrioListEntries based on prio (lowest to highest)
-        table.sort(PrioListEntries, function (a, b)
-            if (a[1] and b[1]) then
-                return a[1] < b[1];
-            end
-
-            return false;
-        end);
+        PrioListEntries = self:sortEntries(PrioListEntries, 1);
 
         -- Add the entries to the tooltip
         entriesAdded = 0;
@@ -461,14 +454,7 @@ function TMB:tooltipLines(itemLink)
         -- Add the header
         tinsert(Lines, string.format("\n|cFFffffff%s|r", "TMB Wish List"));
 
-        -- Sort the WishListEntries based on prio (lowest to highest)
-        table.sort(WishListEntries, function (a, b)
-            if (a[1] and b[1]) then
-                return a[1] < b[1];
-            end
-
-            return false;
-        end);
+        WishListEntries = self:sortEntries(WishListEntries, 1);
 
         -- Add the entries to the tooltip
         entriesAdded = 0;
@@ -806,9 +792,9 @@ function TMB:playersWithoutTMBDetails()
     end
 
     local PlayersWithoutTMBDetails = {};
-    for _, name in pairs(GL.User:groupMembers() or {}) do
-        name = string.lower(GL:nameFormat(name));
+    for _, Details in pairs(GL.User:groupMembers() or {}) do
 
+        local name = string.lower(GL:nameFormat(Details.name));
         if (not PlayersWithDetails[name]) then
             tinsert(PlayersWithoutTMBDetails, name);
         end
@@ -913,27 +899,10 @@ function TMB:DFTFormatToTMB(data)
         return false;
     end
 
-    -- Rewrite the priorities to match DFTs behavior
+    -- Rewrite the DFT format to TMB
     for itemID, Priorities in pairs(TMBData.wishlists) do
-        local lastPriority = 99999;
-        local priorityIndex = 0;
-
-        -- Sort the priorities (highest to lowest)
-        table.sort(Priorities, function (a, b)
-            if (a.priority and b.priority) then
-                return a.priority > b.priority;
-            end
-
-            return false;
-        end);
-
         for key, Priority in pairs(Priorities) do
-            if (Priority.priority < lastPriority) then
-                lastPriority = Priority.priority;
-                priorityIndex = priorityIndex + 1;
-            end
-
-            TMBData.wishlists[itemID][key] = string.format("%s||%s||1||1", string.lower(Priority.player), priorityIndex);
+            TMBData.wishlists[itemID][key] = string.format("%s||%s||1||1", string.lower(Priority.player), Priority.priority);
         end
     end
 
@@ -1109,8 +1078,10 @@ function TMB:decompress(data)
 end
 
 --- Broadcast the TMB to the RAID / PARTY
+---
+---@param sendEmptyPayload boolean used to override your raider's TMB data
 ---@return boolean
-function TMB:broadcast()
+function TMB:broadcast(sendEmptyPayload)
     GL:debug("TMB:broadcast");
 
     if (self.broadcastInProgress) then
@@ -1118,18 +1089,37 @@ function TMB:broadcast()
         return false;
     end
 
-    if (not GL.User.isInGroup) then
-        GL:warning("No one to broadcast to, you're not in a group!");
-        return false;
-    end
-
-    if (not GL.User.hasAssist
+    if (GL.User.isInGroup
+        and not GL.User.hasAssist
         and not GL.User.isMasterLooter
     ) then
         GL:warning("Insufficient permissions to broadcast, need ML, assist or lead!");
         return false;
     end
 
+    if (sendEmptyPayload) then
+        GL.CommMessage.new(
+            CommActions.broadcastTMBData,
+            {
+                Items = {
+                    ["01"] = {
+                        {
+                            character = "_reset",
+                            prio = 1,
+                            type = 1,
+                        },
+                    },
+                },
+                MetaData = {
+                    importedAt = GetServerTime(),
+                },
+            },
+            "GROUP"
+        ):send();
+
+        return;
+    end
+    
     -- Check if there's anything to share
     if (not self:available()) then
         GL:warning("Nothing to broadcast, import TMB data first!");
@@ -1478,6 +1468,28 @@ function TMB:replyToDataRequest(CommMessage)
         -- Make sure to broadcast the loot priorities as well
         GL.LootPriority:broadcastToPlayer(CommMessage.Sender.name);
     end);
+end
+
+---@param Data table
+---@param key number The key that holds the item order
+---@return table
+function TMB:sortEntries(Data, key)
+    key = key or "prio";
+    Data = not GL:empty(Data) and Data or {};
+
+    table.sort(Data, function(a, b)
+        if (a[key] and b[key]) then
+            if (self:wasImportedFromDFT()) then
+                return a[key] > b[key];
+            end
+
+            return a[key] < b[key];
+        end
+
+        return false;
+    end);
+
+    return Data;
 end
 
 --- Check whether the current user is allowed to broadcast TMB data

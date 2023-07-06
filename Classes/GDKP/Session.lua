@@ -668,7 +668,7 @@ end
 function Session:getActive()
     GL:debug("Session:getActive");
 
-    local activeSessionIdentifier = DB:get("GDKP.activeSession", false);
+    local activeSessionIdentifier = self:activeSessionID();
 
     if (not activeSessionIdentifier) then
         return false;
@@ -777,7 +777,6 @@ function Session:create(title, managementCut)
         Pot = {
             Mutators = Settings:get("GDKP.Mutators", {}),
         },
-        Raiders = {},
     };
 
     local checksum = Instance.createdAt .. GL:stringHash(Instance);

@@ -149,6 +149,34 @@ function GL:classColorize(var, class)
     return string.format("|c%s%s|r", classColor[4], var);
 end
 
+--- Transform seconds to a human readable format e.g: 01:44:23
+---@param seconds number
+---@return string
+function GL:secondsToReadable(seconds)
+    local timeFormat1 = "%d:%02d:%02d"
+    local timeFormat2 = "%d:%02d"
+    local timeFormat3 = "%.1f"
+    local timeFormat4 = "%.0f"
+    local timeString;
+
+    if (seconds > 3599.9) then -- > 1 hour
+        local h = floor(seconds /3600);
+        local m = floor((seconds - (h*3600))/60);
+        local s = (seconds - (m*60)) - (h*3600);
+        timeString = (timeFormat1):format(h, m, s);
+    elseif (seconds > 59.9) then -- 1 minute to 1 hour
+        local m = floor(seconds /60);
+        local s = seconds - (m*60);
+        timeString = (timeFormat2):format(m, s);
+    elseif (seconds < 10) then -- 0 to 10 seconds
+        timeString = (timeFormat3):format(seconds);
+    else -- 10 seconds to one minute
+        timeString = (timeFormat4):format(seconds);
+    end
+
+    return timeString;
+end
+
 ---@param name string|table The player name or a table including any of the arguments below
 ---@param colorize boolean Return in player's class color if known
 ---@param stripRealm boolean Strip the realm suffix from the name
@@ -206,6 +234,43 @@ function GL:nameFormat(name, realm, colorize, stripRealm, stripSameRealm, forceR
     end
 
     return name;
+end
+
+local fontSize;
+--- rem stands for “root em”, a unit of measurement that represents the font size of the root element
+--- In our case that equals GL.Settings:get("fontSize") which defaults to 11
+---
+--- This means that rem(1) returns the default font size, whereas rem(.75) returns 8
+---
+---@param scale number
+---@return number
+function GL:rem(scale)
+    scale = scale or 1;
+    fontSize = fontSize or GL.Settings:get("fontSize");
+
+    return scale == 1 and fontSize or self:round(fontSize * scale);
+end
+
+--- Check to see how much the font size changed based on the default of 11
+---
+---@return number
+function GL:remOffset()
+    return GL:rem() - 11;
+end
+
+--- Perform a given function when or after the user is out of combat
+---
+---@return any
+function GL:afterCombat(func)
+    if (not UnitAffectingCombat("player")) then
+        return func();
+    end
+
+    local eventID = self:uuid() .. GetTime() .. math.random(1, 1000);
+    self.Events:register(eventID, "PLAYER_REGEN_ENABLED", function ()
+        GL.Events:unregister(eventID);
+        return func();
+    end);
 end
 
 --- Disambiguate a given name, passing optional nameFormat arguments
@@ -295,6 +360,8 @@ function GL:dump(mixed)
 end
 
 local lastClickTime;
+--- Only call this function directly if you need the callback functionality, in all other cases use
+--- the native HandleModifiedItemClick method instead so that you also have support for linking items to chat for example
 ---@param itemLink string
 ---@param mouseButtonPressed string|nil
 ---@param callback function|nil Some actions (like award) support a callback
@@ -648,20 +715,21 @@ function GL:popupMessage(text)
 
     if (not Window) then
         ---@type Frame
-        Window = GL.Interface:createWindow(frameName, {
+        Window = GL.Interface:createWindow{
+            name = frameName,
             hideMinimizeButton = true,
             hideResizeButton = true,
             hideWatermark = true,
-        });
+        };
 
         Window.Text = GL.Interface:createFontString(Window);
-        Window.Text:SetFont(GL.FONT, 14, "OUTLINE");
+        Window.Text:SetFont(1.25, "OUTLINE");
         Window.Text:SetJustifyH("MIDDLE");
         Window.Text:SetPoint("CENTER", Window, "CENTER");
         Window.Text:SetPoint("BOTTOM", Window, "BOTTOM", 0, 60);
 
         Window.DiscordURL = GL.Interface:inputBox(Window);
-        Window.DiscordURL:SetFont(GL.FONT, 14, "");
+        Window.DiscordURL:SetFont(1.25, "");
         Window.DiscordURL:SetPoint("CENTER", Window, "CENTER");
         Window.DiscordURL:SetPoint("BOTTOM", Window, "BOTTOM", 0, 40);
         Window.DiscordURL:SetWidth(186);
@@ -971,6 +1039,40 @@ function GL:count(var)
     return 0;
 end
 
+--- Use `return false;` in your func if you want to break the loop early
+---@param func function
+---@return void
+function GL:forEachItemInBags(func)
+     -- Used to break out of our double loop
+     local finished = false;
+
+    -- Dragon Flight introduced an extra bag slot
+    local numberOfBagsToCheck = self.clientIsDragonFlightOrLater and 5 or 4;
+
+    for bag = 0, numberOfBagsToCheck do
+        for slot = 1, self:getContainerNumSlots(bag) do
+            (function ()
+                local Location = ItemLocation:CreateFromBagAndSlot(bag, slot);
+
+                -- Item doesn't exist
+                if (not Location or not C_Item.DoesItemExist(Location)) then
+                    return;
+                end
+
+                finished = func(Location, bag, slot) == false;
+            end)();
+            
+            if (finished) then
+                break;
+            end
+        end
+
+        if (finished) then
+            return;
+        end
+    end
+end
+
 ---@param itemLinkOrID string|number
 ---@return table|nil
 function GL:getCachedItem(itemLinkOrID)
@@ -1019,9 +1121,13 @@ GL.Timers = {};
 ---@param seconds number
 ---@param identifier string
 ---@param func function
+---@param cancel boolean Cancel any running existing timer with using the same identifier
 ---@return table
-function GL:after(seconds, identifier, func)
+function GL:after(seconds, identifier, func, cancel)
     GL:debug("Schedule " .. identifier);
+
+    cancel = cancel ~= false;
+    GL:cancelTimer(identifier);
 
     GL.Timers[identifier] = GL.Ace:ScheduleTimer(function ()
         GL:debug("Run once " .. identifier);
@@ -1035,7 +1141,7 @@ end
 ---@param identifier string
 ---@param func function
 ---@return table
-function GL:every(seconds, identifier, func)
+function GL:interval(seconds, identifier, func)
     GL:cancelTimer(identifier);
     GL:debug("Schedule recurring " .. identifier);
 
@@ -1280,7 +1386,7 @@ function GL:tooltipItemTradeTimeRemaining()
             end
 
             -- The time remaining line was found, no need to continue searching!
-            if timeRemainingLine:find(needle) then
+            if (timeRemainingLine:find(needle)) then
                 break;
             end
 
@@ -1310,6 +1416,54 @@ function GL:tooltipItemTradeTimeRemaining()
     return 0;
 end
 
+---@param itemLinkOrID string|number
+---@return void
+function GL:itemTradeTimeRemaining(itemLinkOrID)
+    local concernsID = GL:higherThanZero(tonumber(itemLinkOrID));
+    local itemID = concernsID and math.floor(tonumber(itemLinkOrID)) or GL:getItemIDFromLink(itemLinkOrID);
+
+    if (not itemID) then
+        return;
+    end
+
+    local Results = {};
+    self:forEachItemInBags(function(Location, bag, slot)
+        -- This is not the item we're looking for
+        if (C_Item.GetItemID(Location) ~= itemID) then
+            return;
+        end
+
+        -- Item is not soulbound or does not have any trade time remaining
+        local timeRemaining = GL:inventoryItemTradeTimeRemaining(bag, slot);
+        if (timeRemaining < 1 or timeRemaining == GL.Data.Constants.itemIsNotBound) then
+            return;
+        end
+
+        Results[C_Item.GetItemGUID(Location)] = timeRemaining;
+    end);
+
+    return Results;
+end
+
+---@param itemGUID string
+---@return boolean,boolean|number,number
+function GL:getBagAndSlotByGUID(itemGUID)
+    local itemBag = false;
+    local itemSlot = false;
+
+    self:forEachItemInBags(function(Location, bag, slot)
+        -- This is not the item we're looking for
+        if (C_Item.GetItemGUID(Location) ~= itemGUID) then
+            return;
+        end
+
+        itemBag, itemSlot = bag, slot;
+        return false;
+    end);
+
+    return itemBag, itemSlot;
+end
+
 --- Check how much time to trade is remaining on the given item in our bags
 ---
 ---@param bag number
@@ -1322,8 +1476,19 @@ function GL:inventoryItemTradeTimeRemaining(bag, slot)
     local timeRemaining = GL:tooltipItemTradeTimeRemaining();
     GL.TooltipFrame:ClearLines();
 
+    -- General purpose test mode is enabled
     if (GL.Interface.Settings.LootTradeTimers.testEnabled) then
         return math.random(5000, 7200);
+    end
+
+    -- Test mode is enabled for specific items
+    if (GL.TradeTime) then
+        local itemID = select(10, GL:getContainerItemInfo(bag, slot));
+        itemID = tonumber(itemID);
+
+        if (itemID and GL:inTable(GL.TradeTime.TestItems or {}, itemID)) then
+            return math.random(5000, 7200);
+        end
     end
 
     return timeRemaining;
@@ -1434,6 +1599,100 @@ function GL:highlightItem(Item, itemLink, Details)
     );
 end
 
+---@return void
+function GL:bugReport()
+    local AddonData = {};
+    for i = 1, GetNumAddOns() do
+        local name = GetAddOnInfo(i);
+        local version = GetAddOnMetadata(i, "Version");
+        local loaded = GetAddOnEnableState(GL.User.name, name) == 2;
+
+        AddonData[name] = { version, loaded };
+    end
+
+    local oldestTimestamp = (function ()
+        local now = GetServerTime();
+        local oldest = now;
+
+        local brUpdatedAt = GL.DB:get("BoostedRolls.MetaData.updatedAt", now);
+        local brImportedAt = GL.DB:get("BoostedRolls.MetaData.importedAt", now);
+        local poUpdatedAt = GL.DB:get("PlusOnes.MetaData.updatedAt", now);
+        local srImportedAt = GL.DB:get("SoftRes.MetaData.importedAt", now);
+        local tmbImportedAt = GL.DB:get("TMB.MetaData.importedAt", now);
+
+        oldest = brUpdatedAt < oldest and brUpdatedAt or oldest;
+        oldest = brImportedAt < oldest and brImportedAt or oldest;
+        oldest = poUpdatedAt < oldest and poUpdatedAt or oldest;
+        oldest = srImportedAt < oldest and srImportedAt or oldest;
+        oldest = tmbImportedAt < oldest and tmbImportedAt or oldest;
+
+        -- Awarded items and rolls
+        for _, Details in pairs(GL.DB:get("AwardHistory") or {}) do
+            for _, Roll in pairs(Details.Rolls or {}) do
+                if (Roll.time and Roll.time < oldest) then
+                    oldest = Roll.time;
+                end
+            end
+
+            if (Details.timestamp < oldest) then
+                oldest = Details.timestamp;
+            end
+        end
+
+        -- GDKP Session, auctions, states and gold
+        for _, Session in pairs(GL.DB:get("GDKP.Ledger") or {}) do
+            for _, Auction in pairs(Session.Auctions or {}) do
+                if (Auction.createdAt and Auction.createdAt < oldest) then
+                    oldest = Auction.createdAt;
+                end
+
+                for _, State in pairs(Auction.PreviousStates or {}) do
+                    if (State.createdAt and State.createdAt < oldest) then
+                        oldest = State.createdAt;
+                    end
+                end
+            end
+
+            for _, Player in pairs(Session.GoldLedger or {}) do
+                for _, Details in pairs(Player or {}) do
+                    if (Details.createdAt and Details.createdAt < oldest) then
+                        oldest = Details.createdAt;
+                    end
+                end
+            end
+
+            if (Session.createdAt < oldest) then
+                oldest = Session.createdAt;
+            end
+        end
+
+        return oldest;
+    end)();
+
+    local Settings = GL.Settings:all();
+    Settings.UI = nil;
+
+    local Payload = {
+        AddonData = AddonData,
+        LoadDetails = GL.DB.LoadDetails,
+        Settings = Settings,
+        ScriptErrors = C_CVar.GetCVar("scriptErrors"),
+        client = GL.clientUIinterface,
+        dataSince = oldestTimestamp,
+        guid = GL.User.id,
+        name = GL.User.name,
+        realm = GL.User.realm,
+    };
+
+    local LibDeflate = LibStub:GetLibrary("LibDeflate");
+    local zlibEncodeSucceeded;
+    local data = GL.JSON:encode(Payload);
+    zlibEncodeSucceeded, data = pcall(function () return LibDeflate:CompressZlib(data); end);
+    data = GL.Base64.encode(data);
+
+    self:frameMessage(data);
+end
+
 --- Check whether a user can use the given item ID or link (callback required)
 ---
 ---@param itemLinkOrID string|number
@@ -1500,6 +1759,20 @@ function GL:useContainerItem(bagID, slot)
     end
 
     return nil;
+end
+
+---@param bag number
+---@param slot number
+---@return boolean|string
+function GL:getItemGUIDByBagAndSlot(bag, slot)
+    local Location = ItemLocation:CreateFromBagAndSlot(bag, slot);
+
+    -- Item doesn't exist
+    if (not Location or not C_Item.DoesItemExist(Location)) then
+        return;
+    end
+
+    return C_Item.GetItemGUID(Location);
 end
 
 ---@param bagID number
@@ -1642,22 +1915,35 @@ end
 --- Some items have items linked to them. Example: t4 tokens have their quest reward counterpart linked to them.
 ---
 ---@param itemID number
+---@param linkNormalAndHardModeItems boolean
 ---@return table
-function GL:getLinkedItemsForID(itemID)
+function GL:getLinkedItemsForID(itemID, linkNormalAndHardModeItems)
     -- An invalid item id was provided
     itemID = tonumber(itemID);
     if (not GL:higherThanZero(itemID)) then
         return {};
     end
 
-    -- Gather all the item IDs that are linked to our item
     itemID = tostring(itemID);
-    local AllLinkedItemIDs = { itemID };
+    local AllLinkedItemIDs = {};
+    AllLinkedItemIDs[itemID] = 1;
+
+    local i = 2;
     for _, id in pairs(GL.Data.ItemLinks[itemID] or {}) do
-        tinsert(AllLinkedItemIDs, id);
+        AllLinkedItemIDs[id] = i;
+        i = i + 1;
     end
 
-    return AllLinkedItemIDs;
+    if (linkNormalAndHardModeItems
+        or GL.Settings:get("MasterLooting.linkNormalAndHardModeItems")
+    ) then
+        for _, id in pairs(GL.Data.NormalModeHardModeLinks[itemID] or {}) do
+            AllLinkedItemIDs[id] = i;
+            i = i + 1;
+        end
+    end
+
+    return GL:tableFlip(AllLinkedItemIDs);
 end
 
 --- Return an item's ID from an item link, false if invalid itemlink is provided
@@ -1701,6 +1987,14 @@ function GL:getItemQualityFromLink(itemLink)
     end
 
     return GL.Data.Constants.HexColorsToItemQuality[color] or false;
+end
+
+---@param callback function
+---@return void
+function GL:forEachGroupMember(callback)
+    for _, Member in pairs(GL.User:groupMembers() or {}) do
+        callback(Member);
+    end
 end
 
 --- Add the realm name to a player name
@@ -2055,10 +2349,7 @@ local gaveNoAssistWarning = false;
 function GL:sendChatMessage(message, chatType, language, channel, stw, pretend)
     GL:debug("GL:sendChatMessage");
 
-    if (stw == nil) then
-        stw = true;
-    end
-    stw = GL:toboolean(stw);
+    stw = stw ~= false;
 
     -- No point sending an empty message!
     if (GL:empty(message)) then
@@ -2276,12 +2567,11 @@ function GL:tableSlice(Table, offset, length, preserveKeys)
 end
 
 ---@param Table table
+---@return table
 function GL:tableValues(Table)
-    GL:debug("GL:tableValues");
-
     local Values = {};
-    for _, Value in pairs(Table or {}) do
-        tinsert(Values, Value);
+    for _, value in pairs(Table or {}) do
+        tinsert(Values, value);
     end
 
     return Values;
@@ -2331,16 +2621,20 @@ function GL:tableGet(Table, keyString, default)
         return default;
     end
 
-    if (type(Table[firstKey]) == "nil") then
-        firstKey = tonumber(firstKey);
+    if (type(Table) == "table") then
+        if (type(Table[firstKey]) == "nil") then
+            firstKey = tonumber(firstKey);
 
-        -- Make sure we're not looking for a numeric key instead of a string
-        if (not firstKey or type(Table[firstKey]) == "nil") then
-            return default;
+            -- Make sure we're not looking for a numeric key instead of a string
+            if (not firstKey or type(Table[firstKey]) == "nil") then
+                return default;
+            end
         end
-    end
 
-    Table = Table[firstKey];
+        Table = Table[firstKey];
+    else
+        return Table or default;
+    end
 
     -- Changed if (#keys == 1) then to below, saved this just in case we get weird behavior
     if (numberOfKeys == 1) then
@@ -2411,14 +2705,20 @@ end
 ---
 ---@param Table table
 ---@param keyString string
----@param value any
+---@param value any|nil
+---@param createDestination boolean|nil
 ---@return boolean
-function GL:tableAdd(Table, keyString, value)
+function GL:tableAdd(Table, keyString, value, createDestination)
     local Destination = self:tableGet(Table, keyString, {});
 
     if (type(Destination) ~= "table") then
-        self:warning("Invalid destination GL:tableAdd, requires table");
-        return false;
+        if (not createDestination) then
+            self:warning("Invalid destination GL:tableAdd, requires table");
+            return false;
+        end
+
+        self:tableSet(Table, keyString, {});
+        Destination = {};
     end
 
     tinsert(Destination, value);

@@ -7,6 +7,9 @@ local Constants = GL.Data.Constants;
 ---@type DB
 local DB = GL.DB;
 
+---@type Events
+local Events = GL.Events;
+
 ---@class Settings
 GL.Settings = {
     _initialized = false,
@@ -74,6 +77,16 @@ function Settings:sanitizeSettings()
             DB:set("GDKP.Ledger." .. key, nil);
         end
     end
+
+    -- Remove awarded items that are more than 5 days old
+    local fiveDaysAgo = GetServerTime() - 432000;
+    local ValidItems = {};
+    for itemGUID, Details in pairs(DB:get("RecentlyAwardedItems", {})) do
+        if (Details.timestamp > fiveDaysAgo) then
+            ValidItems[itemGUID] = Details;
+        end
+    end
+    DB:set("RecentlyAwardedItems", ValidItems);
 end
 
 --- These settings are version-specific and will be removed over time!
@@ -98,7 +111,7 @@ function Settings:enforceTemporarySettings()
     if (Version:leftIsNewerThanOrEqualToRight("6.0.4", Version.latestPriorVersionBooted)) then
         --- In 6.0.4 the way anti-snipe works changed. Multiplying the existing value by 1.5 should net a pretty decent result
         local antiSnipe = tonumber(self:get("GDKP.antiSnipe")) or 10;
-        self:set("GDKP.antiSnipe", GL:round(antiSnipe * 1.5));
+        self:set("GDKP.antiSnipe", GL:round(antiSnipe * 1.5), true);
 
         --- In 6.0.4 we also completely changed the way mailed and traded gold is stored
         --- The wait is necessary. This way we can ensure that we know if we're on a cross-realm enabled server
@@ -218,7 +231,6 @@ function Settings:enforceTemporarySettings()
 
     end, 3);
 
-
     --- In 6.0.0 we changed the base/adjust mutator identifiers since it collides with our table helpers
     for key, Session in pairs(DB:get("GDKP.Ledger", {})) do
         if (Session.Pot and Session.Pot.DistributionDetails) then
@@ -247,7 +259,7 @@ function Settings:enforceTemporarySettings()
     --- In 5.2.0 we completely redid the GDKP queue flow and UI
     --- Make sure to re-enable so users at least get to experience it again
     if (GL.version == "5.2.0" or (not DB.LoadDetails["5.2.0"])) then
-        self:set("GDKP.enableBidderQueue", true);
+        self:set("GDKP.enableBidderQueue", true, true);
         DB.LoadDetails["5.2.0"] = GetServerTime();
     end
 
@@ -367,6 +379,11 @@ function Settings:showSettingsMenu(Frame)
     end);
 end
 
+--- Get all settings
+function Settings:all()
+    return self.Active;
+end
+
 --- Get a setting by a given key. Use dot notation to traverse multiple levels e.g:
 --- Settings.UI.Auctioneer.offsetX can be fetched using Settings:get("Settings.UI.Auctioneer.offsetX")
 --- without having to worry about tables or keys existing yes or no.
@@ -395,10 +412,18 @@ function Settings:set(keyString, value, quiet)
     local success = GL:tableSet(self.Active, keyString, value);
 
     if (success and not quiet) then
+        GL.Events:fire("GL.SETTING_CHANGED." .. keyString, value);
         GL.Events:fire("GL.SETTING_CHANGED", keyString, value);
     end
 
     return success
+end
+
+--@param setting string
+---@param func function
+---@return void
+function Settings:onChange(setting, func)
+    Events:register(nil, "GL.SETTING_CHANGED." .. setting, func);
 end
 
 GL:debug("Settings.lua");

@@ -176,23 +176,4 @@ PopupDialog.AWARD_CONFIRMATION = {
     OnYes = {},
 }
 
--- Add a award confirmation dialog to Blizzard's global StaticPopupDialogs object
-PopupDialog.CLEAR_TMB_CONFIRMATION = {
-    question = "Are you sure you want to clear the TMB tables?",
-    OnYes = function ()
-        GL.Interface.TMB.Overview:close();
-        GL.TMB:clear();
-        GL.TMB:draw();
-    end,
-}
-
-PopupDialog.CLEAR_TMBRAIDGROUPS_CONFIRMATION = {
-    question = "Etes-vous sûr de vouloir effacer les données de groupe de raid ?",
-    OnYes = function()
-        GL.Interface.TMBRaidGroups.Overview:close();
-        GL.TMBRaidGroups:clear();
-        GL.TMBRaidGroups:draw();
-    end,
-}
-
 GL:debug("Interface/PopupDialog.lua");

@@ -105,12 +105,6 @@ Comm.Actions = {
     [Actions.broadcastPlusTwosMutation] = function (Message)
         GL.PlusTwos:receiveUpdate(Message);
     end,
-    [Actions.requestTMBRaidGroupsData] = function(Message)
-        GL.TMBRaidGroups:replyToDataRequest(Message);
-    end,
-    [Actions.broadcastTMBRaidGroupsData] = function(Message)
-        GL.TMBRaidGroups:receiveBroadcast(Message);
-    end,
 };
 
 function Comm:_init()

@@ -22,7 +22,6 @@ GL.User = {
     isInRaid = IsInRaid(),
     isInParty = IsInGroup() and not IsInRaid(),
     isInGroup = IsInGroup(),
-    raidsAttended = 0,
 
     -- Group specific
     raidIndex = nil,
@@ -95,9 +94,7 @@ function User:refresh()
     local userWasInRaid = self.isInRaid;
 
     -- Make sure the window doesn't popup after /reload
-    if (userWasMasterLooter == nil) then
-        userWasMasterLooter = true;
-    end
+    userWasMasterLooter = userWasMasterLooter ~= false;
 
     self.level = UnitLevel("player");
     self.zone = GetRealZoneText();

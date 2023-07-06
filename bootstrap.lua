@@ -63,7 +63,7 @@ function GL:bootstrap(_, _, addonName)
     GL.loadedOn = GetServerTime();
 
     GL.Ace:ScheduleTimer(function()
-        self.elvUILoaded = GetAddOnEnableState(nil,"ElvUI") == 2;
+        self.elvUILoaded = GetAddOnEnableState(GL.User.name,"ElvUI") == 2;
     end, 1);
 end
 
@@ -131,9 +131,9 @@ function GL:_init()
     self.PackMule:_init();
     self.DroppedLootLedger:_init();
     self.TradeWindow:_init();
+    self.TradeTime:_init();
     self.GDKP.Auctioneer:_init();
     self.Interface.MasterLooterDialog:_init();
-    self.Interface.TradeWindow.TimeLeft:_init();
     self.Interface.GDKP.BidderQueue:_init();
     self.Interface.GDKP.Distribute.MailCuts:_init();
 

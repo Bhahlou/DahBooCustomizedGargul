@@ -570,7 +570,6 @@ function Auction:sanitize(Instance)
             end
 
             if (type (Bidder.class) ~= "string"
-                ---@todo: issue here, got deathknight, constant is death_knight
                 or type (Bidder.name) ~= "string"
                 or GL:empty(Bidder.name)
                 or type (Bidder.race) ~= "string"
@@ -2013,6 +2012,10 @@ function Auction:processBid(message, bidder)
     end
 
     self.lastBidReceivedAt = GetTime();
+
+    if (GL:iEquals(Bidder.name, GL.User.name)) then
+        self.Current.iBid = true;
+    end
 
     -- Announce that we have a new leading bid
     if (auctionWasStartedByMe
